@@ -131,7 +131,40 @@ async function seed() {
     'Universidad',
   ];
 
-  const cities = ['Guadalajara', 'CDMX', 'Zapopan', 'Monterrey', 'Puebla'];
+  const mexicoStates = [
+    'Aguascalientes',
+    'Baja California',
+    'Baja California Sur',
+    'Campeche',
+    'Chiapas',
+    'Chihuahua',
+    'Ciudad de Mexico',
+    'Coahuila',
+    'Colima',
+    'Durango',
+    'Guanajuato',
+    'Guerrero',
+    'Hidalgo',
+    'Jalisco',
+    'Mexico',
+    'Michoacan',
+    'Morelos',
+    'Nayarit',
+    'Nuevo Leon',
+    'Oaxaca',
+    'Puebla',
+    'Queretaro',
+    'Quintana Roo',
+    'San Luis Potosi',
+    'Sinaloa',
+    'Sonora',
+    'Tabasco',
+    'Tamaulipas',
+    'Tlaxcala',
+    'Veracruz',
+    'Yucatan',
+    'Zacatecas',
+  ];
 
   const schedules = [
     '7:30 AM - 2:30 PM',
@@ -161,7 +194,7 @@ async function seed() {
       schoolNames.map((name, i) => ({
         name,
         description: `Descripcion profesional de ${name}`,
-        city: cities[i % cities.length],
+        city: mexicoStates[i % mexicoStates.length],
         educationalLevel: educationalLevels[i % educationalLevels.length],
         schedule: schedules[i % schedules.length],
         languages: languageOptions[i % languageOptions.length],
