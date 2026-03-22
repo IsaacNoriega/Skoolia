@@ -78,9 +78,9 @@ export default function Step3() {
           </div>
         </div>
 
-        {/* Ciudad */}
+        {/* Estado */}
         <div className="space-y-3">
-          <Label className="text-lg font-semibold">Ciudad</Label>
+          <Label className="text-lg font-semibold">Estado</Label>
 
           <select
             value={state.data.city}
@@ -98,7 +98,7 @@ export default function Step3() {
               focus-visible:ring-offset-0
             "
           >
-            <option value="">Selecciona una ciudad</option>
+            <option value="">Selecciona un estado</option>
             {cityOptions.map((option) => (
               <option key={option} value={option}>
                 {option}

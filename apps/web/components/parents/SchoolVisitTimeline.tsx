@@ -11,6 +11,7 @@ import {
   type SchoolVisit,
 } from "@/lib/history/school-history";
 import { schoolsService } from "@/lib/services/services/schools.service";
+import { useAuth } from "@/contexts/AuthContext";
 
 type ModalItem = {
   id: string;
@@ -64,18 +65,19 @@ function formatTimeLabel(isoDate: string) {
 }
 
 export default function SchoolVisitTimeline() {
+  const { user } = useAuth();
   const [items, setItems] = useState<SchoolVisit[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [selected, setSelected] = useState<ModalItem | undefined>();
 
   useEffect(() => {
-    const history = getSchoolHistory();
+    const history = getSchoolHistory(user?.id);
     Promise.resolve().then(() => {
       setItems(history);
       setLoaded(true);
     });
-  }, []);
+  }, [user?.id]);
 
   const openModal = (visit: SchoolVisit) => {
     const base: ModalItem = {

@@ -9,6 +9,8 @@ import { schoolsFeedService } from "@/lib/services/services/school-feeed.service
 import { schoolsService } from "@/lib/services/services/schools.service";
 import { favoritesService } from "@/lib/services/services/favorites.service";
 import { recordSchoolVisit } from "@/lib/history/school-history";
+import { useAuth } from "@/contexts/AuthContext";
+import { resolveMexicanState } from "@/lib/mexico-states";
 
 type CatalogItem = {
   id: string;
@@ -29,9 +31,16 @@ type CatalogItem = {
 };
 
 export default function SearchPage() {
+  const { user } = useAuth();
   const sp = useSearchParams();
   const q = sp.get("q") ?? "";
   const loc = sp.get("loc") ?? "";
+  const near = sp.get("near") === "1";
+  const latParam = sp.get("lat") ?? "";
+  const lonParam = sp.get("lon") ?? "";
+  const latitude = latParam ? Number(latParam) : undefined;
+  const longitude = lonParam ? Number(lonParam) : undefined;
+  const hasValidCoords = Number.isFinite(latitude) && Number.isFinite(longitude);
   const level = sp.get("level") ?? "";
   const categoryId = sp.get("categoryId") ?? "";
   const schedule = sp.get("schedule") ?? "";
@@ -80,12 +89,18 @@ export default function SearchPage() {
 
       try {
         const normalizedLoc =
-          loc && loc !== "México (Todas las zonas)" ? loc : undefined;
+          loc &&
+          loc !== "México (Todas las zonas)" &&
+          loc !== "Cerca de mí"
+            ? (resolveMexicanState(loc) ?? undefined)
+            : undefined;
 
         const connection = await schoolsFeedService.list({
           filters: {
             search: q || undefined,
-            city: normalizedLoc,
+            city: near ? undefined : normalizedLoc,
+            latitude: near && hasValidCoords ? latitude : undefined,
+            longitude: near && hasValidCoords ? longitude : undefined,
             educationalLevel: level || undefined,
             categoryId: categoryId || undefined,
             schedule: schedule || undefined,
@@ -139,7 +154,7 @@ export default function SearchPage() {
     return () => {
       active = false;
     };
-  }, [q, loc, level, categoryId, schedule, languages, minPrice, maxPrice, sortBy, verifiedOnly]);
+  }, [q, loc, near, latitude, longitude, hasValidCoords, level, categoryId, schedule, languages, minPrice, maxPrice, sortBy, verifiedOnly]);
 
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<CatalogItem | undefined>();
@@ -169,12 +184,15 @@ export default function SearchPage() {
     setOpen(true);
 
     // Registrar visita en historial
-    recordSchoolVisit({
-      id: item.id,
-      name: item.title,
-      imageSrc: item.imageSrc,
-      location: item.location,
-    });
+    recordSchoolVisit(
+      {
+        id: item.id,
+        name: item.title,
+        imageSrc: item.imageSrc,
+        location: item.location,
+      },
+      user?.id,
+    );
     // si el backend expone más campos vía REST
     (async () => {
       try {
@@ -236,6 +254,9 @@ export default function SearchPage() {
       <SearchToolbar
         q={q}
         loc={loc || "México (Todas las zonas)"}
+        near={near}
+        latitude={hasValidCoords ? latitude : undefined}
+        longitude={hasValidCoords ? longitude : undefined}
         level={level}
         categoryId={categoryId}
         schedule={schedule}
@@ -287,7 +308,7 @@ export default function SearchPage() {
 
       {!loading && !error && items.length === 0 ? (
         <div className="mt-8 rounded-2xl border border-slate-200 bg-white px-5 py-6 text-sm text-slate-600">
-          No encontramos escuelas con esos filtros. Intenta ajustar ciudad, nivel o rango de precio.
+          No encontramos escuelas con esos filtros. Intenta ajustar estado, nivel o rango de precio.
         </div>
       ) : null}
 

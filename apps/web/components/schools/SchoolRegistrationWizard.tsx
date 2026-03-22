@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { X, ShieldCheck } from "lucide-react";
 import { schoolsService } from "@/lib/services/services/schools.service";
+import { MEXICO_STATES, resolveMexicanState } from "@/lib/mexico-states";
 
 type Props = {
     isOpen: boolean;
@@ -67,7 +68,7 @@ export default function SchoolRegistrationWizard({ isOpen, onClose }: Props) {
             // 2️⃣ Guardar información adicional usando update
             await schoolsService.update({
                 address: address.trim() || undefined,
-                city: city.trim() || undefined,
+                city: resolveMexicanState(city.trim()) || undefined,
                 educationalLevel: educationalLevel || undefined,
                 institutionType: institutionType || undefined,
                 languages: languages.trim() || undefined,
@@ -186,14 +187,20 @@ export default function SchoolRegistrationWizard({ isOpen, onClose }: Props) {
                                 </div>
                                 <div>
                                     <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                                        Ciudad
+                                        Estado
                                     </label>
-                                    <input
+                                    <select
                                         value={city}
                                         onChange={(e) => setCity(e.target.value)}
-                                        placeholder="Ej. Guadalajara, Jal."
                                         className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
-                                    />
+                                    >
+                                        <option value="">Selecciona un estado...</option>
+                                        {MEXICO_STATES.map((state) => (
+                                            <option key={state} value={state}>
+                                                {state}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
                             </div>
 

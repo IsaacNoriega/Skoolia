@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { schoolsService, type School } from "../../lib/services/services/schools.service";
+import { MEXICO_STATES, resolveMexicanState } from "@/lib/mexico-states";
 
 type FormState = {
   name: string;
@@ -107,7 +108,7 @@ export default function SchoolSettingsForm() {
         name: form.name || undefined,
         description: form.description || undefined,
         address: form.address || undefined,
-        city: form.city || undefined,
+        city: resolveMexicanState(form.city) || undefined,
         latitude: form.latitude ? parseFloat(form.latitude) : undefined,
         longitude: form.longitude ? parseFloat(form.longitude) : undefined,
         educationalLevel: form.educationalLevel || undefined,
@@ -258,12 +259,19 @@ export default function SchoolSettingsForm() {
           />
         </div>
         <div>
-          <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Ciudad</label>
-          <input
+          <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Estado</label>
+          <select
             className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
             value={form.city}
             onChange={(e) => set("city", e.target.value)}
-          />
+          >
+            <option value="">Selecciona un estado...</option>
+            {MEXICO_STATES.map((state) => (
+              <option key={state} value={state}>
+                {state}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Latitud</label>
