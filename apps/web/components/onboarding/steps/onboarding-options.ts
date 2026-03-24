@@ -1,3 +1,5 @@
+import { MEXICO_STATES } from "@/lib/mexico-states";
+
 export const institutionTypeOptions = [
   'Publica',
   'Privada',
@@ -7,16 +9,6 @@ export const institutionTypeOptions = [
   'Bilingue',
 ] as const;
 
-export const cityOptions = [
-  'Ciudad de Mexico',
-  'Guadalajara',
-  'Monterrey',
-  'Puebla',
-  'Queretaro',
-  'Merida',
-  'Tijuana',
-  'Leon',
-  'Toluca',
-  'Aguascalientes',
-] as const;
+export const stateOptions = MEXICO_STATES;
+export const cityOptions = stateOptions;
 

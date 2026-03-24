@@ -3,21 +3,9 @@
 import * as React from "react";
 import { MapPin, Navigation } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { MEXICO_STATES, resolveMexicanState } from "@/lib/mexico-states";
 
-const cities = [
-  "Ciudad de México",
-  "Guadalajara",
-  "Monterrey",
-  "Puebla",
-  "Querétaro",
-  "Mérida",
-  "Tijuana",
-  "León",
-  "Toluca",
-  "Cancún",
-  "San Luis Potosí",
-  "Aguascalientes",
-];
+const states = MEXICO_STATES;
 
 export function CityInput({
   value,
@@ -32,9 +20,9 @@ export function CityInput({
 
   const filtered = React.useMemo(() => {
     const v = value.trim().toLowerCase();
-    if (!v) return cities;
-    return cities.filter((c) =>
-      c.toLowerCase().includes(v)
+    if (!v) return states;
+    return states.filter((state) =>
+      state.toLowerCase().includes(v)
     );
   }, [value]);
 
@@ -63,7 +51,7 @@ export function CityInput({
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
-          placeholder="p. ej Puebla, CDMX"
+          placeholder="p. ej. Jalisco, Puebla"
           className="bg-transparent outline-none w-full text-base placeholder:text-black/56"
         />
       </div>
@@ -100,17 +88,17 @@ export function CityInput({
 
               <div className="h-px bg-neutral-200 my-2" />
 
-              {/* CIUDADES */}
-              {filtered.map((city, index) => (
+              {/* ESTADOS */}
+              {filtered.map((state, index) => (
                 <motion.button
-                  key={city}
+                  key={state}
                   type="button"
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.02 }}
                   onMouseDown={(e) => {
                     e.preventDefault();
-                    onChange(city);
+                    onChange(resolveMexicanState(state) ?? state);
                     requestAnimationFrame(() =>
                       inputRef.current?.focus()
                     );
@@ -121,7 +109,7 @@ export function CityInput({
                 >
                   <MapPin size={16} className="text-neutral-500" />
                   <span className="text-sm text-neutral-900">
-                    {city}
+                    {state}
                   </span>
                 </motion.button>
               ))}

@@ -60,7 +60,7 @@ function validateStep(state: OnboardingState) {
     }
 
     if (!state.data.city.trim()) {
-      errors.city = "Selecciona una ciudad";
+      errors.city = "Selecciona un estado";
     }
   }
 

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { ChevronLeft, Search, MapPin, SlidersHorizontal, Grid3X3, MoreHorizontal } from "lucide-react";
 import { schoolCategoriesService, type Category } from "@/lib/services/services/schools-categories.service";
+import { MEXICO_STATES, resolveMexicanState } from "@/lib/mexico-states";
 
 type Props = {
   q?: string;
@@ -15,11 +16,16 @@ type Props = {
   maxPrice?: number;
   sortBy?: "favorites" | "rating" | "recent";
   verified?: boolean;
+  near?: boolean;
+  latitude?: number;
+  longitude?: number;
 };
+
+const ALL_ZONES_LABEL = "México (Todas las zonas)";
 
 export default function SearchToolbar({
   q = "",
-  loc = "México (Todas las zonas)",
+  loc = ALL_ZONES_LABEL,
   level = "",
   categoryId = "",
   schedule = "",
@@ -28,6 +34,9 @@ export default function SearchToolbar({
   maxPrice,
   sortBy = "recent",
   verified = false,
+  near = false,
+  latitude,
+  longitude,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -44,6 +53,13 @@ export default function SearchToolbar({
   const [onlyVerified, setOnlyVerified] = useState(verified);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [nearMe, setNearMe] = useState(near || loc === "Cerca de mí");
+  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(
+    latitude != null && longitude != null ? { latitude, longitude } : null,
+  );
+  const [nearState, setNearState] = useState<string | null>(near ? (loc || null) : null);
+  const [geoLoading, setGeoLoading] = useState(false);
+  const isKnownState = MEXICO_STATES.some((state) => state === location);
 
   useEffect(() => setQuery(q), [q]);
   useEffect(() => setLocation(loc), [loc]);
@@ -55,6 +71,17 @@ export default function SearchToolbar({
   useEffect(() => setPriceMax(maxPrice != null ? String(maxPrice) : ""), [maxPrice]);
   useEffect(() => setSort(sortBy), [sortBy]);
   useEffect(() => setOnlyVerified(verified), [verified]);
+  useEffect(() => setNearMe(near || loc === "Cerca de mí"), [near, loc]);
+  useEffect(() => {
+    if (near && loc && loc !== "Cerca de mí") {
+      setNearState(loc);
+    }
+  }, [near, loc]);
+  useEffect(() => {
+    if (latitude != null && longitude != null) {
+      setCoords({ latitude, longitude });
+    }
+  }, [latitude, longitude]);
 
   useEffect(() => {
     let active = true;
@@ -73,7 +100,60 @@ export default function SearchToolbar({
     };
   }, []);
 
-  const applyFilters = () => {
+  const requestCurrentPosition = () =>
+    new Promise<{ latitude: number; longitude: number }>((resolve, reject) => {
+      if (typeof window === "undefined" || !("geolocation" in navigator)) {
+        reject(new Error("Geolocation API no disponible"));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+        },
+        () => reject(new Error("Permiso de ubicación denegado")),
+        {
+          enableHighAccuracy: true,
+          timeout: 12000,
+          maximumAge: 1000 * 60 * 15,
+        },
+      );
+    });
+
+  const resolveStateFromCoords = async (lat: number, lon: number): Promise<string | undefined> => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`,
+        {
+          headers: {
+            Accept: "application/json",
+          },
+        },
+      );
+
+      if (!response.ok) return undefined;
+
+      const data = (await response.json()) as {
+        address?: {
+          state?: string;
+          region?: string;
+          state_district?: string;
+        };
+      };
+
+      const stateName =
+        data.address?.state || data.address?.region || data.address?.state_district;
+
+      return stateName?.trim() || undefined;
+    } catch {
+      return undefined;
+    }
+  };
+
+  const applyFilters = async () => {
     const params = new URLSearchParams();
     const normalizedLoc = location.trim();
     const normalizedQuery = query.trim();
@@ -84,8 +164,11 @@ export default function SearchToolbar({
     const normalizedMaxPrice = priceMax.trim();
 
     if (normalizedQuery) params.set("q", normalizedQuery);
-    if (normalizedLoc && normalizedLoc !== "México (Todas las zonas)") {
-      params.set("loc", normalizedLoc);
+    if (normalizedLoc && normalizedLoc !== ALL_ZONES_LABEL && normalizedLoc !== "Cerca de mí") {
+      const normalizedState = resolveMexicanState(normalizedLoc);
+      if (normalizedState) {
+        params.set("loc", normalizedState);
+      }
     }
     if (normalizedLevel) params.set("level", normalizedLevel);
     if (selectedCategoryId) params.set("categoryId", selectedCategoryId);
@@ -99,6 +182,40 @@ export default function SearchToolbar({
     }
     if (sort !== "recent") params.set("sortBy", sort);
     if (onlyVerified) params.set("verified", "1");
+
+    if (nearMe || normalizedLoc === "Cerca de mí") {
+      let currentCoords = coords;
+      if (!currentCoords) {
+        try {
+          setGeoLoading(true);
+          currentCoords = await requestCurrentPosition();
+          setCoords(currentCoords);
+        } catch {
+          setGeoLoading(false);
+          return;
+        } finally {
+          setGeoLoading(false);
+        }
+      }
+
+      if (currentCoords) {
+        const resolvedState = resolveMexicanState(
+          nearState ||
+            (await resolveStateFromCoords(currentCoords.latitude, currentCoords.longitude)),
+        );
+
+        if (resolvedState) {
+          setNearState(resolvedState);
+          setLocation(resolvedState);
+        }
+
+        params.set("near", "1");
+        params.set("lat", String(currentCoords.latitude));
+        params.set("lon", String(currentCoords.longitude));
+        params.set("loc", resolvedState || "Cerca de mí");
+      }
+    }
+
     params.set("tab", "escuelas");
 
     router.push(`${pathname}?${params.toString()}`);
@@ -123,7 +240,7 @@ export default function SearchToolbar({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") applyFilters();
+              if (e.key === "Enter") void applyFilters();
             }}
             placeholder="Mejores Escuelas"
           />
@@ -132,15 +249,29 @@ export default function SearchToolbar({
         {/* Location */}
         <div className="hidden md:flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm">
           <MapPin className="h-4 w-4 text-slate-500" />
-          <input
+          <select
             value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") applyFilters();
+            onChange={(e) => {
+              const value = e.target.value;
+              setLocation(value);
+              setNearMe(value === "Cerca de mí");
             }}
-            placeholder="México (Todas las zonas)"
-            className="w-40 bg-transparent outline-none"
-          />
+            className="w-48 bg-transparent outline-none"
+          >
+            <option value={ALL_ZONES_LABEL}>{ALL_ZONES_LABEL}</option>
+            <option value="Cerca de mí">Cerca de mí</option>
+            {MEXICO_STATES.map((state) => (
+              <option key={state} value={state}>
+                {state}
+              </option>
+            ))}
+            {location &&
+            location !== ALL_ZONES_LABEL &&
+            location !== "Cerca de mí" &&
+            !isKnownState ? (
+              <option value={location}>{location}</option>
+            ) : null}
+          </select>
         </div>
 
         {/* Advanced filters */}
@@ -153,11 +284,12 @@ export default function SearchToolbar({
         </button>
 
         <button
-          onClick={applyFilters}
+          onClick={() => void applyFilters()}
+          disabled={geoLoading}
           className="flex items-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-indigo-700"
         >
           <Search className="h-4 w-4" />
-          Buscar
+          {geoLoading ? "Ubicando..." : "Buscar"}
         </button>
 
         {/* View options */}

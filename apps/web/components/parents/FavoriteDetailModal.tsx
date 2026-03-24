@@ -1,14 +1,10 @@
 'use client';
 import Image from 'next/image';
-import { X, MapPin, Star, Clock, Users, Languages, ClipboardCheck, Heart } from 'lucide-react';
-import { JSX, useEffect, useState } from 'react';
+import { X, MapPin, Star } from 'lucide-react';
+import { JSX, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { messagesService } from '@/lib/services/services/messages.service';
-import { coursesService, type Course } from '@/lib/services/services/courses.service';
-import { schoolRatingsService } from '@/lib/services/services/rating.service';
-import { schoolsService } from '@/lib/services/services/schools.service';
-import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -46,75 +42,9 @@ export default function FavoriteDetailModal({
   const { user } = useAuth();
   const { showToast } = useToast();
   const [sending, setSending] = useState(false);
-  const [offers, setOffers] = useState<Course[]>([]);
-  const [loadingOffers, setLoadingOffers] = useState(false);
-  const [loadingMyRating, setLoadingMyRating] = useState(false);
-  const [savingRating, setSavingRating] = useState(false);
-  const [myRating, setMyRating] = useState(0);
-  const [myComment, setMyComment] = useState('');
-
-  useEffect(() => {
-    let mounted = true;
-
-    if (!open || !item?.id) {
-      setOffers([]);
-      return;
-    }
-
-    (async () => {
-      try {
-        setLoadingOffers(true);
-        const data = await coursesService.listBySchoolId(item.id as string);
-        if (!mounted) return;
-        setOffers(data);
-      } catch {
-        if (!mounted) return;
-        setOffers([]);
-      } finally {
-        if (mounted) setLoadingOffers(false);
-      }
-    })();
-
-    return () => {
-      mounted = false;
-    };
-  }, [open, item?.id]);
-
-  useEffect(() => {
-    let mounted = true;
-
-    if (!open || !item?.id || user?.role !== 'public') {
-      setMyRating(0);
-      setMyComment('');
-      return;
-    }
-
-    (async () => {
-      try {
-        setLoadingMyRating(true);
-        const schoolId = item.id!;
-        const mine = await schoolRatingsService.getMine(schoolId);
-        if (!mounted) return;
-
-        setMyRating(mine?.rating ?? 0);
-        setMyComment(mine?.comment ?? '');
-      } catch {
-        if (!mounted) return;
-        setMyRating(0);
-        setMyComment('');
-      } finally {
-        if (mounted) setLoadingMyRating(false);
-      }
-    })();
-
-    return () => {
-      mounted = false;
-    };
-  }, [open, item?.id, user?.role]);
 
   if (!open || !item) return null;
 
-  const isNumeric = typeof item.price === 'number' || typeof item.monthlyPrice === 'number';
   const numericPrice = typeof item.price === 'number' ? item.price : (typeof item.monthlyPrice === 'number' ? item.monthlyPrice : undefined);
   const priceValue = numericPrice != null
     ? `$${numericPrice.toLocaleString()}`
@@ -131,69 +61,6 @@ export default function FavoriteDetailModal({
       router.push(`/parents/messages/${item.id}`);
     } finally {
       setSending(false);
-    }
-  };
-
-  const refreshAverageRating = async () => {
-    if (!item?.id) return;
-
-    const updatedSchool = await schoolsService.getById(item.id);
-    onRatingUpdated?.(item.id, updatedSchool.averageRating ?? undefined);
-  };
-
-  const handleSaveRating = async () => {
-    if (!item?.id || myRating < 1 || myRating > 5 || savingRating) return;
-
-    try {
-      setSavingRating(true);
-      await schoolRatingsService.upsert({
-        schoolId: item.id,
-        rating: myRating,
-        comment: myComment.trim() || undefined,
-      });
-      await refreshAverageRating();
-
-      showToast({
-        title: 'Calificacion guardada',
-        description: 'Gracias por compartir tu experiencia con esta escuela.',
-        variant: 'success',
-      });
-    } catch (error) {
-      console.error('No se pudo guardar la calificacion', error);
-      showToast({
-        title: 'No se pudo guardar la calificacion',
-        description: 'Intenta de nuevo en unos segundos.',
-        variant: 'error',
-      });
-    } finally {
-      setSavingRating(false);
-    }
-  };
-
-  const handleDeleteRating = async () => {
-    if (!item?.id || savingRating) return;
-
-    try {
-      setSavingRating(true);
-      await schoolRatingsService.remove(item.id);
-      setMyRating(0);
-      setMyComment('');
-      await refreshAverageRating();
-
-      showToast({
-        title: 'Calificacion eliminada',
-        description: 'Tu calificacion ya no se muestra para esta escuela.',
-        variant: 'info',
-      });
-    } catch (error) {
-      console.error('No se pudo eliminar la calificacion', error);
-      showToast({
-        title: 'No se pudo eliminar la calificacion',
-        description: 'Intenta de nuevo en unos segundos.',
-        variant: 'error',
-      });
-    } finally {
-      setSavingRating(false);
     }
   };
 
@@ -256,129 +123,10 @@ export default function FavoriteDetailModal({
               </p>
             ) : null}
 
-            <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-[11px] font-extrabold tracking-widest text-slate-600">TU CALIFICACION</p>
-
-              {user?.role !== 'public' ? (
-                <p className="mt-2 text-xs text-slate-600">Inicia sesion como padre para calificar esta escuela.</p>
-              ) : loadingMyRating ? (
-                <p className="mt-2 text-xs text-slate-500">Cargando tu calificacion...</p>
-              ) : (
-                <>
-                  <div className="mt-3 flex items-center gap-1">
-                    {[1, 2, 3, 4, 5].map((value) => (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => setMyRating(value)}
-                        className="rounded-md p-1 transition hover:bg-amber-50"
-                        aria-label={`Calificar ${value} estrellas`}
-                      >
-                        <Star
-                          className={`h-6 w-6 ${value <= myRating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'}`}
-                        />
-                      </button>
-                    ))}
-                  </div>
-
-                  <Textarea
-                    value={myComment}
-                    onChange={(e) => setMyComment(e.target.value)}
-                    placeholder="Comparte un comentario (opcional)"
-                    className="mt-3 min-h-20 bg-white"
-                  />
-
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={handleSaveRating}
-                      disabled={savingRating || myRating < 1}
-                      className="rounded-full bg-slate-900 px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {savingRating ? 'Guardando...' : 'Guardar calificacion'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleDeleteRating}
-                      disabled={savingRating}
-                      className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Info pills grid */}
-            <div className="mt-6 grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2">
-              <div className="surface flex items-center justify-between rounded-2xl bg-white px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <Clock className="h-4 w-4 text-indigo-600" />
-                  <div>
-                    <p className="text-[10px] sm:text-[11px] font-extrabold tracking-widest text-slate-500">HORARIO</p>
-                    <p className="text-xs sm:text-sm font-bold text-slate-900">{item.schedule ?? 'Por definir'}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="surface flex items-center justify-between rounded-2xl bg-white px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <Users className="h-4 w-4 text-indigo-600" />
-                  <div>
-                    <p className="text-[10px] sm:text-[11px] font-extrabold tracking-widest text-slate-500">ALUMNOS/SALÓN</p>
-                    <p className="text-xs sm:text-sm font-bold text-slate-900">{item.studentsPerClass ?? 'Por definir'}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="surface flex items-center justify-between rounded-2xl bg-white px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <Languages className="h-4 w-4 text-indigo-600" />
-                  <div>
-                    <p className="text-[10px] sm:text-[11px] font-extrabold tracking-widest text-slate-500">IDIOMAS</p>
-                    <p className="text-xs sm:text-sm font-bold text-slate-900">{item.languages ?? 'Por definir'}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="surface flex items-center justify-between rounded-2xl bg-white px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <ClipboardCheck className="h-4 w-4 text-indigo-600" />
-                  <div>
-                    <p className="text-[10px] sm:text-[11px] font-extrabold tracking-widest text-slate-500">INSCRIPCIONES</p>
-                    <p className="text-xs sm:text-sm font-bold text-slate-900">
-                      {item.enrollmentStatus
-                        ?? (item.enrollmentOpen === true
-                              ? `Abiertas${item.enrollmentYear ? ` ${item.enrollmentYear}` : ''}`
-                              : item.enrollmentOpen === false
-                                ? 'Cerradas'
-                                : 'Por definir')}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Footer action */}
-            <div className="mt-7">
-              <p className="text-[10px] sm:text-[11px] font-extrabold tracking-widest text-slate-500">OFERTAS ACADÉMICAS</p>
-              <div className="mt-3 space-y-2">
-                {loadingOffers ? (
-                  <p className="text-xs text-slate-500">Cargando ofertas...</p>
-                ) : null}
-
-                {!loadingOffers && offers.map((offer) => (
-                  <div key={offer.id} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                    <p className="text-sm font-bold text-slate-900">{offer.name}</p>
-                    <p className="mt-1 text-xs text-slate-600">
-                      {offer.modality || 'Modalidad por definir'} · ${offer.price.toLocaleString()} MXN
-                      {offer.capacity ? ` · ${offer.capacity} cupos` : ''}
-                    </p>
-                  </div>
-                ))}
-
-                {!loadingOffers && offers.length === 0 ? (
-                  <p className="text-xs text-slate-500">Esta escuela aún no tiene ofertas académicas publicadas.</p>
-                ) : null}
-              </div>
+            <div className="mt-6 space-y-2 text-xs sm:text-sm text-slate-600">
+              {item.schedule ? <p><span className="font-semibold">Horario:</span> {item.schedule}</p> : null}
+              {item.languages ? <p><span className="font-semibold">Idiomas:</span> {item.languages}</p> : null}
+              {item.studentsPerClass ? <p><span className="font-semibold">Alumnos por salón:</span> {item.studentsPerClass}</p> : null}
             </div>
 
             {/* Footer action */}
@@ -398,8 +146,16 @@ export default function FavoriteDetailModal({
                 >
                   {sending ? 'Enviando...' : 'Contactar'}
                 </button>
-                <button className="grid h-10 w-10 sm:h-11 sm:w-11 place-items-center rounded-full bg-white text-slate-700 shadow" aria-label="Guardar">
-                  <Heart className="h-5 w-5" />
+                <button
+                  className="flex-1 sm:flex-initial w-full sm:w-auto rounded-full border border-slate-300 bg-white px-6 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed"
+                  onClick={() => {
+                    if (!item.id) return;
+                    onClose();
+                    router.push(`/search/institutions/${item.id}`);
+                  }}
+                  disabled={!item.id}
+                >
+                  Ver más
                 </button>
               </div>
             </div>

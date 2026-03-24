@@ -9,6 +9,8 @@ import {
 } from "react";
 import { api, ApiError } from "../lib/services/api";
 
+const AUTH_USER_ID_KEY = "skoolia:auth-user-id";
+
 /* =========================
    TYPES
 ========================= */
@@ -50,11 +52,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function refreshUser() {
     try {
       const data = await api<AuthUser>("/users/me");
-      console.log(data, 'context')
       setUser(data);
+      if (typeof window !== "undefined") {
+        localStorage.setItem(AUTH_USER_ID_KEY, data.id);
+      }
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         setUser(null);
+        if (typeof window !== "undefined") {
+          localStorage.removeItem(AUTH_USER_ID_KEY);
+        }
       } else {
         console.error("Unexpected auth error:", err);
       }
@@ -94,6 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
 
       if (typeof window !== "undefined") {
+        localStorage.removeItem(AUTH_USER_ID_KEY);
         const audience = currentRole === "private" ? "schools" : "parents";
         window.location.replace(`/?audience=${audience}`);
       }

@@ -101,7 +101,7 @@ export default function SearchBar() {
 
                 {[
                   "Primaria bilingüe",
-                  "Secundaria en CDMX",
+                  "Secundaria en Jalisco",
                   "Universidad privada",
                 ].map((item, index) => (
                   <button
