@@ -5,6 +5,42 @@ import { useEffect, useMemo, useState } from "react";
 import { MessageCircle, User } from "lucide-react";
 
 import { messagesService, type SchoolThread } from "@/lib/services/services/messages.service";
+import { useAuth } from "@/contexts/AuthContext";
+
+type LeadStage = "nuevo" | "contactado" | "interesado" | "inscrito" | "perdido";
+
+const LEAD_PIPELINE_STORAGE_PREFIX = "skoolia:lead-pipeline";
+
+const STAGE_META: Record<
+	LeadStage,
+	{ label: string; classes: string; description: string }
+> = {
+	nuevo: {
+		label: "Nuevo",
+		classes: "bg-amber-50 text-amber-700",
+		description: "Lead recién detectado.",
+	},
+	contactado: {
+		label: "Contactado",
+		classes: "bg-sky-50 text-sky-700",
+		description: "Ya hubo primer acercamiento.",
+	},
+	interesado: {
+		label: "Interesado",
+		classes: "bg-indigo-50 text-indigo-700",
+		description: "Mostró interés en oferta académica.",
+	},
+	inscrito: {
+		label: "Inscrito",
+		classes: "bg-emerald-50 text-emerald-700",
+		description: "Conversión exitosa.",
+	},
+	perdido: {
+		label: "Perdido",
+		classes: "bg-slate-100 text-slate-600",
+		description: "Lead descartado o inactivo.",
+	},
+};
 
 function formatRelativeDate(isoDate: string) {
 	const date = new Date(isoDate);
@@ -21,44 +57,56 @@ function formatRelativeDate(isoDate: string) {
 	return formatter.format(days, "day");
 }
 
-function getLeadStatus(thread: SchoolThread) {
+function getStorageKey(ownerId?: string) {
+	return `${LEAD_PIPELINE_STORAGE_PREFIX}:${ownerId ?? "anon"}`;
+}
+
+function readPipeline(ownerId?: string): Record<string, LeadStage> {
+	if (typeof window === "undefined") return {};
+
+	try {
+		const raw = localStorage.getItem(getStorageKey(ownerId));
+		if (!raw) return {};
+		return JSON.parse(raw) as Record<string, LeadStage>;
+	} catch {
+		return {};
+	}
+}
+
+function writePipeline(pipeline: Record<string, LeadStage>, ownerId?: string) {
+	if (typeof window === "undefined") return;
+	localStorage.setItem(getStorageKey(ownerId), JSON.stringify(pipeline));
+}
+
+function inferDefaultStage(thread: SchoolThread): LeadStage {
 	if (thread.threadHasUnread) {
-		return {
-			label: "Nuevo",
-			classes: "bg-amber-50 text-amber-700",
-			description: `${thread.unreadCount} mensaje${thread.unreadCount === 1 ? "" : "s"} sin leer`,
-		};
+		return "nuevo";
 	}
 
 	const ageInMs = Date.now() - new Date(thread.lastMessageAt).getTime();
 	if (thread.lastSenderRole === "public") {
-		return {
-			label: "Pendiente",
-			classes: "bg-amber-50 text-amber-700",
-			description: "Esperando respuesta de tu escuela",
-		};
+		return "contactado";
 	}
 
 	if (ageInMs <= 7 * 24 * 60 * 60 * 1000) {
-		return {
-			label: "Atendido",
-			classes: "bg-emerald-50 text-emerald-700",
-			description: "Ya hubo seguimiento reciente",
-		};
+		return "interesado";
 	}
 
-	return {
-		label: "Frío",
-		classes: "bg-slate-100 text-slate-600",
-		description: "Sin movimiento reciente",
-	};
+	return "perdido";
 }
 
 export default function SchoolLeadsSection() {
+	const { user } = useAuth();
 	const [threads, setThreads] = useState<SchoolThread[]>([]);
 	const [filter, setFilter] = useState<"today" | "week">("today");
+	const [stageFilter, setStageFilter] = useState<LeadStage | "all">("all");
+	const [pipeline, setPipeline] = useState<Record<string, LeadStage>>({});
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+
+	useEffect(() => {
+		setPipeline(readPipeline(user?.id));
+	}, [user?.id]);
 
 	useEffect(() => {
 		let mounted = true;
@@ -83,6 +131,53 @@ export default function SchoolLeadsSection() {
 		};
 	}, []);
 
+	useEffect(() => {
+		if (!threads.length) return;
+
+		setPipeline((prev) => {
+			let changed = false;
+			const next = { ...prev };
+
+			threads.forEach((thread) => {
+				if (!next[thread.publicUserId]) {
+					next[thread.publicUserId] = inferDefaultStage(thread);
+					changed = true;
+				}
+			});
+
+			if (changed) {
+				writePipeline(next, user?.id);
+			}
+
+			return changed ? next : prev;
+		});
+	}, [threads, user?.id]);
+
+	const setLeadStage = (publicUserId: string, stage: LeadStage) => {
+		setPipeline((prev) => {
+			const next = { ...prev, [publicUserId]: stage };
+			writePipeline(next, user?.id);
+			return next;
+		});
+	};
+
+	const stageCounters = useMemo(() => {
+		const counters: Record<LeadStage, number> = {
+			nuevo: 0,
+			contactado: 0,
+			interesado: 0,
+			inscrito: 0,
+			perdido: 0,
+		};
+
+		threads.forEach((thread) => {
+			const stage = pipeline[thread.publicUserId] ?? inferDefaultStage(thread);
+			counters[stage] += 1;
+		});
+
+		return counters;
+	}, [pipeline, threads]);
+
 	const filteredThreads = useMemo(() => {
 		const now = Date.now();
 		const threshold = filter === "today" ? 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
@@ -90,9 +185,16 @@ export default function SchoolLeadsSection() {
 		return threads.filter((thread) => {
 			const date = new Date(thread.lastMessageAt);
 			if (Number.isNaN(date.getTime())) return false;
-			return now - date.getTime() <= threshold;
+
+			const timeMatch = now - date.getTime() <= threshold;
+			if (!timeMatch) return false;
+
+			if (stageFilter === "all") return true;
+
+			const stage = pipeline[thread.publicUserId] ?? inferDefaultStage(thread);
+			return stage === stageFilter;
 		});
-	}, [filter, threads]);
+	}, [filter, pipeline, stageFilter, threads]);
 
 	return (
 		<section className="surface rounded-4xl bg-white p-0 shadow-sm ring-1 ring-black/5 overflow-hidden">
@@ -131,6 +233,31 @@ export default function SchoolLeadsSection() {
 				</div>
 			</header>
 
+			<div className="grid grid-cols-2 gap-2 border-y border-slate-100/70 bg-slate-50/70 px-5 py-3 sm:grid-cols-5 sm:px-6">
+				{(Object.keys(STAGE_META) as LeadStage[]).map((stage) => {
+					const meta = STAGE_META[stage];
+					const active = stageFilter === stage;
+
+					return (
+						<button
+							key={stage}
+							type="button"
+							onClick={() => setStageFilter(active ? "all" : stage)}
+							className={`rounded-2xl border px-3 py-2 text-left transition ${
+								active
+									? "border-indigo-300 bg-indigo-50"
+									: "border-slate-200 bg-white hover:bg-slate-50"
+							}`}
+						>
+							<p className="text-[11px] font-extrabold uppercase tracking-wide text-slate-500">
+								{meta.label}
+							</p>
+							<p className="mt-1 text-base font-extrabold text-slate-900">{stageCounters[stage]}</p>
+						</button>
+					);
+				})}
+			</div>
+
 			<div className="divide-y divide-slate-100/70">
 				{loading ? (
 					<div className="px-5 py-4 text-sm text-slate-500 sm:px-6 sm:py-5">
@@ -145,7 +272,11 @@ export default function SchoolLeadsSection() {
 				) : null}
 
 				{filteredThreads.map((thread) => {
-					const status = getLeadStatus(thread);
+					const stage = pipeline[thread.publicUserId] ?? inferDefaultStage(thread);
+					const status = STAGE_META[stage];
+					const unreadDescription = thread.threadHasUnread
+						? `${thread.unreadCount} mensaje${thread.unreadCount === 1 ? "" : "s"} sin leer`
+						: status.description;
 
 					return (
 						<div
@@ -175,7 +306,7 @@ export default function SchoolLeadsSection() {
 										<span>{formatRelativeDate(thread.lastMessageAt)}</span>
 									</p>
 									<p className="mt-1 text-[11px] font-semibold text-slate-500">
-										{status.description}
+										{unreadDescription}
 									</p>
 									<p className="mt-2 max-w-xl text-xs text-slate-600 sm:text-sm">
 										{thread.lastMessage}
@@ -186,6 +317,19 @@ export default function SchoolLeadsSection() {
 								<span className={`inline-flex items-center rounded-full px-3 py-1 text-[10px] sm:text-xs font-bold ${status.classes}`}>
 									{status.label}
 								</span>
+								<select
+									value={stage}
+									onChange={(event) =>
+										setLeadStage(thread.publicUserId, event.target.value as LeadStage)
+									}
+									className="rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs font-semibold text-slate-700"
+								>
+									<option value="nuevo">Nuevo</option>
+									<option value="contactado">Contactado</option>
+									<option value="interesado">Interesado</option>
+									<option value="inscrito">Inscrito</option>
+									<option value="perdido">Perdido</option>
+								</select>
 								<div className="flex items-center gap-1 sm:gap-2">
 									<Link
 										href={`/schools/messages?thread=${thread.publicUserId}`}

@@ -12,7 +12,9 @@ export class ListSchoolThreadsUseCase {
 
   async execute(user: JwtPayload) {
     if (user.role !== 'private') {
-      throw new BadRequestException('Only private users can list school threads');
+      throw new BadRequestException(
+        'Only private users can list school threads',
+      );
     }
 
     return this.repository.listSchoolThreadsByOwner(user.sub);

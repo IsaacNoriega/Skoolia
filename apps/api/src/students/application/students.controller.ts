@@ -31,7 +31,7 @@ export class StudentsController {
 
     @Inject(UpdateStudentUseCase)
     private readonly updateStudent: UpdateStudentUseCase,
-    
+
     @Inject(DeleteStudentUseCase)
     private readonly deleteStudent: DeleteStudentUseCase,
   ) {}

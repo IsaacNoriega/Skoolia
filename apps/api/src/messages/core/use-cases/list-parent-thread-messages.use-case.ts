@@ -12,7 +12,9 @@ export class ListParentThreadMessagesUseCase {
 
   async execute(params: { user: JwtPayload; schoolId: string }) {
     if (params.user.role !== 'public') {
-      throw new BadRequestException('Only public users can read parent threads');
+      throw new BadRequestException(
+        'Only public users can read parent threads',
+      );
     }
 
     const schoolExists = await this.repository.schoolExists(params.schoolId);

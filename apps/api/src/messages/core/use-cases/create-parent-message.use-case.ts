@@ -16,7 +16,9 @@ export class CreateParentMessageUseCase {
     content: string;
   }) {
     if (params.user.role !== 'public') {
-      throw new BadRequestException('Only public users can send parent messages');
+      throw new BadRequestException(
+        'Only public users can send parent messages',
+      );
     }
 
     const schoolExists = await this.repository.schoolExists(params.schoolId);
