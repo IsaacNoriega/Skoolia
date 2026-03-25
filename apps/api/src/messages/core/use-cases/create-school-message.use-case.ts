@@ -16,7 +16,9 @@ export class CreateSchoolMessageUseCase {
     content: string;
   }) {
     if (params.user.role !== 'private') {
-      throw new BadRequestException('Only private users can send school messages');
+      throw new BadRequestException(
+        'Only private users can send school messages',
+      );
     }
 
     const schoolId = await this.repository.findSchoolIdByOwner(params.user.sub);

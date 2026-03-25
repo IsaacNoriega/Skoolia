@@ -99,10 +99,7 @@ export class DrizzleFavoritesRepository implements FavoritesRepository {
         updatedAt: schools.updatedAt,
       })
       .from(schools)
-      .innerJoin(
-        schoolFavorites,
-        eq(schoolFavorites.schoolId, schools.id),
-      )
+      .innerJoin(schoolFavorites, eq(schoolFavorites.schoolId, schools.id))
       .where(eq(schoolFavorites.publicUserId, publicUserId));
 
     // rows are already typed with the selected fields

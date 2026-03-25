@@ -12,7 +12,9 @@ export class ListParentThreadsUseCase {
 
   async execute(user: JwtPayload) {
     if (user.role !== 'public') {
-      throw new BadRequestException('Only public users can list parent threads');
+      throw new BadRequestException(
+        'Only public users can list parent threads',
+      );
     }
 
     return this.repository.listParentThreads(user.sub);

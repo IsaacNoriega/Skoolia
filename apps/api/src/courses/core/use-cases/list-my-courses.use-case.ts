@@ -13,7 +13,9 @@ export class ListMyCoursesUseCase {
 
   async execute(user: JwtPayload) {
     if (user.role !== 'private') {
-      throw new BadRequestException('Only private users can list their courses');
+      throw new BadRequestException(
+        'Only private users can list their courses',
+      );
     }
 
     return this.repository.findByOwner(user.sub);

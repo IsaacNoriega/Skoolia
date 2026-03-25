@@ -12,7 +12,9 @@ export class ListSchoolThreadMessagesUseCase {
 
   async execute(params: { user: JwtPayload; publicUserId: string }) {
     if (params.user.role !== 'private') {
-      throw new BadRequestException('Only private users can read school threads');
+      throw new BadRequestException(
+        'Only private users can read school threads',
+      );
     }
 
     const schoolId = await this.repository.findSchoolIdByOwner(params.user.sub);
