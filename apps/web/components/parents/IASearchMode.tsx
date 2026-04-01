@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowUp } from "lucide-react";
 
@@ -8,6 +9,73 @@ interface AISearchModeProps {
 }
 
 export function AISearchMode({ onClose }: AISearchModeProps) {
+  const [prompt, setPrompt] = useState("");
+  const [reply, setReply] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
+  const [sources, setSources] = useState<Array<{ title: string; uri: string }>>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const suggestions = [
+    "Primaria bilingüe en CDMX",
+    "Escuelas con enfoque Montessori",
+    "Secundaria con deportes",
+    "Universidad privada económica",
+  ];
+
+  async function sendPrompt(message: string) {
+    const value = message.trim();
+    if (!value || isLoading) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ message: value }),
+      });
+
+      const data = (await res.json()) as {
+        reply?: string;
+        error?: string;
+        warning?: string;
+        sources?: Array<{ title: string; uri: string }>;
+      };
+
+      if (!res.ok) {
+        setReply(null);
+        setSources([]);
+        setWarning(null);
+        setError(data.error ?? "No se pudo obtener respuesta de la IA.");
+        return;
+      }
+
+      setReply(data.reply ?? "No se recibió una respuesta.");
+      setSources(data.sources ?? []);
+      setWarning(data.warning ?? null);
+    } catch {
+      setReply(null);
+      setSources([]);
+      setWarning(null);
+      setError("Hubo un problema de red al contactar al asistente.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleSubmit() {
+    await sendPrompt(prompt);
+  }
+
+  async function handleSuggestionClick(suggestion: string) {
+    setPrompt(suggestion);
+    await sendPrompt(suggestion);
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -73,18 +141,16 @@ export function AISearchMode({ onClose }: AISearchModeProps) {
 
         {/* AI Suggestions */}
         <div className="flex flex-wrap justify-center gap-3 mb-6 max-w-2xl">
-          {[
-            "Primaria bilingüe en CDMX",
-            "Escuelas con enfoque Montessori",
-            "Secundaria con deportes",
-            "Universidad privada económica",
-          ].map((suggestion, index) => (
+          {suggestions.map((suggestion, index) => (
             <motion.button
               key={index}
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
-              onClick={() => {}}
+              onClick={() => {
+                void handleSuggestionClick(suggestion);
+              }}
+              disabled={isLoading}
               className="px-4 py-2 rounded-full bg-white/60 backdrop-blur-md border border-neutral-200 text-sm text-neutral-700 hover:bg-neutral-100 transition shadow-sm"
             >
               {suggestion}
@@ -97,18 +163,74 @@ export function AISearchMode({ onClose }: AISearchModeProps) {
           <div className="flex items-center bg-white rounded-full px-6 py-4 shadow-lg border border-neutral-200">
             <input
               placeholder="Describe lo que estás buscando..."
+              value={prompt}
+              onChange={(event) => setPrompt(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  void handleSubmit();
+                }
+              }}
               className="flex-1 bg-transparent outline-none text-base text-neutral-800 placeholder:text-neutral-400"
             />
 
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                void handleSubmit();
+              }}
+              disabled={isLoading}
               className="ml-4 w-11 h-11 rounded-full bg-black text-white flex items-center justify-center hover:bg-[#1973FC] transition"
             >
-              <ArrowUp size={18} />
+              {isLoading ? (
+                <span className="text-xs font-semibold">...</span>
+              ) : (
+                <ArrowUp size={18} />
+              )}
             </motion.button>
           </div>
         </div>
+
+        {error ? (
+          <div className="w-full max-w-2xl rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+            {error}
+          </div>
+        ) : null}
+
+        {warning ? (
+          <div className="w-full max-w-2xl rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-left text-sm text-amber-800">
+            {warning}
+          </div>
+        ) : null}
+
+        {reply ? (
+          <div className="w-full max-w-2xl rounded-2xl border border-neutral-200 bg-white/80 px-5 py-4 text-left text-sm text-neutral-700 whitespace-pre-wrap">
+            {reply}
+          </div>
+        ) : null}
+
+        {sources.length ? (
+          <div className="w-full max-w-2xl rounded-2xl border border-neutral-200 bg-neutral-50 px-5 py-4 text-left">
+            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+              Fuentes web
+            </p>
+            <ul className="mt-3 space-y-2">
+              {sources.map((source) => (
+                <li key={source.uri}>
+                  <a
+                    href={source.uri}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sm text-blue-700 hover:text-blue-900 hover:underline"
+                  >
+                    {source.title}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
 
         <button
           onClick={onClose}
