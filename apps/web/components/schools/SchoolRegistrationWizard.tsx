@@ -5,6 +5,53 @@ import { useState } from "react";
 import { X, ShieldCheck } from "lucide-react";
 import { schoolsService } from "@/lib/services/services/schools.service";
 import { MEXICO_STATES, resolveMexicanState } from "@/lib/mexico-states";
+import { filesService } from "@/lib/services/services/files.service";
+
+const EDUCATIONAL_LEVEL_OPTIONS = [
+    "Kinder",
+    "Primaria",
+    "Secundaria",
+    "Preparatoria",
+    "Universidad",
+] as const;
+
+const INSTITUTION_TYPE_OPTIONS = ["Privada", "Pública"] as const;
+
+const LANGUAGE_OPTIONS = [
+    "Español",
+    "Inglés",
+    "Español, Inglés",
+    "Español, Francés",
+    "Español, Inglés, Francés",
+] as const;
+
+const SCHEDULE_OPTIONS = [
+    "07:00 - 14:00",
+    "07:30 - 14:30",
+    "08:00 - 15:00",
+    "08:30 - 15:30",
+    "09:00 - 16:00",
+] as const;
+
+function normalizeOptionalImageUrl(value: string): string | undefined {
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+
+    if (
+        trimmed.startsWith("http://") ||
+        trimmed.startsWith("https://") ||
+        trimmed.startsWith("/") ||
+        trimmed.startsWith("blob:")
+    ) {
+        return trimmed;
+    }
+
+    try {
+        return new URL(`https://${trimmed}`).toString();
+    } catch {
+        return undefined;
+    }
+}
 
 type Props = {
     isOpen: boolean;
@@ -23,6 +70,9 @@ export default function SchoolRegistrationWizard({ isOpen, onClose }: Props) {
 
     const [phone, setPhone] = useState("");
     const [contactEmail, setContactEmail] = useState("");
+
+    const [logoFile, setLogoFile] = useState<File | null>(null);
+    const [coverFile, setCoverFile] = useState<File | null>(null);
 
     // Campos adicionales
     const [languages, setLanguages] = useState("");
@@ -59,6 +109,44 @@ export default function SchoolRegistrationWizard({ isOpen, onClose }: Props) {
         setError(null);
         setLoading(true);
         try {
+            const normalizedLogoUrl = normalizeOptionalImageUrl(logoUrl);
+            const normalizedCoverImageUrl = normalizeOptionalImageUrl(coverImageUrl);
+
+            if (logoUrl.trim() && !normalizedLogoUrl) {
+                setError("La URL del logo no es válida.");
+                return;
+            }
+
+            if (coverImageUrl.trim() && !normalizedCoverImageUrl) {
+                setError("La URL de portada no es válida.");
+                return;
+            }
+
+            if (latitude != null && (!Number.isFinite(latitude) || latitude < -90 || latitude > 90)) {
+                setError("La latitud debe ser un número entre -90 y 90.");
+                return;
+            }
+
+            if (longitude != null && (!Number.isFinite(longitude) || longitude < -180 || longitude > 180)) {
+                setError("La longitud debe ser un número entre -180 y 180.");
+                return;
+            }
+
+            if (monthlyPrice != null && (!Number.isFinite(monthlyPrice) || monthlyPrice < 0)) {
+                setError("El precio mensual debe ser un número mayor o igual a 0.");
+                return;
+            }
+
+            if (maxStudentsPerClass != null && (!Number.isInteger(maxStudentsPerClass) || maxStudentsPerClass < 1)) {
+                setError("La cantidad de alumnos por clase debe ser un entero mayor o igual a 1.");
+                return;
+            }
+
+            if (enrollmentYear != null && (!Number.isInteger(enrollmentYear) || enrollmentYear < 1900 || enrollmentYear > 2100)) {
+                setError("El año de inscripción debe estar entre 1900 y 2100.");
+                return;
+            }
+
             // 1️⃣ Crear la escuela (nombre + descripción)
             await schoolsService.create({
                 name,
@@ -74,14 +162,23 @@ export default function SchoolRegistrationWizard({ isOpen, onClose }: Props) {
                 languages: languages.trim() || undefined,
                 schedule: schedule.trim() || undefined,
                 monthlyPrice: monthlyPrice ?? undefined,
-                logoUrl: logoUrl.trim() || undefined,
-                coverImageUrl: coverImageUrl.trim() || undefined,
                 latitude: latitude ?? undefined,
                 longitude: longitude ?? undefined,
                 maxStudentsPerClass: maxStudentsPerClass ?? undefined,
                 enrollmentYear: enrollmentYear ?? undefined,
                 enrollmentOpen: enrollmentOpen ?? undefined,
             });
+
+            if (logoFile) {
+                const uploadedLogo = await filesService.upload(logoFile);
+                await schoolsService.updateImage("logoUrl", uploadedLogo.id);
+            }
+
+            if (coverFile) {
+                const uploadedCover = await filesService.upload(coverFile);
+                await schoolsService.updateImage("coverImageUrl", uploadedCover.id);
+            }
+
             onClose();
         } catch (err: any) {
             console.error(err);
@@ -149,11 +246,9 @@ export default function SchoolRegistrationWizard({ isOpen, onClose }: Props) {
                                         className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
                                     >
                                         <option value="">Selecciona...</option>
-                                        <option value="kinder">Kinder</option>
-                                        <option value="primaria">Primaria</option>
-                                        <option value="secundaria">Secundaria</option>
-                                        <option value="preparatoria">Preparatoria</option>
-                                        <option value="universidad">Universidad</option>
+                                        {EDUCATIONAL_LEVEL_OPTIONS.map((option) => (
+                                            <option key={option} value={option}>{option}</option>
+                                        ))}
                                     </select>
                                 </div>
 
@@ -167,8 +262,9 @@ export default function SchoolRegistrationWizard({ isOpen, onClose }: Props) {
                                         className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
                                     >
                                         <option value="">Selecciona...</option>
-                                        <option value="privada">Privada</option>
-                                        <option value="publica">Pública</option>
+                                        {INSTITUTION_TYPE_OPTIONS.map((option) => (
+                                            <option key={option} value={option}>{option}</option>
+                                        ))}
                                     </select>
                                 </div>
                             </div>
@@ -265,6 +361,12 @@ export default function SchoolRegistrationWizard({ isOpen, onClose }: Props) {
                                             placeholder="https://..."
                                             className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
                                         />
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            className="mt-2 block w-full text-xs text-slate-600"
+                                            onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
+                                        />
                                     </div>
                                     <div>
                                         <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Portada URL</label>
@@ -273,6 +375,12 @@ export default function SchoolRegistrationWizard({ isOpen, onClose }: Props) {
                                             onChange={(e) => setCoverImageUrl(e.target.value)}
                                             placeholder="https://..."
                                             className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+                                        />
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            className="mt-2 block w-full text-xs text-slate-600"
+                                            onChange={(e) => setCoverFile(e.target.files?.[0] ?? null)}
                                         />
                                     </div>
                                 </div>
@@ -283,23 +391,31 @@ export default function SchoolRegistrationWizard({ isOpen, onClose }: Props) {
                                     <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">
                                         Idiomas
                                     </label>
-                                    <input
+                                    <select
                                         value={languages}
                                         onChange={(e) => setLanguages(e.target.value)}
-                                        placeholder="Ej. Español, Inglés"
                                         className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
-                                    />
+                                    >
+                                        <option value="">Selecciona...</option>
+                                        {LANGUAGE_OPTIONS.map((option) => (
+                                            <option key={option} value={option}>{option}</option>
+                                        ))}
+                                    </select>
                                 </div>
                                 <div>
                                     <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">
                                         Horario
                                     </label>
-                                    <input
+                                    <select
                                         value={schedule}
                                         onChange={(e) => setSchedule(e.target.value)}
-                                        placeholder="Ej. 8:00 - 14:00"
                                         className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
-                                    />
+                                    >
+                                        <option value="">Selecciona...</option>
+                                        {SCHEDULE_OPTIONS.map((option) => (
+                                            <option key={option} value={option}>{option}</option>
+                                        ))}
+                                    </select>
                                 </div>
                             </div>
 
@@ -317,6 +433,7 @@ export default function SchoolRegistrationWizard({ isOpen, onClose }: Props) {
                                         placeholder="Ej. 2500"
                                         type="number"
                                         min={0}
+                                        step={1}
                                         className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
                                     />
                                 </div>
@@ -331,6 +448,7 @@ export default function SchoolRegistrationWizard({ isOpen, onClose }: Props) {
                                         placeholder="Ej. 25"
                                         type="number"
                                         min={1}
+                                        step={1}
                                         className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
                                     />
                                 </div>
@@ -347,6 +465,9 @@ export default function SchoolRegistrationWizard({ isOpen, onClose }: Props) {
                                         }}
                                         placeholder="Ej. 2026"
                                         type="number"
+                                        min={1900}
+                                        max={2100}
+                                        step={1}
                                         className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
                                     />
                                 </div>
@@ -373,6 +494,8 @@ export default function SchoolRegistrationWizard({ isOpen, onClose }: Props) {
                                         }}
                                         placeholder="Ej. 20.6597"
                                         type="number"
+                                        min={-90}
+                                        max={90}
                                         step="0.000001"
                                         className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
                                     />
@@ -387,6 +510,8 @@ export default function SchoolRegistrationWizard({ isOpen, onClose }: Props) {
                                         }}
                                         placeholder="Ej. -103.3496"
                                         type="number"
+                                        min={-180}
+                                        max={180}
                                         step="0.000001"
                                         className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
                                     />

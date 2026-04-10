@@ -2,43 +2,50 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { MessageCircle, User } from "lucide-react";
+import { CalendarClock, MessageCircle, User } from "lucide-react";
 
 import { messagesService, type SchoolThread } from "@/lib/services/services/messages.service";
 import { useAuth } from "@/contexts/AuthContext";
 
-type LeadStage = "nuevo" | "contactado" | "interesado" | "inscrito" | "perdido";
+type LeadStage = "nuevo_contacto" | "interesado" | "visita" | "inscrito";
+type LeadsFilter = "today" | "week";
+type LeadStep = 1 | 2 | 3;
 
-const LEAD_PIPELINE_STORAGE_PREFIX = "skoolia:lead-pipeline";
+type LeadRecord = {
+	stage: LeadStage;
+	tags: string[];
+	notes: string;
+	reminderAt: string;
+	profileViews: number;
+	contactClicks: number;
+	step: LeadStep;
+};
+
+const LEADS_STORAGE_PREFIX = "skoolia:school-leads-v2";
 
 const STAGE_META: Record<
 	LeadStage,
 	{ label: string; classes: string; description: string }
 > = {
-	nuevo: {
-		label: "Nuevo",
+	nuevo_contacto: {
+		label: "Nuevo contacto",
 		classes: "bg-amber-50 text-amber-700",
-		description: "Lead recién detectado.",
-	},
-	contactado: {
-		label: "Contactado",
-		classes: "bg-sky-50 text-sky-700",
-		description: "Ya hubo primer acercamiento.",
+		description: "Contacto nuevo por atender.",
 	},
 	interesado: {
 		label: "Interesado",
 		classes: "bg-indigo-50 text-indigo-700",
 		description: "Mostró interés en oferta académica.",
 	},
+	visita: {
+		label: "Visita",
+		classes: "bg-cyan-50 text-cyan-700",
+		description: "Agendó o realizó visita.",
+	},
 	inscrito: {
 		label: "Inscrito",
 		classes: "bg-emerald-50 text-emerald-700",
 		description: "Conversión exitosa.",
-	},
-	perdido: {
-		label: "Perdido",
-		classes: "bg-slate-100 text-slate-600",
-		description: "Lead descartado o inactivo.",
 	},
 };
 
@@ -58,54 +65,94 @@ function formatRelativeDate(isoDate: string) {
 }
 
 function getStorageKey(ownerId?: string) {
-	return `${LEAD_PIPELINE_STORAGE_PREFIX}:${ownerId ?? "anon"}`;
+	return `${LEADS_STORAGE_PREFIX}:${ownerId ?? "anon"}`;
 }
 
-function readPipeline(ownerId?: string): Record<string, LeadStage> {
+function normalizeStoredStage(stage?: string): LeadStage {
+	if (stage === "nuevo_contacto" || stage === "interesado" || stage === "visita" || stage === "inscrito") {
+		return stage;
+	}
+
+	if (stage === "nuevo") return "nuevo_contacto";
+	if (stage === "contactado") return "interesado";
+	if (stage === "perdido") return "interesado";
+
+	return "nuevo_contacto";
+}
+
+function readLeads(ownerId?: string): Record<string, LeadRecord> {
 	if (typeof window === "undefined") return {};
 
 	try {
 		const raw = localStorage.getItem(getStorageKey(ownerId));
 		if (!raw) return {};
-		return JSON.parse(raw) as Record<string, LeadStage>;
+		const parsed = JSON.parse(raw) as Record<string, Partial<LeadRecord>>;
+
+		return Object.fromEntries(
+			Object.entries(parsed).map(([publicUserId, value]) => [
+				publicUserId,
+				{
+					stage: normalizeStoredStage(value.stage),
+					tags: Array.isArray(value.tags) ? value.tags.filter(Boolean).slice(0, 8) : [],
+					notes: typeof value.notes === "string" ? value.notes : "",
+					reminderAt: typeof value.reminderAt === "string" ? value.reminderAt : "",
+					profileViews: typeof value.profileViews === "number" ? value.profileViews : 0,
+					contactClicks: typeof value.contactClicks === "number" ? value.contactClicks : 0,
+					step:
+						value.step === 1 || value.step === 2 || value.step === 3
+							? value.step
+							: 1,
+				},
+			]),
+		);
 	} catch {
 		return {};
 	}
 }
 
-function writePipeline(pipeline: Record<string, LeadStage>, ownerId?: string) {
+function writeLeads(leads: Record<string, LeadRecord>, ownerId?: string) {
 	if (typeof window === "undefined") return;
-	localStorage.setItem(getStorageKey(ownerId), JSON.stringify(pipeline));
+	localStorage.setItem(getStorageKey(ownerId), JSON.stringify(leads));
 }
 
 function inferDefaultStage(thread: SchoolThread): LeadStage {
 	if (thread.threadHasUnread) {
-		return "nuevo";
+		return "nuevo_contacto";
 	}
 
-	const ageInMs = Date.now() - new Date(thread.lastMessageAt).getTime();
-	if (thread.lastSenderRole === "public") {
-		return "contactado";
-	}
-
-	if (ageInMs <= 7 * 24 * 60 * 60 * 1000) {
+	if (thread.lastSenderRole === "private") {
 		return "interesado";
 	}
 
-	return "perdido";
+	return "nuevo_contacto";
+}
+
+function createDefaultLead(thread: SchoolThread): LeadRecord {
+	return {
+		stage: inferDefaultStage(thread),
+		tags: [],
+		notes: "",
+		reminderAt: "",
+		profileViews: 0,
+		contactClicks: 0,
+		step: 1,
+	};
 }
 
 export default function SchoolLeadsSection() {
 	const { user } = useAuth();
 	const [threads, setThreads] = useState<SchoolThread[]>([]);
-	const [filter, setFilter] = useState<"today" | "week">("today");
+	const [filter, setFilter] = useState<LeadsFilter>("week");
 	const [stageFilter, setStageFilter] = useState<LeadStage | "all">("all");
-	const [pipeline, setPipeline] = useState<Record<string, LeadStage>>({});
+	const [leads, setLeads] = useState<Record<string, LeadRecord>>({});
+	const [activeLeadId, setActiveLeadId] = useState<string | null>(null);
+	const [tagsDraft, setTagsDraft] = useState("");
+	const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
 	useEffect(() => {
-		setPipeline(readPipeline(user?.id));
+		setLeads(readLeads(user?.id));
 	}, [user?.id]);
 
 	useEffect(() => {
@@ -134,49 +181,103 @@ export default function SchoolLeadsSection() {
 	useEffect(() => {
 		if (!threads.length) return;
 
-		setPipeline((prev) => {
+		setLeads((prev) => {
 			let changed = false;
 			const next = { ...prev };
 
 			threads.forEach((thread) => {
-				if (!next[thread.publicUserId]) {
-					next[thread.publicUserId] = inferDefaultStage(thread);
+				const previous = next[thread.publicUserId];
+				if (!previous) {
+					next[thread.publicUserId] = createDefaultLead(thread);
+					changed = true;
+					return;
+				}
+
+				const normalizedStage = normalizeStoredStage(previous.stage);
+				if (normalizedStage !== previous.stage) {
+					next[thread.publicUserId] = { ...previous, stage: normalizedStage };
 					changed = true;
 				}
 			});
 
 			if (changed) {
-				writePipeline(next, user?.id);
+				writeLeads(next, user?.id);
 			}
 
 			return changed ? next : prev;
 		});
 	}, [threads, user?.id]);
 
-	const setLeadStage = (publicUserId: string, stage: LeadStage) => {
-		setPipeline((prev) => {
-			const next = { ...prev, [publicUserId]: stage };
-			writePipeline(next, user?.id);
+	useEffect(() => {
+		if (!threads.length) {
+			setActiveLeadId(null);
+			return;
+		}
+
+		setActiveLeadId((current) => {
+			if (current && threads.some((thread) => thread.publicUserId === current)) {
+				return current;
+			}
+			return threads[0]?.publicUserId ?? null;
+		});
+	}, [threads]);
+
+	const patchLead = (publicUserId: string, patch: Partial<LeadRecord>) => {
+		setLeads((prev) => {
+			const current = prev[publicUserId];
+			if (!current) return prev;
+
+			const next = {
+				...prev,
+				[publicUserId]: {
+					...current,
+					...patch,
+				},
+			};
+
+			writeLeads(next, user?.id);
+			setLastSavedAt(new Date().toISOString());
 			return next;
 		});
 	};
 
 	const stageCounters = useMemo(() => {
 		const counters: Record<LeadStage, number> = {
-			nuevo: 0,
-			contactado: 0,
+			nuevo_contacto: 0,
 			interesado: 0,
+			visita: 0,
 			inscrito: 0,
-			perdido: 0,
 		};
 
 		threads.forEach((thread) => {
-			const stage = pipeline[thread.publicUserId] ?? inferDefaultStage(thread);
+			const stage = leads[thread.publicUserId]?.stage ?? inferDefaultStage(thread);
 			counters[stage] += 1;
 		});
 
 		return counters;
-	}, [pipeline, threads]);
+	}, [leads, threads]);
+
+	const analytics = useMemo(() => {
+		const totalProfileViews = Object.values(leads).reduce((acc, lead) => acc + lead.profileViews, 0);
+		const totalContactClicks = Object.values(leads).reduce((acc, lead) => acc + lead.contactClicks, 0);
+
+		const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+		const leadsPerWeek = threads.filter((thread) => {
+			const date = new Date(thread.lastMessageAt);
+			if (Number.isNaN(date.getTime())) return false;
+			return date.getTime() >= oneWeekAgo;
+		}).length;
+
+		const responded = threads.filter((thread) => thread.lastSenderRole === "private").length;
+		const responseRate = threads.length ? Math.round((responded / threads.length) * 100) : 0;
+
+		return {
+			totalProfileViews,
+			totalContactClicks,
+			leadsPerWeek,
+			responseRate,
+		};
+	}, [leads, threads]);
 
 	const filteredThreads = useMemo(() => {
 		const now = Date.now();
@@ -191,74 +292,125 @@ export default function SchoolLeadsSection() {
 
 			if (stageFilter === "all") return true;
 
-			const stage = pipeline[thread.publicUserId] ?? inferDefaultStage(thread);
+			const stage = leads[thread.publicUserId]?.stage ?? inferDefaultStage(thread);
 			return stage === stageFilter;
 		});
-	}, [filter, pipeline, stageFilter, threads]);
+	}, [filter, leads, stageFilter, threads]);
+
+	const activeThread = useMemo(
+		() => filteredThreads.find((thread) => thread.publicUserId === activeLeadId) ?? null,
+		[activeLeadId, filteredThreads],
+	);
+
+	const activeLead = useMemo(() => {
+		if (!activeThread) return null;
+		return leads[activeThread.publicUserId] ?? createDefaultLead(activeThread);
+	}, [activeThread, leads]);
+
+	useEffect(() => {
+		if (!activeThread) return;
+		const record = leads[activeThread.publicUserId];
+		setTagsDraft((record?.tags ?? []).join(", "));
+	}, [activeThread?.publicUserId, leads]);
+
+	useEffect(() => {
+		if (!activeLeadId) return;
+		if (!leads[activeLeadId]) return;
+
+		patchLead(activeLeadId, {
+			profileViews: (leads[activeLeadId]?.profileViews ?? 0) + 1,
+		});
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [activeLeadId]);
+
+	const autosaveLabel = lastSavedAt
+		? `Guardado automático ${formatRelativeDate(lastSavedAt)}`
+		: "Guardado automático activo";
+
+	const tagsList = tagsDraft
+		.split(",")
+		.map((tag) => tag.trim())
+		.filter(Boolean)
+		.slice(0, 8);
 
 	return (
-		<section className="surface rounded-4xl bg-white p-0 shadow-sm ring-1 ring-black/5 overflow-hidden">
-			<header className="flex items-center justify-between px-5 py-4 sm:px-6 sm:py-5">
-				<div>
-					<h2 className="text-xl sm:text-2xl font-extrabold text-slate-900">
-						Prospectos
-					</h2>
-					<p className="mt-1 text-xs sm:text-sm text-slate-600">
-						Da seguimiento a familias interesadas y conviértelas en inscripciones.
-					</p>
-				</div>
-				<div className="hidden gap-2 sm:flex">
-					<button
-						type="button"
-						onClick={() => setFilter("today")}
-						className={`rounded-2xl px-3 py-2 text-xs font-bold ${
-							filter === "today"
-								? "bg-slate-100 text-slate-700 hover:bg-slate-200"
-								: "bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50"
-						}`}
-					>
-						Hoy
-					</button>
-					<button
-						type="button"
-						onClick={() => setFilter("week")}
-						className={`rounded-2xl px-3 py-2 text-xs font-bold ${
-							filter === "week"
-								? "bg-slate-100 text-slate-700 hover:bg-slate-200"
-								: "bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50"
-						}`}
-					>
-						Últimos 7 días
-					</button>
-				</div>
-			</header>
-
-			<div className="grid grid-cols-2 gap-2 border-y border-slate-100/70 bg-slate-50/70 px-5 py-3 sm:grid-cols-5 sm:px-6">
-				{(Object.keys(STAGE_META) as LeadStage[]).map((stage) => {
-					const meta = STAGE_META[stage];
-					const active = stageFilter === stage;
-
-					return (
+		<section className="space-y-5 sm:space-y-6">
+			<div className="surface rounded-4xl bg-white p-4 shadow-sm ring-1 ring-black/5 sm:p-6">
+				<div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+					<div>
+						<h2 className="text-xl font-extrabold text-slate-900 sm:text-2xl">Leads escolares</h2>
+						<p className="mt-1 text-sm text-slate-600">
+							Pipeline operativo diario: nuevo contacto, interesado, visita e inscrito.
+						</p>
+					</div>
+					<div className="inline-flex rounded-2xl bg-slate-100 p-1">
 						<button
-							key={stage}
 							type="button"
-							onClick={() => setStageFilter(active ? "all" : stage)}
-							className={`rounded-2xl border px-3 py-2 text-left transition ${
-								active
-									? "border-indigo-300 bg-indigo-50"
-									: "border-slate-200 bg-white hover:bg-slate-50"
+							onClick={() => setFilter("today")}
+							className={`rounded-xl px-3 py-1.5 text-xs font-bold ${
+								filter === "today" ? "bg-white text-slate-700 shadow" : "text-slate-500"
 							}`}
 						>
-							<p className="text-[11px] font-extrabold uppercase tracking-wide text-slate-500">
-								{meta.label}
-							</p>
-							<p className="mt-1 text-base font-extrabold text-slate-900">{stageCounters[stage]}</p>
+							Hoy
 						</button>
-					);
-				})}
+						<button
+							type="button"
+							onClick={() => setFilter("week")}
+							className={`rounded-xl px-3 py-1.5 text-xs font-bold ${
+								filter === "week" ? "bg-white text-slate-700 shadow" : "text-slate-500"
+							}`}
+						>
+							7 días
+						</button>
+					</div>
+				</div>
+
+				<div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+					<div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+						<p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Vistas del perfil</p>
+						<p className="mt-1 text-2xl font-extrabold text-slate-900">{analytics.totalProfileViews}</p>
+					</div>
+					<div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+						<p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Clics en contacto</p>
+						<p className="mt-1 text-2xl font-extrabold text-slate-900">{analytics.totalContactClicks}</p>
+					</div>
+					<div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+						<p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Leads por semana</p>
+						<p className="mt-1 text-2xl font-extrabold text-slate-900">{analytics.leadsPerWeek}</p>
+					</div>
+					<div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+						<p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Tasa de respuesta</p>
+						<p className="mt-1 text-2xl font-extrabold text-slate-900">{analytics.responseRate}%</p>
+					</div>
+				</div>
 			</div>
 
-			<div className="divide-y divide-slate-100/70">
+			<div className="surface overflow-hidden rounded-4xl bg-white shadow-sm ring-1 ring-black/5">
+				<div className="grid grid-cols-2 gap-2 border-b border-slate-100/70 bg-slate-50/70 px-4 py-3 sm:grid-cols-4 sm:px-6">
+					{(Object.keys(STAGE_META) as LeadStage[]).map((stage) => {
+						const meta = STAGE_META[stage];
+						const active = stageFilter === stage;
+
+						return (
+							<button
+								key={stage}
+								type="button"
+								onClick={() => setStageFilter(active ? "all" : stage)}
+								className={`rounded-2xl border px-3 py-2 text-left transition ${
+									active
+										? "border-indigo-300 bg-indigo-50"
+										: "border-slate-200 bg-white hover:bg-slate-50"
+								}`}
+							>
+								<p className="text-[11px] font-extrabold uppercase tracking-wide text-slate-500">{meta.label}</p>
+								<p className="mt-1 text-base font-extrabold text-slate-900">{stageCounters[stage]}</p>
+							</button>
+						);
+					})}
+				</div>
+
+				<div className="grid grid-cols-1 lg:grid-cols-[1fr_360px]">
+					<div className="divide-y divide-slate-100/70">
 				{loading ? (
 					<div className="px-5 py-4 text-sm text-slate-500 sm:px-6 sm:py-5">
 						Cargando prospectos...
@@ -272,16 +424,21 @@ export default function SchoolLeadsSection() {
 				) : null}
 
 				{filteredThreads.map((thread) => {
-					const stage = pipeline[thread.publicUserId] ?? inferDefaultStage(thread);
+					const lead = leads[thread.publicUserId] ?? createDefaultLead(thread);
+					const stage = lead.stage;
 					const status = STAGE_META[stage];
 					const unreadDescription = thread.threadHasUnread
 						? `${thread.unreadCount} mensaje${thread.unreadCount === 1 ? "" : "s"} sin leer`
 						: status.description;
+					const isActive = thread.publicUserId === activeLeadId;
 
 					return (
 						<div
 							key={thread.publicUserId}
-							className="flex items-center justify-between px-5 py-4 sm:px-6 sm:py-5 hover:bg-slate-50"
+							className={`flex cursor-pointer items-center justify-between px-5 py-4 transition sm:px-6 sm:py-5 ${
+								isActive ? "bg-indigo-50/60" : "hover:bg-slate-50"
+							}`}
+							onClick={() => setActiveLeadId(thread.publicUserId)}
 						>
 							<div className="flex items-center gap-3 sm:gap-4">
 								<div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-50 text-sm font-extrabold text-indigo-700">
@@ -311,28 +468,32 @@ export default function SchoolLeadsSection() {
 									<p className="mt-2 max-w-xl text-xs text-slate-600 sm:text-sm">
 										{thread.lastMessage}
 									</p>
+									{lead.tags.length ? (
+										<div className="mt-2 flex flex-wrap gap-1">
+											{lead.tags.slice(0, 3).map((tag) => (
+												<span
+													key={`${thread.publicUserId}-${tag}`}
+													className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600"
+												>
+													#{tag}
+												</span>
+											))}
+										</div>
+									) : null}
 								</div>
 							</div>
 							<div className="flex items-center gap-3">
 								<span className={`inline-flex items-center rounded-full px-3 py-1 text-[10px] sm:text-xs font-bold ${status.classes}`}>
 									{status.label}
 								</span>
-								<select
-									value={stage}
-									onChange={(event) =>
-										setLeadStage(thread.publicUserId, event.target.value as LeadStage)
-									}
-									className="rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs font-semibold text-slate-700"
-								>
-									<option value="nuevo">Nuevo</option>
-									<option value="contactado">Contactado</option>
-									<option value="interesado">Interesado</option>
-									<option value="inscrito">Inscrito</option>
-									<option value="perdido">Perdido</option>
-								</select>
 								<div className="flex items-center gap-1 sm:gap-2">
 									<Link
 										href={`/schools/messages?thread=${thread.publicUserId}`}
+										onClick={() => {
+											patchLead(thread.publicUserId, {
+												contactClicks: (leads[thread.publicUserId]?.contactClicks ?? 0) + 1,
+											});
+										}}
 										className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600 hover:bg-slate-50"
 									>
 										<MessageCircle size={16} />
@@ -349,6 +510,120 @@ export default function SchoolLeadsSection() {
 						No hay prospectos en el periodo seleccionado.
 					</div>
 				) : null}
+					</div>
+
+					<aside className="border-t border-slate-100 bg-slate-50/40 p-4 sm:p-6 lg:border-l lg:border-t-0">
+						{activeThread && activeLead ? (
+							<div className="space-y-4">
+								<div>
+									<p className="text-xs font-bold uppercase tracking-wide text-slate-500">Gestión de lead</p>
+									<h3 className="mt-1 text-lg font-extrabold text-slate-900">{activeThread.publicUserName}</h3>
+									<p className="mt-1 text-xs font-semibold text-emerald-700">{autosaveLabel}</p>
+								</div>
+
+								<div className="grid grid-cols-3 gap-2">
+									{([1, 2, 3] as LeadStep[]).map((step) => (
+										<button
+											key={step}
+											type="button"
+											onClick={() => patchLead(activeThread.publicUserId, { step })}
+											className={`rounded-xl px-2 py-2 text-xs font-bold ${
+												activeLead.step === step
+													? "bg-slate-900 text-white"
+													: "bg-white text-slate-500 ring-1 ring-slate-200"
+											}`}
+										>
+											Paso {step}
+										</button>
+									))}
+								</div>
+
+								{activeLead.step === 1 ? (
+									<div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3">
+										<p className="text-xs font-bold uppercase tracking-wide text-slate-500">Paso 1: Pipeline + etiquetas</p>
+										<select
+											value={activeLead.stage}
+											onChange={(event) =>
+												patchLead(activeThread.publicUserId, {
+													stage: event.target.value as LeadStage,
+												})
+											}
+											className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700"
+										>
+											<option value="nuevo_contacto">Nuevo contacto</option>
+											<option value="interesado">Interesado</option>
+											<option value="visita">Visita</option>
+											<option value="inscrito">Inscrito</option>
+										</select>
+										<input
+											type="text"
+											value={tagsDraft}
+											onChange={(event) => {
+												setTagsDraft(event.target.value);
+												const nextTags = event.target.value
+													.split(",")
+													.map((tag) => tag.trim())
+													.filter(Boolean)
+													.slice(0, 8);
+												patchLead(activeThread.publicUserId, { tags: nextTags });
+											}}
+											placeholder="Etiquetas separadas por coma"
+											className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+										/>
+										<div className="flex flex-wrap gap-1">
+											{tagsList.map((tag) => (
+												<span key={tag} className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+													#{tag}
+												</span>
+											))}
+										</div>
+									</div>
+								) : null}
+
+								{activeLead.step === 2 ? (
+									<div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3">
+										<p className="text-xs font-bold uppercase tracking-wide text-slate-500">Paso 2: Notas internas</p>
+										<textarea
+											value={activeLead.notes}
+											onChange={(event) => patchLead(activeThread.publicUserId, { notes: event.target.value })}
+											placeholder="Escribe contexto de seguimiento, objeciones, acuerdos y próximos pasos."
+											rows={7}
+											className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+										/>
+									</div>
+								) : null}
+
+								{activeLead.step === 3 ? (
+									<div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3">
+										<p className="text-xs font-bold uppercase tracking-wide text-slate-500">Paso 3: Recordatorio</p>
+										<label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+											<CalendarClock size={14} />
+											<input
+												type="datetime-local"
+												value={activeLead.reminderAt}
+												onChange={(event) =>
+													patchLead(activeThread.publicUserId, {
+														reminderAt: event.target.value,
+													})
+												}
+												className="w-full bg-transparent outline-none"
+											/>
+										</label>
+										{activeLead.reminderAt ? (
+											<p className="text-xs font-semibold text-slate-500">
+												Recordatorio programado para {new Date(activeLead.reminderAt).toLocaleString("es-MX")}
+											</p>
+										) : (
+											<p className="text-xs font-semibold text-slate-500">Sin recordatorio activo.</p>
+										)}
+									</div>
+								) : null}
+							</div>
+						) : (
+							<p className="text-sm text-slate-500">Selecciona un lead para ver sus pasos y borrador.</p>
+						)}
+					</aside>
+				</div>
 			</div>
 		</section>
 	);

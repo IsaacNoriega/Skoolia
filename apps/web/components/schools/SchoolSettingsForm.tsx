@@ -3,6 +3,53 @@
 import { useEffect, useMemo, useState } from "react";
 import { schoolsService, type School } from "../../lib/services/services/schools.service";
 import { MEXICO_STATES, resolveMexicanState } from "@/lib/mexico-states";
+import { filesService } from "@/lib/services/services/files.service";
+
+const EDUCATIONAL_LEVEL_OPTIONS = [
+  "Kinder",
+  "Primaria",
+  "Secundaria",
+  "Preparatoria",
+  "Universidad",
+] as const;
+
+const INSTITUTION_TYPE_OPTIONS = ["Privada", "Pública"] as const;
+
+const LANGUAGE_OPTIONS = [
+  "Español",
+  "Inglés",
+  "Español, Inglés",
+  "Español, Francés",
+  "Español, Inglés, Francés",
+] as const;
+
+const SCHEDULE_OPTIONS = [
+  "07:00 - 14:00",
+  "07:30 - 14:30",
+  "08:00 - 15:00",
+  "08:30 - 15:30",
+  "09:00 - 16:00",
+] as const;
+
+function normalizeOptionalImageUrl(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+
+  if (
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://") ||
+    trimmed.startsWith("/") ||
+    trimmed.startsWith("blob:")
+  ) {
+    return trimmed;
+  }
+
+  try {
+    return new URL(`https://${trimmed}`).toString();
+  } catch {
+    return undefined;
+  }
+}
 
 type FormState = {
   name: string;
@@ -104,27 +151,86 @@ export default function SchoolSettingsForm() {
     setError(null);
     setSuccess(null);
     try {
+      const latitude = form.latitude ? Number(form.latitude) : undefined;
+      const longitude = form.longitude ? Number(form.longitude) : undefined;
+      const maxStudentsPerClass = form.maxStudentsPerClass ? Number(form.maxStudentsPerClass) : undefined;
+      const enrollmentYear = form.enrollmentYear ? Number(form.enrollmentYear) : undefined;
+      const monthlyPrice = form.monthlyPrice ? Number(form.monthlyPrice) : undefined;
+      const logoUrl = normalizeOptionalImageUrl(form.logoUrl);
+      const coverImageUrl = normalizeOptionalImageUrl(form.coverImageUrl);
+
+      if (form.logoUrl.trim() && !logoUrl) {
+        setError("La URL del logo no es válida.");
+        return;
+      }
+
+      if (form.coverImageUrl.trim() && !coverImageUrl) {
+        setError("La URL de portada no es válida.");
+        return;
+      }
+
+      if (latitude != null && (!Number.isFinite(latitude) || latitude < -90 || latitude > 90)) {
+        setError("La latitud debe ser un número entre -90 y 90.");
+        return;
+      }
+
+      if (longitude != null && (!Number.isFinite(longitude) || longitude < -180 || longitude > 180)) {
+        setError("La longitud debe ser un número entre -180 y 180.");
+        return;
+      }
+
+      if (maxStudentsPerClass != null && (!Number.isInteger(maxStudentsPerClass) || maxStudentsPerClass < 1)) {
+        setError("La cantidad de alumnos por clase debe ser un entero mayor o igual a 1.");
+        return;
+      }
+
+      if (enrollmentYear != null && (!Number.isInteger(enrollmentYear) || enrollmentYear < 1900 || enrollmentYear > 2100)) {
+        setError("El año de inscripción debe ser un entero entre 1900 y 2100.");
+        return;
+      }
+
+      if (monthlyPrice != null && (!Number.isFinite(monthlyPrice) || monthlyPrice < 0)) {
+        setError("El precio mensual debe ser un número mayor o igual a 0.");
+        return;
+      }
+
       const payload = {
         name: form.name || undefined,
         description: form.description || undefined,
         address: form.address || undefined,
         city: resolveMexicanState(form.city) || undefined,
-        latitude: form.latitude ? parseFloat(form.latitude) : undefined,
-        longitude: form.longitude ? parseFloat(form.longitude) : undefined,
+        latitude,
+        longitude,
         educationalLevel: form.educationalLevel || undefined,
         institutionType: form.institutionType || undefined,
         schedule: form.schedule || undefined,
         languages: form.languages || undefined,
-        maxStudentsPerClass: form.maxStudentsPerClass ? parseInt(form.maxStudentsPerClass, 10) : undefined,
-        enrollmentYear: form.enrollmentYear ? parseInt(form.enrollmentYear, 10) : undefined,
+        maxStudentsPerClass,
+        enrollmentYear,
         enrollmentOpen: form.enrollmentOpen,
-        monthlyPrice: form.monthlyPrice ? parseFloat(form.monthlyPrice) : undefined,
-        logoUrl: form.logoUrl || undefined,
-        coverImageUrl: form.coverImageUrl || undefined,
+        monthlyPrice,
       };
 
       const updated = await schoolsService.update(payload);
-      setSchool(updated);
+
+      let latest = updated;
+
+      if (logoFile) {
+        const uploadedLogo = await filesService.upload(logoFile);
+        latest = await schoolsService.updateImage("logoUrl", uploadedLogo.id);
+      }
+
+      if (coverFile) {
+        const uploadedCover = await filesService.upload(coverFile);
+        latest = await schoolsService.updateImage("coverImageUrl", uploadedCover.id);
+      }
+
+      setSchool(latest);
+      setForm((prev) => ({
+        ...prev,
+        logoUrl: latest.logoUrl ?? "",
+        coverImageUrl: latest.coverImageUrl ?? "",
+      }));
       setSuccess("Configuración guardada");
 
       // Clear local file selections after save (preview only)
@@ -277,6 +383,10 @@ export default function SchoolSettingsForm() {
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Latitud</label>
           <input
             className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+            type="number"
+            min={-90}
+            max={90}
+            step="0.000001"
             value={form.latitude}
             onChange={(e) => set("latitude", e.target.value)}
             placeholder="e.g., 20.6736"
@@ -286,6 +396,10 @@ export default function SchoolSettingsForm() {
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Longitud</label>
           <input
             className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+            type="number"
+            min={-180}
+            max={180}
+            step="0.000001"
             value={form.longitude}
             onChange={(e) => set("longitude", e.target.value)}
             placeholder="e.g., -103.344"
@@ -297,44 +411,63 @@ export default function SchoolSettingsForm() {
       <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Nivel educativo</label>
-          <input
+          <select
             className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
             value={form.educationalLevel}
             onChange={(e) => set("educationalLevel", e.target.value)}
-            placeholder="e.g., Primaria, Secundaria"
-          />
+          >
+            <option value="">Selecciona...</option>
+            {EDUCATIONAL_LEVEL_OPTIONS.map((option) => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Tipo de institución</label>
-          <input
+          <select
             className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
             value={form.institutionType}
             onChange={(e) => set("institutionType", e.target.value)}
-            placeholder="e.g., Privada, Pública"
-          />
+          >
+            <option value="">Selecciona...</option>
+            {INSTITUTION_TYPE_OPTIONS.map((option) => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Horario</label>
-          <input
+          <select
             className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
             value={form.schedule}
             onChange={(e) => set("schedule", e.target.value)}
-            placeholder="e.g., 8:00 - 14:00"
-          />
+          >
+            <option value="">Selecciona...</option>
+            {SCHEDULE_OPTIONS.map((option) => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Idiomas</label>
-          <input
+          <select
             className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
             value={form.languages}
             onChange={(e) => set("languages", e.target.value)}
-            placeholder="e.g., Español, Inglés"
-          />
+          >
+            <option value="">Selecciona...</option>
+            {LANGUAGE_OPTIONS.map((option) => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Máx. alumnos por clase</label>
           <input
             className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+            type="number"
+            min={1}
+            step={1}
             value={form.maxStudentsPerClass}
             onChange={(e) => set("maxStudentsPerClass", e.target.value)}
             placeholder="e.g., 30"
@@ -344,6 +477,10 @@ export default function SchoolSettingsForm() {
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Año de inscripción</label>
           <input
             className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+            type="number"
+            min={1900}
+            max={2100}
+            step={1}
             value={form.enrollmentYear}
             onChange={(e) => set("enrollmentYear", e.target.value)}
             placeholder="e.g., 2026"
@@ -366,6 +503,9 @@ export default function SchoolSettingsForm() {
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Precio mensual</label>
           <input
             className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+            type="number"
+            min={0}
+            step={1}
             value={form.monthlyPrice}
             onChange={(e) => set("monthlyPrice", e.target.value)}
             placeholder="e.g., 2500"
