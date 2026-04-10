@@ -5,6 +5,7 @@ import FavoritesEmptyState from "./FavoritesEmptyState";
 import FavoriteDetailModal from "./FavoriteDetailModal";
 import { favoritesService } from "@/lib/services/services/favorites.service";
 import { schoolsService } from "@/lib/services/services/schools.service";
+import { resolveSchoolCardImage } from "@/lib/utils";
 
 type FavoriteItem = {
   id: string;
@@ -62,7 +63,7 @@ export default function FavoritesGrid() {
         if (!mounted) return;
         const mapped: FavoriteItem[] = data.map((s) => ({
           id: s.id,
-          imageUrl: s.coverImageUrl,
+          imageUrl: resolveSchoolCardImage(s.id, s.coverImageUrl),
           title: s.name,
           location: s.city ?? "",
           price: s.monthlyPrice ?? "N/A",
@@ -97,7 +98,7 @@ export default function FavoritesGrid() {
                 enrollmentOpen: full.enrollmentOpen ?? prev.enrollmentOpen,
                 enrollmentYear: full.enrollmentYear ?? prev.enrollmentYear,
                 monthlyPrice: full.monthlyPrice ?? prev.monthlyPrice,
-                imageUrl: full.coverImageUrl || full.logoUrl || prev.imageUrl,
+                imageUrl: resolveSchoolCardImage(item.id, full.coverImageUrl, full.logoUrl, prev.imageUrl),
                 location: full.city || full.address || prev.location,
               }
             : prev
@@ -153,7 +154,7 @@ export default function FavoritesGrid() {
               id,
               data: {
                 id,
-                imageUrl: full.coverImageUrl || full.logoUrl,
+                imageUrl: resolveSchoolCardImage(id, full.coverImageUrl, full.logoUrl),
                 title: full.name,
                 location: full.city || full.address || "",
                 price: full.monthlyPrice ?? "N/A",

@@ -67,8 +67,6 @@ export const schoolsService = {
   async update(data: {
     name?: string;
     description?: string;
-    logoUrl?: string;
-    coverImageUrl?: string;
     address?: string;
     city?: string;
     latitude?: number;
@@ -86,6 +84,13 @@ export const schoolsService = {
     return api<School>("/schools", {
       method: "PATCH",
       body: data,
+    });
+  },
+
+  async updateImage(field: "logoUrl" | "coverImageUrl", fileId: string) {
+    return api<School>(`/schools/me/image/${field}`, {
+      method: "PATCH",
+      body: { fileId },
     });
   },
 };

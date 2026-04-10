@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { messagesService } from '@/lib/services/services/messages.service';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { sanitizeImageSrc } from '@/lib/utils';
 
 type Item = {
   id?: string;
@@ -65,7 +66,9 @@ export default function FavoriteDetailModal({
 
   const modalImages = Array.from(
     new Set(
-      [item.imageUrl, ...generatedCovers].filter(
+      [item.imageUrl, ...generatedCovers]
+        .map((url) => sanitizeImageSrc(url))
+        .filter(
         (url): url is string => Boolean(url),
       ),
     ),

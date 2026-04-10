@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Heart, ImageIcon, MapPin, ArrowRight } from "lucide-react";
 import React from "react";
+import { sanitizeImageSrc } from "@/lib/utils";
 
 type CatalogCardProps = {
 	imageSrc?: string;
@@ -39,6 +40,7 @@ export default function CatalogCard({
 	priceFormatted,
 	className = "",
 }: CatalogCardProps) {
+    const safeImageSrc = sanitizeImageSrc(imageSrc);
 
 	return (
 		<article
@@ -47,9 +49,9 @@ export default function CatalogCard({
 		>
 			{/* Media */}
 			<div className="relative h-48 sm:h-56 md:h-64 w-full">
-				{imageSrc ? (
+				{safeImageSrc ? (
 					<Image
-						src={imageSrc}
+						src={safeImageSrc}
 						alt={imageAlt}
 						fill
 						sizes="(min-width: 1024px) 33vw, 100vw"

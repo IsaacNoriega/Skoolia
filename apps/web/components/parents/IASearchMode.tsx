@@ -50,6 +50,7 @@ import { useRouter } from "next/navigation";
 import { messagesService } from "@/lib/services/services/messages.service";
 import { useToast } from "@/components/ui/toast";
 import Image from "next/image";
+import { resolveSchoolCardImage, sanitizeImageSrc } from "@/lib/utils";
 
 // ─────────────────────────────────────────────────────────────────────────
 // SECTION 1: TYPE DEFINITIONS
@@ -218,7 +219,7 @@ export function AISearchMode({ onClose }: AISearchModeProps) {
         enrollmentYear: full.enrollmentYear ?? undefined,
         address: full.address ?? undefined,
         logoUrl: full.logoUrl?.toString() ?? undefined,
-        coverImageUrl: full.coverImageUrl?.toString() ?? school.coverImageUrl,
+        coverImageUrl: resolveSchoolCardImage(school.id, full.coverImageUrl?.toString(), full.logoUrl?.toString(), school.coverImageUrl),
         averageRating: full.averageRating ?? school.averageRating,
       });
     } catch (e) {
@@ -307,7 +308,7 @@ export function AISearchMode({ onClose }: AISearchModeProps) {
         return new URL(`/${trimmed}`, "https://www.google.com").toString();
       }
 
-      return new URL(trimmed, "https://").toString();
+      return new URL(`https://${trimmed.replace(/^\/+/, "")}`).toString();
     } catch {
       return undefined;
     }
@@ -335,8 +336,8 @@ export function AISearchMode({ onClose }: AISearchModeProps) {
     ? Array.from(
         new Set(
           [
-            selectedSchool.coverImageUrl,
-            selectedSchool.logoUrl,
+            sanitizeImageSrc(selectedSchool.coverImageUrl),
+            sanitizeImageSrc(selectedSchool.logoUrl),
             // Fallback gallery images to always allow carousel navigation
             `https://picsum.photos/seed/${selectedSchool.id}-gallery-1/1200/800`,
             `https://picsum.photos/seed/${selectedSchool.id}-gallery-2/1200/800`,
@@ -530,7 +531,7 @@ export function AISearchMode({ onClose }: AISearchModeProps) {
               {recommendedSchools.map((school) => (
                 <div key={school.id} className="min-w-[280px] sm:min-w-[340px] snap-start">
                   <CatalogCard
-                    imageSrc={school.coverImageUrl ?? undefined}
+                    imageSrc={resolveSchoolCardImage(school.id, school.coverImageUrl)}
                     imageAlt={school.name ?? "Escuela"}
                     typeLabel="ESCUELA"
                     title={school.name ?? "Sin nombre"}
