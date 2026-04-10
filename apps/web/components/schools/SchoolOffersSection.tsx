@@ -1,3 +1,35 @@
+/**
+ * =============================================================================
+ * 📍 COMPONENT: SCHOOL OFFERS/COUPONS MANAGEMENT
+ * =============================================================================
+ * File: SchoolOffersSection.tsx
+ * Type: Client Component
+ * 
+ * Purpose:
+ *   Manage school coupons and promotional offers
+ *   Only available to authenticated school admins
+ * 
+ * Features:
+ *   ✓ View active, new, and expired coupons
+ *   ✓ Display coupon metrics (usage, discount estimate)
+ *   ✓ Create new coupons with code and expiration
+ *   ✓ Edit/delete existing coupons
+ *   ✓ LocalStorage persistence per user
+ *   ✓ Seed data with 3 example coupons
+ * 
+ * Coupon Status:
+ *   - NUEVO: Recently created (highlight green)
+ *   - ACTIVO: Currently valid (highlight indigo)
+ *   - EXPIRADO: Expired (grayed out)
+ * 
+ * Auth:
+ *   ✓ Uses useAuth() for user identification
+ *   ✓ Stores coupons keyed by userId in localStorage
+ * 
+ * Note: This component is used by school admins to manage offers
+ * =============================================================================
+ */
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -5,6 +37,10 @@ import { Edit2, Percent, TicketPercent, Trash2, TrendingUp } from "lucide-react"
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/toast";
+
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 1: TYPE DEFINITIONS
+// ─────────────────────────────────────────────────────────────────────────
 
 type CouponStatus = "NUEVO" | "ACTIVO" | "EXPIRADO";
 
@@ -17,6 +53,10 @@ type Coupon = {
 	usageUsed: number;
 	usageLimit: number;
 };
+
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 2: LOCALSTORAGE PERSISTENCE (Coupons keyed by userId)
+// ─────────────────────────────────────────────────────────────────────────
 
 const OFFERS_STORAGE_PREFIX = "skoolia:offers";
 
@@ -40,6 +80,10 @@ function writeCoupons(coupons: Coupon[], userId?: string) {
 	if (typeof window === "undefined") return;
 	localStorage.setItem(getStorageKey(userId), JSON.stringify(coupons));
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 3: SEED DATA & UTILITIES
+// ─────────────────────────────────────────────────────────────────────────
 
 function getSeedCoupons(): Coupon[] {
 	return [
@@ -84,6 +128,10 @@ function statusClasses(status: CouponStatus) {
 			return "bg-slate-100 text-slate-600";
 	}
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 4: MAIN COMPONENT - OFFERS MANAGEMENT
+// ─────────────────────────────────────────────────────────────────────────
 
 export default function SchoolOffersSection() {
 	const { user } = useAuth();
@@ -187,7 +235,7 @@ export default function SchoolOffersSection() {
 	};
 
 	const toggleStatus = (id: number) => {
-		const next = coupons.map((coupon) => {
+		const next: Coupon[] = coupons.map((coupon): Coupon => {
 			if (coupon.id !== id) return coupon;
 
 			if (coupon.status === "EXPIRADO") return coupon;
