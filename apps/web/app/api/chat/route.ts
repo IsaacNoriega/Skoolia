@@ -340,6 +340,62 @@ function extractUrlsFromText(text: string): ChatSource[] {
 	return unique.map((uri) => ({ title: uri, uri }));
 }
 
+function normalizeText(value: string): string {
+	return value
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.toLowerCase()
+		.trim();
+}
+
+function normalizeCityToken(value: string): string {
+	const normalized = normalizeText(value);
+
+	if (
+		normalized === "cdmx" ||
+		normalized === "ciudad de mexico" ||
+		normalized === "mexico df" ||
+		normalized === "df"
+	) {
+		return "ciudad de mexico";
+	}
+
+	return normalized;
+}
+
+function extractRequestedCity<T extends { city: string | null }>(
+	userMessage: string,
+	schoolsData: T[],
+): string | null {
+	const query = normalizeText(userMessage);
+
+	if (/\b(cdmx|ciudad de mexico|mexico df|df)\b/.test(query)) {
+		return "ciudad de mexico";
+	}
+
+	const knownCities = Array.from(
+		new Set(
+			schoolsData
+				.map((school) => school.city)
+				.filter((city): city is string => Boolean(city?.trim()))
+				.map((city) => normalizeCityToken(city)),
+		),
+	).sort((a, b) => b.length - a.length);
+
+	for (const city of knownCities) {
+		if (query.includes(city)) {
+			return city;
+		}
+	}
+
+	return null;
+}
+
+function cityMatches(city: string | null, requestedCity: string): boolean {
+	if (!city) return false;
+	return normalizeCityToken(city) === requestedCity;
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // SECTION 10: DATABASE FALLBACK - QUOTA ERROR HANDLING (429)
 // ─────────────────────────────────────────────────────────────────────────
@@ -353,21 +409,28 @@ function pickSchoolsByQuery<T extends {
 	city: string | null;
 	educationalLevel: string | null;
 }>(userMessage: string, schoolsData: T[]): T[] {
-	const query = userMessage.toLowerCase();
-	const filtered = schoolsData.filter((school) => {
-		const city = (school.city ?? "").toLowerCase();
-		const level = (school.educationalLevel ?? "").toLowerCase();
-		const name = (school.name ?? "").toLowerCase();
-		const address = (school.address ?? "").toLowerCase();
+	const query = normalizeText(userMessage);
+	const requestedCity = extractRequestedCity(userMessage, schoolsData);
+
+	const cityScopedData = requestedCity
+		? schoolsData.filter((school) => cityMatches(school.city, requestedCity))
+		: schoolsData;
+
+	const filtered = cityScopedData.filter((school) => {
+		const city = normalizeCityToken(school.city ?? "");
+		const level = normalizeText(school.educationalLevel ?? "");
+		const name = normalizeText(school.name ?? "");
+		const address = normalizeText(school.address ?? "");
 		return (
 			query.includes(city) ||
 			query.includes(level) ||
 			name.includes(query) ||
+			query.includes(name) ||
 			address.includes(query)
 		);
 	});
 
-	return (filtered.length ? filtered : schoolsData).slice(0, 10);
+	return (filtered.length ? filtered : cityScopedData).slice(0, 10);
 }
 
 // Builds fallback reply using database when Gemini API quota exceeded
@@ -593,6 +656,26 @@ export async function POST(request: Request) {
 			})
 			.filter((s) => s !== null);
 
+		const requestedCity = extractRequestedCity(userMessage, allSchools);
+
+		const cityFilteredRecommended = requestedCity
+			? recommendedSchools.filter((school) => cityMatches(school.city, requestedCity))
+			: recommendedSchools;
+
+		const finalRecommendedSchools = cityFilteredRecommended.length
+			? cityFilteredRecommended
+			: (recommendedSchools.length
+				? recommendedSchools
+				: pickSchoolsByQuery(userMessage, allSchools).map((school) => ({
+					id: school.id,
+					name: school.name,
+					coverImageUrl: school.coverImageUrl?.toString() ?? null,
+					city: school.city,
+					monthlyPrice: school.monthlyPrice,
+					averageRating: school.averageRating,
+				}))
+			);
+
 		const normalizedSources = sources.length ? sources : extractUrlsFromText(cleanReply);
 
 		return NextResponse.json({
@@ -600,7 +683,7 @@ export async function POST(request: Request) {
 			schoolsCount: allSchools.length,
 			modelUsed,
 			sources: normalizedSources,
-			recommendedSchools,
+			recommendedSchools: finalRecommendedSchools,
 			webSchools,
 		});
 	} catch (error) {
