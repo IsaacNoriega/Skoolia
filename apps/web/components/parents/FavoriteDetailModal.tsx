@@ -1,7 +1,8 @@
 'use client';
 import Image from 'next/image';
-import { X, MapPin, Star } from 'lucide-react';
-import { JSX, useState } from 'react';
+import { X, MapPin, Star, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
+import { JSX, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { messagesService } from '@/lib/services/services/messages.service';
@@ -42,8 +43,49 @@ export default function FavoriteDetailModal({
   const { user } = useAuth();
   const { showToast } = useToast();
   const [sending, setSending] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  useEffect(() => {
+    setCurrentImageIndex(0);
+  }, [item?.id, open]);
 
   if (!open || !item) return null;
+
+  const generatedCovers = item.id
+    ? [
+        `https://picsum.photos/seed/${item.id}-modal-1/1200/800`,
+        `https://picsum.photos/seed/${item.id}-modal-2/1200/800`,
+        `https://picsum.photos/seed/${item.id}-modal-3/1200/800`,
+      ]
+    : [
+        `https://picsum.photos/seed/${encodeURIComponent(item.title)}-modal-1/1200/800`,
+        `https://picsum.photos/seed/${encodeURIComponent(item.title)}-modal-2/1200/800`,
+        `https://picsum.photos/seed/${encodeURIComponent(item.title)}-modal-3/1200/800`,
+      ];
+
+  const modalImages = Array.from(
+    new Set(
+      [item.imageUrl, ...generatedCovers].filter(
+        (url): url is string => Boolean(url),
+      ),
+    ),
+  );
+
+  const hasMultipleImages = modalImages.length > 1;
+
+  const goToPrevImage = () => {
+    if (!hasMultipleImages) return;
+    setCurrentImageIndex((prev) =>
+      prev === 0 ? modalImages.length - 1 : prev - 1,
+    );
+  };
+
+  const goToNextImage = () => {
+    if (!hasMultipleImages) return;
+    setCurrentImageIndex((prev) =>
+      prev === modalImages.length - 1 ? 0 : prev + 1,
+    );
+  };
 
   const numericPrice = typeof item.price === 'number' ? item.price : (typeof item.monthlyPrice === 'number' ? item.monthlyPrice : undefined);
   const priceValue = numericPrice != null
@@ -82,9 +124,9 @@ export default function FavoriteDetailModal({
         <div className="grid grid-cols-1 md:grid-cols-[1fr_520px]">
           {/* Left media */}
           <div className="relative h-65 sm:h-80 md:h-[72vh] w-full bg-slate-100">
-            {item.imageUrl ? (
+            {modalImages.length > 0 ? (
               <Image
-                src={item.imageUrl}
+                src={modalImages[currentImageIndex]}
                 alt={item.title}
                 fill
                 sizes="(min-width: 768px) 50vw, 100vw"
@@ -94,6 +136,43 @@ export default function FavoriteDetailModal({
             ) : (
               <div className="flex h-full items-center justify-center text-slate-400">Imagen</div>
             )}
+
+            {hasMultipleImages ? (
+              <>
+                <button
+                  type="button"
+                  onClick={goToPrevImage}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 grid h-10 w-10 place-items-center rounded-full bg-white/85 text-slate-700 shadow hover:bg-white"
+                  aria-label="Portada anterior"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={goToNextImage}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 grid h-10 w-10 place-items-center rounded-full bg-white/85 text-slate-700 shadow hover:bg-white"
+                  aria-label="Siguiente portada"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 rounded-full bg-slate-900/45 px-3 py-1.5">
+                  {modalImages.map((_, index) => (
+                    <button
+                      key={`favorite-modal-dot-${index}`}
+                      type="button"
+                      onClick={() => setCurrentImageIndex(index)}
+                      aria-label={`Ir a portada ${index + 1}`}
+                      className={`h-2.5 w-2.5 rounded-full transition ${
+                        currentImageIndex === index
+                          ? 'bg-white'
+                          : 'bg-white/50 hover:bg-white/80'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </>
+            ) : null}
           </div>
 
           {/* Right content */}
@@ -147,7 +226,7 @@ export default function FavoriteDetailModal({
                   {sending ? 'Enviando...' : 'Contactar'}
                 </button>
                 <button
-                  className="flex-1 sm:flex-initial w-full sm:w-auto rounded-full border border-slate-300 bg-white px-6 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="group flex-1 sm:flex-initial w-full sm:w-auto rounded-full border border-slate-200 bg-gradient-to-b from-white to-slate-50 px-6 py-2 text-sm font-bold text-slate-700 shadow-sm transition-all hover:-translate-y-[1px] hover:border-slate-300 hover:from-slate-50 hover:to-slate-100 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 disabled:opacity-60 disabled:cursor-not-allowed"
                   onClick={() => {
                     if (!item.id) return;
                     onClose();
@@ -155,7 +234,10 @@ export default function FavoriteDetailModal({
                   }}
                   disabled={!item.id}
                 >
-                  Ver más
+                  <span className="inline-flex items-center gap-1.5">
+                    Ver más
+                    <ArrowUpRight className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                  </span>
                 </button>
               </div>
             </div>

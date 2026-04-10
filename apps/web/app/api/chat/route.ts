@@ -1,17 +1,59 @@
+/**
+ * =============================================================================
+ * 📍 BACKEND: AI-POWERED SCHOOL SEARCH API
+ * =============================================================================
+ * Role: Handles AI chat endpoint for school recommendations
+ * Features: 
+ *   - Gemini API integration with fallback models
+ *   - Database queries for school recommendations
+ *   - URL normalization for external links
+ *   - 429 quota error handling with database fallback
+ * =============================================================================
+ */
+
 import { drizzle } from "drizzle-orm/postgres-js";
-import { integer, pgTable, text } from "drizzle-orm/pg-core";
+import { integer, pgTable, text, uuid, doublePrecision, boolean, timestamp } from "drizzle-orm/pg-core";
 import { NextResponse } from "next/server";
 import postgres from "postgres";
 
 export const runtime = "nodejs";
 
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 1: DATABASE SCHEMA
+// ─────────────────────────────────────────────────────────────────────────
+
 const schools = pgTable("schools", {
-	name: text("name"),
-	monthlyPrice: integer("monthly_price"),
+	id: uuid("id").primaryKey(),
+	name: text("name").notNull(),
+	description: text("description"),
+	logoUrl: uuid("logo_url"),
+	coverImageUrl: uuid("cover_image_url"),
 	address: text("address"),
 	city: text("city"),
+	latitude: doublePrecision("latitude"),
+	longitude: doublePrecision("longitude"),
 	educationalLevel: text("educational_level"),
+	institutionType: text("institution_type"),
+	schedule: text("schedule"),
+	maxStudentsPerClass: integer("max_students_per_class"),
+	languages: text("languages"),
+	enrollmentYear: integer("enrollment_year"),
+	enrollmentOpen: boolean("enrollment_open"),
+	monthlyPrice: integer("monthly_price"),
+	averageRating: doublePrecision("average_rating"),
+	ratingsCount: integer("ratings_count"),
+	favoritesCount: integer("favorites_count"),
+	rankingScore: doublePrecision("ranking_score"),
+	isFeatured: boolean("is_featured"),
+	isVerified: boolean("is_verified"),
+	ownerId: uuid("owner_id"),
+	createdAt: timestamp("created_at"),
+	updatedAt: timestamp("updated_at"),
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 2: TYPE DEFINITIONS
+// ─────────────────────────────────────────────────────────────────────────
 
 type ChatBody = {
 	message?: string;
@@ -22,12 +64,180 @@ type ChatSource = {
 	uri: string;
 };
 
+type SchoolForCard = {
+	id: string;
+	name: string | null;
+	coverImageUrl: string | null;
+	city: string | null;
+	monthlyPrice: number | null;
+	averageRating: number | null;
+};
+
+type WebSchool = {
+	source: "web";
+	name: string;
+	description?: string;
+	city?: string;
+	url?: string;
+	price?: string;
+	level?: string;
+};
+
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 3: CONSTANTS & CONFIGURATION
+// ─────────────────────────────────────────────────────────────────────────
+
 const FALLBACK_MODELS = [
 	"gemini-2.5-flash",
 	"gemini-flash-latest",
 	"gemini-2.0-flash-001",
 	"gemini-2.0-flash-lite-001",
 ];
+
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 4: UTILITY FUNCTIONS - URL NORMALIZATION
+// ─────────────────────────────────────────────────────────────────────────
+// Purpose: Fix malformed URLs from Gemini grounding API
+// Handles: http/https URLs, relative paths, grounding-api-redirect paths
+
+function normalizeExternalUrl(rawUrl?: string): string | undefined {
+	if (!rawUrl) return undefined;
+	const trimmed = rawUrl.trim();
+	if (!trimmed) return undefined;
+
+	try {
+		if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+			return new URL(trimmed).toString();
+		}
+
+		if (trimmed.startsWith("/")) {
+			return new URL(trimmed, "https://www.google.com").toString();
+		}
+
+		if (trimmed.startsWith("grounding-api-redirect/")) {
+			return new URL(`/${trimmed}`, "https://www.google.com").toString();
+		}
+
+		return new URL(trimmed, "https://").toString();
+	} catch {
+		return undefined;
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 5: UTILITY FUNCTIONS - STRING SIMILARITY
+// ─────────────────────────────────────────────────────────────────────────
+// Purpose: Find schools by name similarity using Levenshtein distance
+
+// Similarity match para encontrar escuelas por nombre
+function levenshteinDistance(a: string, b: string): number {
+	const aLower = a.toLowerCase();
+	const bLower = b.toLowerCase();
+	const matrix: number[][] = [];
+
+	for (let i = 0; i <= bLower.length; i++) {
+		matrix[i] = [i];
+	}
+	for (let j = 0; j <= aLower.length; j++) {
+		matrix[0][j] = j;
+	}
+
+	for (let i = 1; i <= bLower.length; i++) {
+		for (let j = 1; j <= aLower.length; j++) {
+			if (bLower.charAt(i - 1) === aLower.charAt(j - 1)) {
+				matrix[i][j] = matrix[i - 1][j - 1];
+			} else {
+				matrix[i][j] = Math.min(
+					matrix[i - 1][j - 1] + 1,
+					matrix[i][j - 1] + 1,
+					matrix[i - 1][j] + 1,
+				);
+			}
+		}
+	}
+
+	return matrix[bLower.length][aLower.length];
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 6: UTILITY FUNCTIONS - WEB SCHOOLS EXTRACTION
+// ─────────────────────────────────────────────────────────────────────────
+// Purpose: Parse [WEB_SCHOOLS_JSON] blocks from Gemini responses
+
+function extractWebSchools(reply: string): WebSchool[] {
+	try {
+		const match = reply.match(/\[WEB_SCHOOLS_JSON\]([\s\S]*?)\[\/WEB_SCHOOLS_JSON\]/);
+		if (!match) return [];
+
+		const jsonStr = match[1];
+		const parsed = JSON.parse(jsonStr) as {
+			schools?: Array<{
+				name: string;
+				city?: string;
+				description?: string;
+				level?: string;
+				url?: string;
+			}>;
+		};
+
+		if (!parsed.schools || !Array.isArray(parsed.schools)) return [];
+
+		return parsed.schools.map((s) => ({
+			source: "web" as const,
+			name: s.name,
+			city: s.city,
+			description: s.description,
+			level: s.level,
+			url: normalizeExternalUrl(s.url),
+		}));
+	} catch {
+		return [];
+	}
+}
+
+function stripWebSchoolsJson(reply: string): string {
+	return reply.replace(/\s*\[WEB_SCHOOLS_JSON\][\s\S]*?\[\/WEB_SCHOOLS_JSON\]\s*/g, "").trim();
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 7: SCHOOL MATCHING FUNCTIONS
+// ─────────────────────────────────────────────────────────────────────────
+// Purpose: Find schools mentioned in AI response and pick relevant ones
+
+function findMentionedSchools(
+	reply: string,
+	schoolsList: Array<{ id: string; name: string | null }>,
+): string[] {
+	const mentioned = new Set<string>();
+	const replyLower = reply.toLowerCase();
+
+	for (const school of schoolsList) {
+		if (!school.name) continue;
+
+		// Búsqueda exacta o muy similar
+		if (replyLower.includes(school.name.toLowerCase())) {
+			mentioned.add(school.id);
+			continue;
+		}
+
+		// Búsqueda por similitud (Levenshtein)
+		const parts = school.name.split(/\s+/);
+		for (const part of parts) {
+			if (part.length < 3) continue;
+			if (replyLower.includes(part.toLowerCase())) {
+				mentioned.add(school.id);
+				break;
+			}
+		}
+	}
+
+	return Array.from(mentioned);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 8: AI SYSTEM INSTRUCTION BUILDER
+// ─────────────────────────────────────────────────────────────────────────
+// Purpose: Build system prompt for Gemini with school database context
 
 function buildSystemInstruction(
 	schoolsData: Array<{
@@ -44,11 +254,29 @@ function buildSystemInstruction(
 		"No inventes datos. Si algo no aparece en la base de datos o no se puede verificar en la web, dilo explicitamente.",
 		"Si la pregunta es sobre escuelas, usa la base de datos de Skoolia como fuente principal y la web como apoyo para validar o complementar.",
 		"Responde en espanol de forma clara y breve.",
+		"Cuando menciones escuelas de la base de datos, incluye siempre el nombre completo exacto.",
+		"",
+		"AL FINAL DE TU RESPUESTA, si encontraste escuelas/cursos en internet, añade un bloque JSON en este formato:",
+		"[WEB_SCHOOLS_JSON]",
+		"{",
+		'  "schools": [',
+		'    { "name": "Nombre Escuela", "city": "Ciudad", "description": "Breve desc", "level": "Primaria/Secundaria/etc", "url": "https://..."  },',
+		'    { ... }',
+		"  ]",
+		"}",
+		"[/WEB_SCHOOLS_JSON]",
+		"",
+		"NO incluyas este JSON si no hay escuelas en internet encontradas.",
 		"",
 		"Datos de escuelas (Postgres):",
 		JSON.stringify(schoolsData),
 	].join("\n");
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 9: ERROR & SOURCE EXTRACTION UTILITIES
+// ─────────────────────────────────────────────────────────────────────────
+// Purpose: Detect quota errors and extract citations from Gemini
 
 function isQuotaError(error: unknown): boolean {
 	const text = error instanceof Error ? error.message.toLowerCase() : "";
@@ -85,15 +313,16 @@ function extractSources(response: unknown): ChatSource[] {
 	const sources: ChatSource[] = [];
 
 	for (const citation of citationSources) {
-		if (!citation.uri) continue;
+		const uri = normalizeExternalUrl(citation.uri);
+		if (!uri) continue;
 		sources.push({
-			title: citation.title ?? citation.uri,
-			uri: citation.uri,
+			title: citation.title ?? uri,
+			uri,
 		});
 	}
 
 	for (const chunk of groundingChunks) {
-		const uri = chunk.web?.uri;
+		const uri = normalizeExternalUrl(chunk.web?.uri);
 		if (!uri) continue;
 		if (sources.some((source) => source.uri === uri)) continue;
 		sources.push({
@@ -107,20 +336,23 @@ function extractSources(response: unknown): ChatSource[] {
 
 function extractUrlsFromText(text: string): ChatSource[] {
 	const matches = text.match(/https?:\/\/[^\s)\]]+/g) ?? [];
-	const unique = Array.from(new Set(matches));
+	const unique = Array.from(new Set(matches.map((match) => normalizeExternalUrl(match)).filter(Boolean) as string[]));
 	return unique.map((uri) => ({ title: uri, uri }));
 }
 
-function buildDatabaseFallbackReply(
-	userMessage: string,
-	schoolsData: Array<{
-		name: string | null;
-		monthlyPrice: number | null;
-		address: string | null;
-		city: string | null;
-		educationalLevel: string | null;
-	}>,
-) {
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 10: DATABASE FALLBACK - QUOTA ERROR HANDLING (429)
+// ─────────────────────────────────────────────────────────────────────────
+// Purpose: Provide school recommendations from database when Gemini API quota exceeded
+// This is critical for user experience during API quota scenarios
+
+function pickSchoolsByQuery<T extends {
+	name: string | null;
+	monthlyPrice: number | null;
+	address: string | null;
+	city: string | null;
+	educationalLevel: string | null;
+}>(userMessage: string, schoolsData: T[]): T[] {
 	const query = userMessage.toLowerCase();
 	const filtered = schoolsData.filter((school) => {
 		const city = (school.city ?? "").toLowerCase();
@@ -135,7 +367,21 @@ function buildDatabaseFallbackReply(
 		);
 	});
 
-	const result = (filtered.length ? filtered : schoolsData).slice(0, 5);
+	return (filtered.length ? filtered : schoolsData).slice(0, 10);
+}
+
+// Builds fallback reply using database when Gemini API quota exceeded
+function buildDatabaseFallbackReply(
+	userMessage: string,
+	schoolsData: Array<{
+		name: string | null;
+		monthlyPrice: number | null;
+		address: string | null;
+		city: string | null;
+		educationalLevel: string | null;
+	}>,
+) {
+	const result = pickSchoolsByQuery(userMessage, schoolsData).slice(0, 5);
 	if (!result.length) {
 		return "Por el momento no hay escuelas disponibles en la base de datos para responder tu consulta.";
 	}
@@ -156,6 +402,12 @@ function buildDatabaseFallbackReply(
 		...lines,
 	].join("\n");
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 11: GEMINI API - MODEL FALLBACK STRATEGY
+// ─────────────────────────────────────────────────────────────────────────
+// Purpose: Try multiple Gemini models with automatic fallback on errors
+// Strategy: Preferred model → gemini-2.5-flash → gemini-flash-latest → lite models
 
 async function generateWithModelFallback({
 	apiKey,
@@ -225,6 +477,18 @@ async function generateWithModelFallback({
 	throw lastError;
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 12: MAIN API ROUTE HANDLER - POST /api/chat
+// ─────────────────────────────────────────────────────────────────────────
+// Flow:
+//   1. Validate API key and database connection
+//   2. Fetch schools from database
+//   3. Build AI system prompt with school context
+//   4. Call Gemini API with fallback strategy
+//   5. Extract recommendations, web schools, and sources
+//   6. Handle 429 errors with database fallback
+//   7. Return structured response to frontend
+
 export async function POST(request: Request) {
 	const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 	const databaseUrl = process.env.DATABASE_URL;
@@ -267,18 +531,34 @@ export async function POST(request: Request) {
 	const db = drizzle(client);
 
 	try {
-		const schoolsData = await db
+		// Obtener TODAS las escuelas con todos los datos
+		const allSchools = await db
 			.select({
+				id: schools.id,
 				name: schools.name,
 				monthlyPrice: schools.monthlyPrice,
 				address: schools.address,
 				city: schools.city,
 				educationalLevel: schools.educationalLevel,
+				coverImageUrl: schools.coverImageUrl,
+				description: schools.description,
+				averageRating: schools.averageRating,
+				ratingsCount: schools.ratingsCount,
+				favoritesCount: schools.favoritesCount,
 			})
 			.from(schools)
 			.limit(200);
 
-		const systemInstruction = buildSystemInstruction(schoolsData);
+		// Para el sistema prompt, mandar solo nombre, city, nivel educacional, precio
+		const schoolsForPrompt = allSchools.map((s) => ({
+			name: s.name,
+			monthlyPrice: s.monthlyPrice,
+			address: s.address,
+			city: s.city,
+			educationalLevel: s.educationalLevel,
+		}));
+
+		const systemInstruction = buildSystemInstruction(schoolsForPrompt);
 		const { reply, modelUsed, sources } = await generateWithModelFallback({
 			apiKey,
 			systemInstruction,
@@ -286,32 +566,78 @@ export async function POST(request: Request) {
 			preferredModel,
 		});
 
-		const normalizedSources = sources.length ? sources : extractUrlsFromText(reply);
+		// Extraer escuelas de web y limpiar el texto de respuesta
+		const webSchools = extractWebSchools(reply);
+		const cleanReply = stripWebSchoolsJson(reply);
+
+		// Identificar qué escuelas menciona la IA
+		const mentionedSchoolIds = findMentionedSchools(
+			cleanReply,
+			allSchools.map((s) => ({ id: s.id, name: s.name })),
+		);
+
+		// Obtener datos completos de escuelas mencionadas (máximo 10 para no sobrecargar)
+		const recommendedSchools: SchoolForCard[] = mentionedSchoolIds
+			.slice(0, 10)
+			.map((id) => {
+				const school = allSchools.find((s) => s.id === id);
+				if (!school) return null;
+				return {
+					id: school.id,
+					name: school.name,
+					coverImageUrl: school.coverImageUrl?.toString() ?? null,
+					city: school.city,
+					monthlyPrice: school.monthlyPrice,
+					averageRating: school.averageRating,
+				};
+			})
+			.filter((s) => s !== null);
+
+		const normalizedSources = sources.length ? sources : extractUrlsFromText(cleanReply);
 
 		return NextResponse.json({
-			reply,
-			schoolsCount: schoolsData.length,
+			reply: cleanReply,
+			schoolsCount: allSchools.length,
 			modelUsed,
 			sources: normalizedSources,
+			recommendedSchools,
+			webSchools,
 		});
 	} catch (error) {
 		if (isQuotaError(error)) {
 			const fallbackSchools = await db
 				.select({
+					id: schools.id,
 					name: schools.name,
+					coverImageUrl: schools.coverImageUrl,
 					monthlyPrice: schools.monthlyPrice,
 					address: schools.address,
 					city: schools.city,
 					educationalLevel: schools.educationalLevel,
+					averageRating: schools.averageRating,
 				})
 				.from(schools)
 				.limit(200);
+
+			const fallbackRecommendedSchools: SchoolForCard[] = pickSchoolsByQuery(
+				userMessage,
+				fallbackSchools,
+			).map((school) => ({
+				id: school.id,
+				name: school.name,
+				coverImageUrl: school.coverImageUrl?.toString() ?? null,
+				city: school.city,
+				monthlyPrice: school.monthlyPrice,
+				averageRating: school.averageRating,
+			}));
 
 			return NextResponse.json({
 				reply: buildDatabaseFallbackReply(userMessage, fallbackSchools),
 				schoolsCount: fallbackSchools.length,
 				modelUsed: null,
 				sources: [],
+				recommendedSchools: fallbackRecommendedSchools,
+				webSchools: [],
 				fallback: "database-only",
 				warning:
 					"Gemini esta temporalmente sin cuota (429). Se respondio solo con datos de Postgres.",
