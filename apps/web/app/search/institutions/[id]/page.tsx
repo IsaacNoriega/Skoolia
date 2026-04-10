@@ -174,8 +174,6 @@ export default function InstitutionDetailsPage() {
 
   return (
     <section className="relative mx-auto max-w-7xl space-y-8 px-6 py-8">
-      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-72 bg-[radial-gradient(ellipse_at_top,rgba(99,102,241,0.18),rgba(255,255,255,0))]" />
-
       <button
         onClick={() => router.back()}
         className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-4 py-2 text-sm font-bold text-slate-700 shadow-sm backdrop-blur transition hover:bg-white"
@@ -332,26 +330,22 @@ export default function InstitutionDetailsPage() {
               </div>
             ))}
           </div>
+        </div>
+      </div>
 
-          <div className="border-t border-slate-200 pt-8">
-            <h3 className="text-2xl font-extrabold text-slate-900">Información completa</h3>
-            <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-600">
-              Una vista rápida con los datos clave de la institución, presentada de forma simple para leer sin saturación visual.
-            </p>
-
-            <div className="mt-6 -mx-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 bg-slate-50">
-              <Row label="Nivel educativo" value={school.educationalLevel || "Por definir"} />
-              <Row label="Tipo de institución" value={school.institutionType || "Por definir"} />
-              <Row label="Precio mensual" value={school.monthlyPrice != null ? `$${school.monthlyPrice.toLocaleString()} MXN` : "Por definir"} />
-              <Row label="Dirección" value={school.address || "Por definir"} />
-              <Row label="Ciudad" value={school.city || "Por definir"} />
-              <Row label="Latitud" value={school.latitude != null ? String(school.latitude) : "Por definir"} />
-              <Row label="Longitud" value={school.longitude != null ? String(school.longitude) : "Por definir"} />
-              <Row label="Escuela destacada" value={school.isFeatured ? "Sí" : "No"} />
-              <Row label="Favoritos" value={String(school.favoritesCount)} />
-              <Row label="Ranking" value={String(school.rankingScore)} />
-            </div>
-          </div>
+      <div className="border-t border-slate-200 pt-8">
+        <h3 className="text-2xl font-extrabold text-slate-900">Información completa</h3>
+        <div className="mt-4 space-y-3">
+          <Row label="Nivel educativo" value={school.educationalLevel || "Por definir"} />
+          <Row label="Tipo de institución" value={school.institutionType || "Por definir"} />
+          <Row label="Precio mensual" value={school.monthlyPrice != null ? `$${school.monthlyPrice.toLocaleString()} MXN` : "Por definir"} />
+          <Row label="Dirección" value={school.address || "Por definir"} />
+          <Row label="Ciudad" value={school.city || "Por definir"} />
+          <Row label="Latitud" value={school.latitude != null ? String(school.latitude) : "Por definir"} />
+          <Row label="Longitud" value={school.longitude != null ? String(school.longitude) : "Por definir"} />
+          <Row label="Escuela destacada" value={school.isFeatured ? "Sí" : "No"} />
+          <Row label="Favoritos" value={String(school.favoritesCount)} />
+          <Row label="Ranking" value={String(school.rankingScore)} />
         </div>
       </div>
 
@@ -423,9 +417,9 @@ function InfoCard({
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border-r border-slate-200 px-5 py-4 last:border-r-0">
+    <div className="border-b border-slate-100 py-3 last:border-b-0">
       <p className="text-[10px] font-extrabold tracking-widest text-slate-500">{label}</p>
-      <p className="mt-2 text-sm font-semibold text-slate-900">{value}</p>
+      <p className="mt-1 text-sm font-semibold text-slate-900">{value}</p>
     </div>
   );
 }
