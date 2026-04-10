@@ -22,7 +22,9 @@
 		"db:migrate": "drizzle-kit migrate",
 		"db:push": "drizzle-kit push",
 		"db:studio": "drizzle-kit studio",
-		"seed": "ts-node -r tsconfig-paths/register src/db/seed.ts"
+		"reset": "ts-node -r tsconfig-paths/register src/db/reset.ts",
+		"seed": "ts-node -r tsconfig-paths/register src/db/seed.ts",
+		"reset:seed": "npm run reset && npm run seed"
 	},
 	"dependencies": {
 		"@apollo/server": "^5.4.0",

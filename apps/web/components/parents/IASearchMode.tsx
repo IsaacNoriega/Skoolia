@@ -108,6 +108,7 @@ export function AISearchMode({ onClose }: AISearchModeProps) {
   const [recommendedSchools, setRecommendedSchools] = useState<RecommendedSchool[]>([]);
   const [webSchools, setWebSchools] = useState<WebSchool[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   // ─────────────────────────────────────────────────────────────────────────
   // STATE: School detail modal & interaction
@@ -201,6 +202,7 @@ export function AISearchMode({ onClose }: AISearchModeProps) {
 
   async function openSchoolModal(school: RecommendedSchool) {
     setLoadingSchoolDetail(true);
+    setCurrentImageIndex(0);
     setSelectedSchool(school as SchoolDetail);
     setModalOpen(true);
 
@@ -327,6 +329,35 @@ export function AISearchMode({ onClose }: AISearchModeProps) {
       left: direction === "left" ? -amount : amount,
       behavior: "smooth",
     });
+  }
+
+  const modalImages = selectedSchool
+    ? Array.from(
+        new Set(
+          [
+            selectedSchool.coverImageUrl,
+            selectedSchool.logoUrl,
+            // Fallback gallery images to always allow carousel navigation
+            `https://picsum.photos/seed/${selectedSchool.id}-gallery-1/1200/800`,
+            `https://picsum.photos/seed/${selectedSchool.id}-gallery-2/1200/800`,
+            `https://picsum.photos/seed/${selectedSchool.id}-gallery-3/1200/800`,
+          ].filter((url): url is string => Boolean(url)),
+        ),
+      )
+    : [];
+
+  function goToPrevModalImage() {
+    if (modalImages.length <= 1) return;
+    setCurrentImageIndex((prev) =>
+      prev === 0 ? modalImages.length - 1 : prev - 1
+    );
+  }
+
+  function goToNextModalImage() {
+    if (modalImages.length <= 1) return;
+    setCurrentImageIndex((prev) =>
+      prev === modalImages.length - 1 ? 0 : prev + 1
+    );
   }
 
   return (
@@ -678,9 +709,9 @@ export function AISearchMode({ onClose }: AISearchModeProps) {
             <div className="grid grid-cols-1 md:grid-cols-[1fr_520px]">
               {/* Left media */}
               <div className="relative h-65 sm:h-80 md:h-[72vh] w-full bg-slate-100">
-                {selectedSchool.coverImageUrl ? (
+                {modalImages.length > 0 ? (
                   <Image
-                    src={selectedSchool.coverImageUrl}
+                    src={modalImages[currentImageIndex]}
                     alt={selectedSchool.name ?? "Escuela"}
                     fill
                     sizes="(min-width: 768px) 50vw, 100vw"
@@ -692,6 +723,43 @@ export function AISearchMode({ onClose }: AISearchModeProps) {
                     Imagen
                   </div>
                 )}
+
+                {modalImages.length > 1 ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={goToPrevModalImage}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 grid h-10 w-10 place-items-center rounded-full bg-white/85 text-slate-700 shadow hover:bg-white"
+                      aria-label="Imagen anterior"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={goToNextModalImage}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 grid h-10 w-10 place-items-center rounded-full bg-white/85 text-slate-700 shadow hover:bg-white"
+                      aria-label="Imagen siguiente"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+
+                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 rounded-full bg-slate-900/45 px-3 py-1.5">
+                      {modalImages.map((_, index) => (
+                        <button
+                          key={`modal-dot-${index}`}
+                          type="button"
+                          onClick={() => setCurrentImageIndex(index)}
+                          aria-label={`Ir a imagen ${index + 1}`}
+                          className={`h-2.5 w-2.5 rounded-full transition ${
+                            currentImageIndex === index
+                              ? "bg-white"
+                              : "bg-white/50 hover:bg-white/80"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </>
+                ) : null}
               </div>
 
               {/* Right content */}

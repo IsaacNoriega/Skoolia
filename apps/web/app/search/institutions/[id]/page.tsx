@@ -145,26 +145,67 @@ export default function InstitutionDetailsPage() {
     );
   }
 
+  const statItems = [
+    {
+      label: "Años",
+      value: school.enrollmentYear ? `${new Date().getFullYear() - school.enrollmentYear + 1}+` : "10+",
+    },
+    {
+      label: "Reseñas",
+      value: String(school.ratingsCount),
+    },
+    {
+      label: "Favoritos",
+      value: String(school.favoritesCount),
+    },
+  ];
+
+  const philosophyItems = [
+    school.educationalLevel || "Formación integral por niveles",
+    school.institutionType || "Experiencia educativa personalizada",
+    school.languages || "Acompañamiento académico y humano",
+    school.schedule || "Aprendizaje con estructura y flexibilidad",
+  ].filter(Boolean) as string[];
+
+  const storyCardTitle = school.isFeatured ? "Escuela destacada" : "Nuestra propuesta";
+  const storyCardText = school.description
+    ? school.description
+    : "Esta institución está construyendo una propuesta educativa enfocada en acompañar a familias con una experiencia clara, moderna y cercana.";
+
   return (
-    <section className="mx-auto max-w-7xl px-6 py-8 space-y-6">
+    <section className="relative mx-auto max-w-7xl space-y-8 px-6 py-8">
+      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-72 bg-[radial-gradient(ellipse_at_top,rgba(99,102,241,0.18),rgba(255,255,255,0))]" />
+
       <button
         onClick={() => router.back()}
-        className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100"
+        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-4 py-2 text-sm font-bold text-slate-700 shadow-sm backdrop-blur transition hover:bg-white"
       >
         <ArrowLeft className="h-4 w-4" /> Volver
       </button>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[340px_1fr]">
-        <aside className="lg:sticky lg:top-6 lg:self-start">
-          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-            <div className="relative h-95 w-full bg-slate-100">
+      <div className="text-center">
+        <p className="text-[11px] font-extrabold tracking-[0.35em] text-indigo-600">
+          PERFIL DE INSTITUCIÓN
+        </p>
+        <h1 className="mt-3 text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
+          {school.name}
+        </h1>
+        <p className="mt-2 text-sm text-slate-600 sm:text-base">
+          {school.educationalLevel || "Nivel educativo"} · {school.institutionType || "Tipo de institución"}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_1.05fr]">
+        <aside className="lg:self-start">
+          <div className="overflow-hidden rounded-[28px] border border-slate-200/80 bg-white shadow-[0_18px_45px_-24px_rgba(15,23,42,0.35)]">
+            <div className="relative h-[560px] w-full bg-slate-100">
               {galleryItems[activeImageIndex]?.src ? (
                 <Image
                   src={galleryItems[activeImageIndex].src!}
                   alt={`${galleryItems[activeImageIndex].label} de ${school.name}`}
                   fill
-                  sizes="(min-width: 1024px) 340px, 100vw"
-                  className={galleryItems[activeImageIndex].fit === "cover" ? "object-cover" : "object-contain p-6"}
+                  sizes="(min-width: 1024px) 50vw, 100vw"
+                  className={galleryItems[activeImageIndex].fit === "cover" ? "object-cover" : "object-contain p-8"}
                 />
               ) : (
                 <div className="flex h-full items-center justify-center text-sm font-semibold text-slate-400">
@@ -178,7 +219,7 @@ export default function InstitutionDetailsPage() {
                     type="button"
                     aria-label="Imagen anterior"
                     onClick={() => setActiveImageIndex((prev) => (prev - 1 + galleryItems.length) % galleryItems.length)}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 text-slate-700 shadow hover:bg-white"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2.5 text-slate-700 shadow-lg transition hover:bg-white"
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </button>
@@ -186,7 +227,7 @@ export default function InstitutionDetailsPage() {
                     type="button"
                     aria-label="Imagen siguiente"
                     onClick={() => setActiveImageIndex((prev) => (prev + 1) % galleryItems.length)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 text-slate-700 shadow hover:bg-white"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2.5 text-slate-700 shadow-lg transition hover:bg-white"
                   >
                     <ChevronRight className="h-4 w-4" />
                   </button>
@@ -194,7 +235,7 @@ export default function InstitutionDetailsPage() {
               ) : null}
             </div>
 
-            <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
+            <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3">
               <p className="text-xs font-extrabold tracking-widest text-slate-500">
                 {galleryItems[activeImageIndex]?.label.toUpperCase()}
               </p>
@@ -203,65 +244,102 @@ export default function InstitutionDetailsPage() {
               </p>
             </div>
 
-            <div className="flex items-center gap-2 px-4 pb-4">
+            <div className="flex items-center gap-2 px-5 pb-5">
               {galleryItems.map((item, index) => (
                 <button
                   key={`${item.label}-${index}`}
                   type="button"
                   onClick={() => setActiveImageIndex(index)}
-                  className={`h-2 rounded-full transition-all ${index === activeImageIndex ? "w-8 bg-slate-900" : "w-2 bg-slate-300"}`}
+                  className={`h-2 rounded-full transition-all ${index === activeImageIndex ? "w-8 bg-slate-900" : "w-2 bg-slate-300 hover:bg-slate-400"}`}
                   aria-label={`Ver ${item.label}`}
                 />
               ))}
             </div>
+
+            <div className="border-t border-slate-100 bg-slate-50/60 px-5 py-4">
+              <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+                <p className="text-[11px] font-extrabold tracking-widest text-slate-500">
+                  {storyCardTitle}
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-slate-700">
+                  {storyCardText}
+                </p>
+              </div>
+            </div>
           </div>
         </aside>
 
-        <div className="space-y-4">
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="space-y-8">
+          <div className="border-b border-slate-200 pb-8">
             <div className="flex flex-wrap items-center gap-2 text-[11px] font-extrabold tracking-widest text-slate-500">
-              <span className="rounded-full bg-indigo-50 px-3 py-1 text-indigo-700">INSTITUCIÓN</span>
-              {school.isVerified ? (
-                <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">VERIFICADA</span>
-              ) : null}
+              <span className="text-indigo-700">INSTITUCIÓN</span>
+              {school.isVerified ? <span>• VERIFICADA</span> : null}
+              {school.isFeatured ? <span>• DESTACADA</span> : null}
             </div>
 
-            <div className="mt-3 flex items-center justify-between gap-4">
-              <h1 className="text-3xl font-extrabold text-slate-900">{school.name}</h1>
+            <div className="mt-5 flex items-start justify-between gap-4">
+              <div className="max-w-3xl">
+                <h2 className="text-3xl font-extrabold leading-tight text-slate-900 sm:text-[36px]">
+                  {school.name}
+                </h2>
+                <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-slate-600">
+                  <span className="inline-flex items-center gap-1.5">
+                    <MapPin className="h-4 w-4" /> {school.city || school.address || "Ubicación no disponible"}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Star className="h-4 w-4 text-amber-400" /> {school.averageRating.toFixed(1)} ({school.ratingsCount} reseñas)
+                  </span>
+                </div>
+                <p className="mt-5 text-sm leading-7 text-slate-700 sm:text-[15px]">
+                  {school.description || "Esta institución no ha agregado descripción aún."}
+                </p>
+              </div>
               <button
                 onClick={handleToggleFavorite}
                 disabled={togglingFav}
-                className="rounded-full border border-slate-300 bg-white p-3 text-slate-700 shadow hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed transition"
+                className="rounded-full border border-slate-200 bg-white p-3 text-slate-700 shadow-sm transition hover:-translate-y-[1px] hover:bg-slate-50 hover:shadow disabled:cursor-not-allowed disabled:opacity-60"
                 aria-label="Agregar a favoritos"
               >
                 <Heart className={`h-5 w-5 ${isFavorite ? "fill-red-500 text-red-500" : "text-slate-700"}`} />
               </button>
             </div>
-
-            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-600">
-              <span className="inline-flex items-center gap-1">
-                <MapPin className="h-4 w-4" /> {school.city || school.address || "Ubicación no disponible"}
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <Star className="h-4 w-4 text-amber-400" /> {school.averageRating.toFixed(1)} ({school.ratingsCount} reseñas)
-              </span>
-            </div>
-
-            <p className="mt-4 text-sm leading-relaxed text-slate-700">
-              {school.description || "Esta institución no ha agregado descripción aún."}
-            </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <InfoCard title="Horario" value={school.schedule || "Por definir"} icon={<Clock3 className="h-4 w-4 text-indigo-600" />} />
             <InfoCard title="Idiomas" value={school.languages || "Por definir"} icon={<Languages className="h-4 w-4 text-indigo-600" />} />
             <InfoCard title="Alumnos por salón" value={school.maxStudentsPerClass != null ? String(school.maxStudentsPerClass) : "Por definir"} icon={<Users className="h-4 w-4 text-indigo-600" />} />
             <InfoCard title="Inscripciones" value={enrollmentText} icon={<ClipboardCheck className="h-4 w-4 text-indigo-600" />} />
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-extrabold text-slate-900">Información completa</h2>
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="border-b border-slate-200 pb-8">
+            <h3 className="text-2xl font-extrabold text-slate-900">Mi filosofía</h3>
+            <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-700">
+              {philosophyItems.map((item) => (
+                <li key={item} className="flex items-start gap-3">
+                  <span className="mt-2 h-2 w-2 rounded-full bg-indigo-500" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            {statItems.map((stat) => (
+              <div key={stat.label} className="border-t border-slate-200 pt-4 text-center">
+                <p className="text-3xl font-extrabold text-slate-900 sm:text-[34px]">{stat.value}</p>
+                <p className="mt-1 text-[11px] font-bold tracking-[0.35em] text-slate-500 uppercase">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="border-t border-slate-200 pt-8">
+            <h3 className="text-2xl font-extrabold text-slate-900">Información completa</h3>
+            <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-600">
+              Una vista rápida con los datos clave de la institución, presentada de forma simple para leer sin saturación visual.
+            </p>
+
+            <div className="mt-6 -mx-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 bg-slate-50">
               <Row label="Nivel educativo" value={school.educationalLevel || "Por definir"} />
               <Row label="Tipo de institución" value={school.institutionType || "Por definir"} />
               <Row label="Precio mensual" value={school.monthlyPrice != null ? `$${school.monthlyPrice.toLocaleString()} MXN` : "Por definir"} />
@@ -277,21 +355,25 @@ export default function InstitutionDetailsPage() {
         </div>
       </div>
 
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-xl font-extrabold text-slate-900">Ofertas académicas</h2>
+      <div className="border-t border-slate-200 pt-8">
+        <h3 className="text-2xl font-extrabold text-slate-900">Ofertas académicas</h3>
         <div className="mt-4 space-y-3">
           {courses.length === 0 ? (
             <p className="text-sm text-slate-500">Esta escuela aún no tiene ofertas publicadas.</p>
           ) : (
             courses.map((course) => (
-              <div key={course.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <p className="text-sm font-bold text-slate-900">{course.name}</p>
-                <p className="mt-1 text-xs text-slate-600">
-                  {course.modality || "Modalidad por definir"} · ${course.price.toLocaleString()} MXN
-                  {course.capacity ? ` · ${course.capacity} cupos` : ""}
+              <div key={course.id} className="border-b border-slate-100 px-0 py-4 last:border-b-0">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm font-bold text-slate-900">{course.name}</p>
+                  <span className="text-[11px] font-bold tracking-widest text-slate-500">
+                    {course.modality || "Modalidad por definir"}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-slate-600">
+                  ${course.price.toLocaleString()} MXN{course.capacity ? ` · ${course.capacity} cupos` : ""}
                 </p>
                 {course.description ? (
-                  <p className="mt-2 text-xs text-slate-600">{course.description}</p>
+                  <p className="mt-2 text-xs leading-relaxed text-slate-600">{course.description}</p>
                 ) : null}
               </div>
             ))
@@ -299,16 +381,16 @@ export default function InstitutionDetailsPage() {
         </div>
       </div>
 
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-xl font-extrabold text-slate-900">Reseñas recientes</h2>
+      <div className="border-t border-slate-200 pt-8">
+        <h3 className="text-2xl font-extrabold text-slate-900">Reseñas recientes</h3>
         <div className="mt-4 space-y-3">
           {ratings.length === 0 ? (
             <p className="text-sm text-slate-500">Aún no hay reseñas públicas.</p>
           ) : (
             ratings.map((rating) => (
-              <div key={rating.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <div key={rating.id} className="border-b border-slate-100 py-4 last:border-b-0">
                 <p className="text-sm font-bold text-slate-900">{rating.rating.toFixed(1)} / 5</p>
-                <p className="mt-1 text-xs text-slate-600">{rating.comment || "Sin comentario"}</p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-600">{rating.comment || "Sin comentario"}</p>
                 <p className="mt-1 text-[11px] text-slate-400">{new Date(rating.createdAt).toLocaleDateString("es-MX")}</p>
               </div>
             ))
@@ -329,21 +411,21 @@ function InfoCard({
   icon: ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+    <div className="border-t border-slate-200 pt-4">
       <div className="flex items-center gap-2 text-[11px] font-extrabold tracking-widest text-slate-500">
         {icon}
         <span>{title}</span>
       </div>
-      <p className="mt-2 text-sm font-bold text-slate-900">{value}</p>
+      <p className="mt-2 text-sm font-semibold text-slate-900">{value}</p>
     </div>
   );
 }
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-      <p className="text-[11px] font-extrabold tracking-widest text-slate-500">{label}</p>
-      <p className="mt-1 text-sm font-semibold text-slate-900">{value}</p>
+    <div className="border-r border-slate-200 px-5 py-4 last:border-r-0">
+      <p className="text-[10px] font-extrabold tracking-widest text-slate-500">{label}</p>
+      <p className="mt-2 text-sm font-semibold text-slate-900">{value}</p>
     </div>
   );
 }

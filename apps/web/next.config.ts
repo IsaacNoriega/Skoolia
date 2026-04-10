@@ -7,6 +7,17 @@ const nextConfig: NextConfig = {
 			{
 				protocol: "https",
 				hostname: "images.unsplash.com",
+				pathname: "/**",
+			},
+			{
+				protocol: "https",
+				hostname: "plus.unsplash.com",
+				pathname: "/**",
+			},
+			{
+				protocol: "https",
+				hostname: "picsum.photos",
+				pathname: "/**",
 			},
 			{
 				protocol: "https",
@@ -18,12 +29,6 @@ const nextConfig: NextConfig = {
 				hostname: "lh3.googleusercontent.com",
 				pathname: "/**",
 			},
-		],
-		// Also permit explicit domains if Next version prefers this format
-		domains: [
-			"images.unsplash.com",
-			"www.googlewatchblog.de",
-			"lh3.googleusercontent.com",
 		],
 	},
 };

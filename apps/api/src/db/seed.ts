@@ -11,6 +11,7 @@ import { schoolCategories } from '../../drizzle/schemas/schools/school-categorie
 import { courses } from '../../drizzle/schemas/courses/courses';
 import { schoolRatings } from '../../drizzle/schemas/schools/school-ratings';
 import { schoolFavorites } from '../../drizzle/schemas/schools/school-favorites';
+import { files } from '../../drizzle/schemas/files/files';
 
 async function seed() {
   const pool = new Pool({
@@ -115,6 +116,57 @@ async function seed() {
   console.log('✅ 10 public users created');
 
   // ==============================
+  // 3️⃣.5️⃣ FILES (Imágenes para escuelas)
+  // ==============================
+
+  // Pool grande de imágenes para tener mayor variedad en cada seed
+  // Usamos URLs "seed" para evitar 404 de IDs inexistentes y mantener estabilidad.
+  const logoPool = Array.from({ length: 60 }).map(
+    (_, i) => `https://picsum.photos/seed/skoolia-logo-${i + 1}/400/400`,
+  );
+
+  const coverPool = Array.from({ length: 60 }).map(
+    (_, i) => `https://picsum.photos/seed/skoolia-cover-${i + 1}/1200/800`,
+  );
+
+  const logoUrls = owners.map((_, i) => logoPool[(i * 7) % logoPool.length]);
+  const coverUrls = owners.map((_, i) => coverPool[(i * 11) % coverPool.length]);
+
+  // Crear registros de archivos (logos)
+  const logoFiles = await db
+    .insert(files)
+    .values(
+      logoUrls.map((url, i) => ({
+        url,
+        key: `school-logos/logo-${i}.jpg`,
+        mimeType: 'image/jpeg',
+        sizeBytes: Math.floor(Math.random() * 500000) + 100000, // 100KB - 600KB
+        ownerId: owners[i].id,
+        ownerType: 'school' as const,
+      })),
+    )
+    .returning();
+
+  // Crear registros de archivos (covers)
+  const coverFiles = await db
+    .insert(files)
+    .values(
+      coverUrls.map((url, i) => ({
+        url,
+        key: `school-covers/cover-${i}.jpg`,
+        mimeType: 'image/jpeg',
+        sizeBytes: Math.floor(Math.random() * 1000000) + 500000, // 500KB - 1.5MB
+        ownerId: owners[i].id,
+        ownerType: 'school' as const,
+      })),
+    )
+    .returning();
+
+  console.log(
+    `✅ ${logoFiles.length + coverFiles.length} archivos (logos + covers) creados con mayor variedad`,
+  );
+
+  // ==============================
   // 4️⃣ SCHOOLS
   // ==============================
 
@@ -184,6 +236,21 @@ async function seed() {
 
   const prices = [5000, 7500, 10000, 12500, 15000, 18000, 20000];
 
+  const institutionTypes = ['Privada', 'Publica', 'Privada', 'Privada', 'Publica'];
+
+  const maxStudentsList = [15, 18, 20, 22, 25, 30];
+
+  const citiesWithCoords: Array<{ city: string; lat: number; lng: number }> = [
+    { city: 'Ciudad de Mexico', lat: 19.4326, lng: -99.1332 },
+    { city: 'Guadalajara', lat: 20.6597, lng: -103.3496 },
+    { city: 'Monterrey', lat: 25.6866, lng: -100.3161 },
+    { city: 'Puebla', lat: 19.0327, lng: -98.2364 },
+    { city: 'Mexico', lat: 19.5998, lng: -99.2511 },
+    { city: 'Cancun', lat: 21.1629, lng: -86.8519 },
+    { city: 'Leon', lat: 21.1341, lng: -101.6826 },
+    { city: 'Queretaro', lat: 20.5888, lng: -100.3899 },
+  ];
+
   const ownerIds = owners.map((o) => o.id);
 
   await db.delete(schools).where(inArray(schools.ownerId, ownerIds));
@@ -191,18 +258,34 @@ async function seed() {
   const insertedSchools = await db
     .insert(schools)
     .values(
-      schoolNames.map((name, i) => ({
-        name,
-        description: `Descripcion profesional de ${name}`,
-        city: mexicoStates[i % mexicoStates.length],
-        educationalLevel: educationalLevels[i % educationalLevels.length],
-        schedule: schedules[i % schedules.length],
-        languages: languageOptions[i % languageOptions.length],
-        monthlyPrice: prices[i % prices.length],
-        enrollmentOpen: i % 2 === 0,
-        ownerId: owners[i].id,
-        isVerified: i % 3 === 0,
-      })),
+      schoolNames.map((name, i) => {
+        const coordsData = citiesWithCoords[i % citiesWithCoords.length];
+        return {
+          name,
+          description: `Institución educativa ${name} con programas académicos de calidad. Comprometidos en la formación integral de nuestros estudiantes.`,
+          city: coordsData.city,
+          address: `Calle Principal ${i + 1} No. ${100 + i * 50}, ${coordsData.city}`,
+          latitude: coordsData.lat + (i % 10) * 0.01,
+          longitude: coordsData.lng + (i % 10) * 0.01,
+          educationalLevel: educationalLevels[i % educationalLevels.length],
+          institutionType: institutionTypes[i % institutionTypes.length],
+          schedule: schedules[i % schedules.length],
+          maxStudentsPerClass: maxStudentsList[i % maxStudentsList.length],
+          languages: languageOptions[i % languageOptions.length],
+          logoUrl: logoFiles[i].id, // 🖼️ Logo
+          coverImageUrl: coverFiles[i].id, // 🖼️ Cover
+          enrollmentYear: 2024 + (i % 3),
+          monthlyPrice: prices[i % prices.length],
+          enrollmentOpen: i % 2 === 0,
+          averageRating: parseFloat((Math.random() * 2 + 3.5).toFixed(1)), // 3.5 - 5.5
+          ratingsCount: Math.floor(Math.random() * 50) + 10,
+          favoritesCount: Math.floor(Math.random() * 100) + 5,
+          rankingScore: parseFloat((Math.random() * 100).toFixed(2)),
+          isFeatured: i < 5, // Los primeros 5 como destacados
+          ownerId: owners[i].id,
+          isVerified: i % 3 === 0,
+        };
+      }),
     )
     .returning();
 
