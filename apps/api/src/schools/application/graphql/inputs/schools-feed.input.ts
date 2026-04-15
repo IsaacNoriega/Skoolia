@@ -13,6 +13,10 @@ export class SchoolsFeedInput {
   @Field({ nullable: true })
   @IsOptional()
   @IsString()
+  state?: string;
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
   educationalLevel?: string;
 
   @Field({ nullable: true })

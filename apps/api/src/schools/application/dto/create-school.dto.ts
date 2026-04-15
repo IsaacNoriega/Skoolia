@@ -11,6 +11,10 @@ export class CreateSchoolDto {
 
   // Ubicación
   @IsOptional()
+  @IsString()
+  state?: string;
+
+  @IsOptional()
   @IsNumber()
   latitude?: number;
 

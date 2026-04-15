@@ -22,9 +22,14 @@ export class UpdateSchoolDto {
   @IsString()
   address?: string;
 
+
   @IsOptional()
   @IsString()
   city?: string;
+
+  @IsOptional()
+  @IsString()
+  state?: string;
 
   @IsOptional()
   @Type(() => Number)
