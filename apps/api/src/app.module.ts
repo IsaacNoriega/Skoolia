@@ -19,6 +19,7 @@ import { FilesModule } from './files/files.module';
 import { UsersModule } from './users/users.module';
 import { CategoriesModule } from './categories/categories.module';
 import { MessagesModule } from './messages/messages.module';
+import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { MessagesModule } from './messages/messages.module';
     UsersModule,
     CategoriesModule,
     MessagesModule,
+    SubscriptionsModule,
   ],
   controllers: [AppController],
   providers: [AppService, AppResolver],
