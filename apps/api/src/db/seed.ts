@@ -1,17 +1,53 @@
 import 'dotenv/config';
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
 import bcrypt from 'bcrypt';
 import { inArray } from 'drizzle-orm';
-import { privateUsers } from '../../drizzle/schemas/users/private-users';
-import { publicUsers } from '../../drizzle/schemas/users/public-users';
-import { schools } from '../../drizzle/schemas/schools/school';
-import { categories } from 'drizzle/schemas';
-import { schoolCategories } from '../../drizzle/schemas/schools/school-categories.pivot';
-import { courses } from '../../drizzle/schemas/courses/courses';
-import { schoolRatings } from '../../drizzle/schemas/schools/school-ratings';
-import { schoolFavorites } from '../../drizzle/schemas/schools/school-favorites';
-import { files } from '../../drizzle/schemas/files/files';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool } from 'pg';
+
+import {
+  categories,
+  courses,
+  files,
+  plans,
+  privateUsers,
+  publicUsers,
+  schoolCategories,
+  schoolFavorites,
+  schoolRatings,
+  schoolSubscriptions,
+  schools,
+  type PlanFeatures,
+} from 'drizzle/schemas';
+
+type SeedPlan = {
+  name: string;
+  price: number;
+  interval: 'monthly' | 'yearly';
+  features: PlanFeatures;
+};
+
+const BASE_PLANS: SeedPlan[] = [
+  {
+    name: 'Freemium',
+    price: 0,
+    interval: 'monthly',
+    features: [
+      'Registro gratuito',
+      'Aparicion en directorio',
+      'Gestion de perfil basico',
+    ],
+  },
+  {
+    name: 'Premium',
+    price: 1500,
+    interval: 'monthly',
+    features: [
+      'Aparicion en busquedas premium',
+      'Panel avanzado de leads',
+      'Soporte prioritario',
+    ],
+  },
+];
 
 async function seed() {
   const pool = new Pool({
@@ -20,26 +56,41 @@ async function seed() {
 
   const db = drizzle(pool);
 
-  console.log('🌱 Seeding database...');
+  console.log('Seeding database...');
 
-  // ==============================
-  // 1️⃣ CATEGORIES
-  // ==============================
+  await db.insert(plans).values(BASE_PLANS).onConflictDoNothing();
+
+  const insertedPlans = await db
+    .select({
+      id: plans.id,
+      name: plans.name,
+      interval: plans.interval,
+    })
+    .from(plans)
+    .where(inArray(plans.name, BASE_PLANS.map((plan) => plan.name)));
+
+  const freemiumPlan = insertedPlans.find((plan) => plan.name === 'Freemium');
+  const premiumPlan = insertedPlans.find((plan) => plan.name === 'Premium');
+
+  if (!freemiumPlan || !premiumPlan) {
+    throw new Error('Failed to load base subscription plans');
+  }
+
+  console.log('Base plans ready');
 
   const categoryList = [
     { name: 'Deportes', slug: 'Trophy' },
     { name: 'Bilingue', slug: 'Languages' },
     { name: 'Arte', slug: 'Palette' },
-    { name: 'Tecnología', slug: 'Cpu' },
-    { name: 'Robótica', slug: 'Bot' },
+    { name: 'Tecnologia', slug: 'Cpu' },
+    { name: 'Robotica', slug: 'Bot' },
     { name: 'Teatro', slug: 'Drama' },
-    { name: 'Programación', slug: 'Code' },
-    { name: 'Para niños', slug: 'Baby' },
+    { name: 'Programacion', slug: 'Code' },
+    { name: 'Para ninos', slug: 'Baby' },
     { name: 'Para hombres', slug: 'User' },
   ];
 
-  const categorySlugs = categoryList.map((c) => c.slug);
-
+  const categorySlugs = categoryList.map((category) => category.slug);
   const hashedPassword = await bcrypt.hash('123456', 10);
 
   await db.insert(categories).values(categoryList).onConflictDoNothing();
@@ -49,20 +100,16 @@ async function seed() {
     .from(categories)
     .where(inArray(categories.slug, categorySlugs));
 
-  console.log('✅ Categories created');
-
-  // ==============================
-  // 2️⃣ PRIVATE USERS
-  // ==============================
+  console.log('Categories created');
 
   const ownerEmails = Array.from({ length: 15 }).map(
-    (_, i) => `owner${i + 1}@test.com`,
+    (_, index) => `owner${index + 1}@test.com`,
   );
 
-  const ownerSeedData = ownerEmails.map((email, i) => ({
+  const ownerSeedData = ownerEmails.map((email, index) => ({
     email,
     passwordHash: hashedPassword,
-    name: `Owner ${i + 1}`,
+    name: `Owner ${index + 1}`,
   }));
 
   await db.insert(privateUsers).values(ownerSeedData).onConflictDoNothing();
@@ -72,29 +119,25 @@ async function seed() {
     .from(privateUsers)
     .where(inArray(privateUsers.email, ownerEmails));
 
-  const ownerByEmail = new Map(ownerRows.map((o) => [o.email, o]));
+  const ownerByEmail = new Map(ownerRows.map((owner) => [owner.email, owner]));
   const owners = ownerEmails
     .map((email) => ownerByEmail.get(email))
-    .filter((o): o is { id: string; email: string } => Boolean(o));
+    .filter((owner): owner is { id: string; email: string } => Boolean(owner));
 
   if (owners.length !== ownerEmails.length) {
     throw new Error('Failed to load all private test users for seed');
   }
 
-  console.log('✅ 15 private users created');
-
-  // ==============================
-  // 3️⃣ PUBLIC USERS
-  // ==============================
+  console.log('15 private users created');
 
   const publicEmails = Array.from({ length: 10 }).map(
-    (_, i) => `public${i + 1}@test.com`,
+    (_, index) => `public${index + 1}@test.com`,
   );
 
-  const publicSeedData = publicEmails.map((email, i) => ({
+  const publicSeedData = publicEmails.map((email, index) => ({
     email,
     passwordHash: hashedPassword,
-    name: `Public ${i + 1}`,
+    name: `Public ${index + 1}`,
   }));
 
   await db.insert(publicUsers).values(publicSeedData).onConflictDoNothing();
@@ -104,74 +147,60 @@ async function seed() {
     .from(publicUsers)
     .where(inArray(publicUsers.email, publicEmails));
 
-  const publicByEmail = new Map(publicRows.map((u) => [u.email, u]));
+  const publicByEmail = new Map(publicRows.map((user) => [user.email, user]));
   const publics = publicEmails
     .map((email) => publicByEmail.get(email))
-    .filter((u): u is { id: string; email: string } => Boolean(u));
+    .filter((user): user is { id: string; email: string } => Boolean(user));
 
   if (publics.length !== publicEmails.length) {
     throw new Error('Failed to load all public test users for seed');
   }
 
-  console.log('✅ 10 public users created');
+  console.log('10 public users created');
 
-  // ==============================
-  // 3️⃣.5️⃣ FILES (Imágenes para escuelas)
-  // ==============================
-
-  // Pool grande de imágenes para tener mayor variedad en cada seed
-  // Usamos URLs "seed" para evitar 404 de IDs inexistentes y mantener estabilidad.
   const logoPool = Array.from({ length: 60 }).map(
-    (_, i) => `https://picsum.photos/seed/skoolia-logo-${i + 1}/400/400`,
+    (_, index) => `https://picsum.photos/seed/skoolia-logo-${index + 1}/400/400`,
   );
 
   const coverPool = Array.from({ length: 60 }).map(
-    (_, i) => `https://picsum.photos/seed/skoolia-cover-${i + 1}/1200/800`,
+    (_, index) => `https://picsum.photos/seed/skoolia-cover-${index + 1}/1200/800`,
   );
 
-  const logoUrls = owners.map((_, i) => logoPool[(i * 7) % logoPool.length]);
-  const coverUrls = owners.map((_, i) => coverPool[(i * 11) % coverPool.length]);
+  const logoUrls = owners.map((_, index) => logoPool[(index * 7) % logoPool.length]);
+  const coverUrls = owners.map((_, index) => coverPool[(index * 11) % coverPool.length]);
 
-  // Crear registros de archivos (logos)
   const logoFiles = await db
     .insert(files)
     .values(
-      logoUrls.map((url, i) => ({
+      logoUrls.map((url, index) => ({
         url,
-        key: `school-logos/logo-${i}.jpg`,
+        key: `school-logos/logo-${index}.jpg`,
         mimeType: 'image/jpeg',
-        sizeBytes: Math.floor(Math.random() * 500000) + 100000, // 100KB - 600KB
-        ownerId: owners[i].id,
+        sizeBytes: Math.floor(Math.random() * 500000) + 100000,
+        ownerId: owners[index].id,
         ownerType: 'school' as const,
       })),
     )
     .returning();
 
-  // Crear registros de archivos (covers)
   const coverFiles = await db
     .insert(files)
     .values(
-      coverUrls.map((url, i) => ({
+      coverUrls.map((url, index) => ({
         url,
-        key: `school-covers/cover-${i}.jpg`,
+        key: `school-covers/cover-${index}.jpg`,
         mimeType: 'image/jpeg',
-        sizeBytes: Math.floor(Math.random() * 1000000) + 500000, // 500KB - 1.5MB
-        ownerId: owners[i].id,
+        sizeBytes: Math.floor(Math.random() * 1000000) + 500000,
+        ownerId: owners[index].id,
         ownerType: 'school' as const,
       })),
     )
     .returning();
 
-  console.log(
-    `✅ ${logoFiles.length + coverFiles.length} archivos (logos + covers) creados con mayor variedad`,
-  );
-
-  // ==============================
-  // 4️⃣ SCHOOLS
-  // ==============================
+  console.log(`${logoFiles.length + coverFiles.length} files created`);
 
   const schoolNames = Array.from({ length: 15 }).map(
-    (_, i) => `Academia ${i + 1}`,
+    (_, index) => `Academia ${index + 1}`,
   );
 
   const educationalLevels = [
@@ -183,41 +212,6 @@ async function seed() {
     'Universidad',
   ];
 
-  const mexicoStates = [
-    'Aguascalientes',
-    'Baja California',
-    'Baja California Sur',
-    'Campeche',
-    'Chiapas',
-    'Chihuahua',
-    'Ciudad de Mexico',
-    'Coahuila',
-    'Colima',
-    'Durango',
-    'Guanajuato',
-    'Guerrero',
-    'Hidalgo',
-    'Jalisco',
-    'Mexico',
-    'Michoacan',
-    'Morelos',
-    'Nayarit',
-    'Nuevo Leon',
-    'Oaxaca',
-    'Puebla',
-    'Queretaro',
-    'Quintana Roo',
-    'San Luis Potosi',
-    'Sinaloa',
-    'Sonora',
-    'Tabasco',
-    'Tamaulipas',
-    'Tlaxcala',
-    'Veracruz',
-    'Yucatan',
-    'Zacatecas',
-  ];
-
   const schedules = [
     '7:30 AM - 2:30 PM',
     '8:00 AM - 3:00 PM',
@@ -227,17 +221,15 @@ async function seed() {
   ];
 
   const languageOptions = [
-    'Español',
-    'Bilingüe (Español-Inglés)',
-    'Bilingüe (Español-Francés)',
-    'Trilingüe',
-    'Español',
+    'Espanol',
+    'Bilingue (Espanol-Ingles)',
+    'Bilingue (Espanol-Frances)',
+    'Trilingue',
+    'Espanol',
   ];
 
   const prices = [5000, 7500, 10000, 12500, 15000, 18000, 20000];
-
   const institutionTypes = ['Privada', 'Publica', 'Privada', 'Privada', 'Publica'];
-
   const maxStudentsList = [15, 18, 20, 22, 25, 30];
 
   const citiesWithCoords: Array<{ city: string; lat: number; lng: number }> = [
@@ -251,105 +243,123 @@ async function seed() {
     { city: 'Queretaro', lat: 20.5888, lng: -100.3899 },
   ];
 
-  const ownerIds = owners.map((o) => o.id);
+  const ownerIds = owners.map((owner) => owner.id);
 
   await db.delete(schools).where(inArray(schools.ownerId, ownerIds));
 
   const insertedSchools = await db
     .insert(schools)
     .values(
-      schoolNames.map((name, i) => {
-        const coordsData = citiesWithCoords[i % citiesWithCoords.length];
+      schoolNames.map((name, index) => {
+        const coordsData = citiesWithCoords[index % citiesWithCoords.length];
+
         return {
           name,
-          description: `Institución educativa ${name} con programas académicos de calidad. Comprometidos en la formación integral de nuestros estudiantes.`,
+          description: `Institucion educativa ${name} con programas academicos de calidad.`,
           city: coordsData.city,
-          address: `Calle Principal ${i + 1} No. ${100 + i * 50}, ${coordsData.city}`,
-          latitude: coordsData.lat + (i % 10) * 0.01,
-          longitude: coordsData.lng + (i % 10) * 0.01,
-          educationalLevel: educationalLevels[i % educationalLevels.length],
-          institutionType: institutionTypes[i % institutionTypes.length],
-          schedule: schedules[i % schedules.length],
-          maxStudentsPerClass: maxStudentsList[i % maxStudentsList.length],
-          languages: languageOptions[i % languageOptions.length],
-          logoUrl: logoFiles[i].id, // 🖼️ Logo
-          coverImageUrl: coverFiles[i].id, // 🖼️ Cover
-          enrollmentYear: 2024 + (i % 3),
-          monthlyPrice: prices[i % prices.length],
-          enrollmentOpen: i % 2 === 0,
-          averageRating: parseFloat((Math.random() * 2 + 3.5).toFixed(1)), // 3.5 - 5.5
+          address: `Calle Principal ${index + 1} No. ${100 + index * 50}, ${coordsData.city}`,
+          latitude: coordsData.lat + (index % 10) * 0.01,
+          longitude: coordsData.lng + (index % 10) * 0.01,
+          educationalLevel: educationalLevels[index % educationalLevels.length],
+          institutionType: institutionTypes[index % institutionTypes.length],
+          schedule: schedules[index % schedules.length],
+          maxStudentsPerClass: maxStudentsList[index % maxStudentsList.length],
+          languages: languageOptions[index % languageOptions.length],
+          logoUrl: logoFiles[index].id,
+          coverImageUrl: coverFiles[index].id,
+          enrollmentYear: 2024 + (index % 3),
+          monthlyPrice: prices[index % prices.length],
+          enrollmentOpen: index % 2 === 0,
+          averageRating: parseFloat((Math.random() * 2 + 3.5).toFixed(1)),
           ratingsCount: Math.floor(Math.random() * 50) + 10,
           favoritesCount: Math.floor(Math.random() * 100) + 5,
           rankingScore: parseFloat((Math.random() * 100).toFixed(2)),
-          isFeatured: i < 5, // Los primeros 5 como destacados
-          ownerId: owners[i].id,
-          isVerified: i % 3 === 0,
+          isFeatured: index < 5,
+          ownerId: owners[index].id,
+          isVerified: index % 3 === 0,
         };
       }),
     )
     .returning();
 
-  console.log('✅ 15 schools created');
+  console.log('15 schools created');
 
-  // ==============================
-  // 5️⃣ SCHOOL CATEGORIES
-  // ==============================
+  await db.delete(schoolSubscriptions).where(
+    inArray(
+      schoolSubscriptions.schoolId,
+      insertedSchools.map((school) => school.id),
+    ),
+  );
+
+  const now = new Date();
+
+  await db.insert(schoolSubscriptions).values(
+    insertedSchools.map((school, index) => {
+      const selectedPlan =
+        index < Math.ceil(insertedSchools.length * 0.8)
+          ? freemiumPlan
+          : premiumPlan;
+
+      const currentPeriodStart = new Date(now);
+      const currentPeriodEnd = new Date(now);
+      currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
+
+      return {
+        schoolId: school.id,
+        planId: selectedPlan.id,
+        status: 'active' as const,
+        currentPeriodStart,
+        currentPeriodEnd,
+      };
+    }),
+  );
+
+  console.log('School subscriptions assigned');
 
   await db.delete(schoolCategories).where(
     inArray(
       schoolCategories.schoolId,
-      insertedSchools.map((s) => s.id),
+      insertedSchools.map((school) => school.id),
     ),
   );
 
   await db.insert(schoolCategories).values(
-    insertedSchools.flatMap((school, i) => {
-      const firstCategory = insertedCategories[i % insertedCategories.length];
-      const secondCategory =
-        insertedCategories[(i + 3) % insertedCategories.length];
+    insertedSchools.flatMap((school, index) => {
+      const firstCategory = insertedCategories[index % insertedCategories.length];
+      const secondCategory = insertedCategories[(index + 3) % insertedCategories.length];
 
       return [
-        {
-          schoolId: school.id,
-          categoryId: firstCategory.id,
-        },
-        {
-          schoolId: school.id,
-          categoryId: secondCategory.id,
-        },
+        { schoolId: school.id, categoryId: firstCategory.id },
+        { schoolId: school.id, categoryId: secondCategory.id },
       ];
     }),
   );
 
-  console.log('✅ Categories assigned');
-
-  // ==============================
-  // 6️⃣ COURSES (2 per school)
-  // ==============================
+  console.log('Categories assigned');
 
   await db.delete(courses).where(
     inArray(
       courses.schoolId,
-      insertedSchools.map((s) => s.id),
+      insertedSchools.map((school) => school.id),
     ),
   );
 
   await db.insert(courses).values(
-    insertedSchools.flatMap((school, i) => [
+    insertedSchools.flatMap((school, index) => [
       {
         schoolId: school.id,
-        name: `Curso Basico ${i + 1}`,
+        name: `Curso Basico ${index + 1}`,
         description: 'Curso introductorio',
-        price: 1000 + i * 100,
+        price: 1000 + index * 100,
         capacity: 20,
         modality: 'presencial',
         status: 'published' as const,
       },
       {
         schoolId: school.id,
-        name: `Curso Avanzado ${i + 1}`,
+        name: `Curso Avanzado ${index + 1}`,
         description: 'Curso avanzado profesional',
-        price: 2000 + i * 150,
+        price: 2000 + index * 150,
         capacity: 15,
         modality: 'online',
         status: 'published' as const,
@@ -357,11 +367,7 @@ async function seed() {
     ]),
   );
 
-  console.log('✅ Courses created');
-
-  // ==============================
-  // 7️⃣ RATINGS (1 per user per school)
-  // ==============================
+  console.log('Courses created');
 
   const ratingsData = insertedSchools.flatMap((school) =>
     publics.slice(0, 3).map((user) => ({
@@ -375,21 +381,17 @@ async function seed() {
   await db.delete(schoolRatings).where(
     inArray(
       schoolRatings.schoolId,
-      insertedSchools.map((s) => s.id),
+      insertedSchools.map((school) => school.id),
     ),
   );
 
   await db.insert(schoolRatings).values(ratingsData);
-  console.log('✅ Ratings created');
-
-  // ==============================
-  // 8️⃣ FAVORITES
-  // ==============================
+  console.log('Ratings created');
 
   await db.delete(schoolFavorites).where(
     inArray(
       schoolFavorites.schoolId,
-      insertedSchools.map((s) => s.id),
+      insertedSchools.map((school) => school.id),
     ),
   );
 
@@ -400,15 +402,14 @@ async function seed() {
     })),
   );
 
-  console.log('✅ Favorites created');
-
-  console.log('🎉 SEED COMPLETED SUCCESSFULLY');
+  console.log('Favorites created');
+  console.log('Seed completed successfully');
 
   await pool.end();
 }
 
-seed().catch((err) => {
-  console.error('❌ Seed failed');
-  console.error(err);
+seed().catch((error) => {
+  console.error('Seed failed');
+  console.error(error);
   process.exit(1);
 });
