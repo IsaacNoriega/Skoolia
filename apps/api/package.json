@@ -23,6 +23,7 @@
 		"db:push": "drizzle-kit push",
 		"db:studio": "drizzle-kit studio",
 		"reset": "ts-node -r tsconfig-paths/register src/db/reset.ts",
+		"seed:plans": "ts-node -r tsconfig-paths/register src/db/seed-plans.ts",
 		"seed": "ts-node -r tsconfig-paths/register src/db/seed.ts",
 		"reset:seed": "npm run reset && npm run seed"
 	},
