@@ -6,6 +6,7 @@ import { GetMySchoolUseCase } from './core/use-cases/get-my-school.use-case';
 import { UpdateSchoolUseCase } from './core/use-cases/update-school.use-case';
 import { GetSchoolByIdUseCase } from './core/use-cases/get-school-by-id.use-case';
 import { DrizzleSchoolRepository } from './infrastructure/adapters/drizzle-school.repository';
+import { FindNearbySchoolsUseCase } from './core/use-cases/find-nearby-schools.use-case';
 import { SchoolsController } from './application/schools.controller';
 import { DbModule } from 'src/db/db.module';
 import { Module } from '@nestjs/common';
@@ -27,11 +28,12 @@ import { FilesModule } from 'src/files/files.module';
     SchoolsFeedResolver,
     ListSchoolsFeedUseCase,
     UpdateSchoolImageUseCase,
+    FindNearbySchoolsUseCase,
     {
       provide: SCHOOL_REPOSITORY,
       useClass: DrizzleSchoolRepository,
     },
   ],
-  exports: [SCHOOL_REPOSITORY],
+  exports: [SCHOOL_REPOSITORY, FindNearbySchoolsUseCase],
 })
 export class SchoolsModule {}

@@ -1,3 +1,4 @@
+import { relations } from 'drizzle-orm';
 import {
   index,
   pgTable,
@@ -11,6 +12,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { privateUsers } from '../users/private-users';
 import { files } from '../files';
+import { schoolSubscriptions } from './school-subscriptions';
 
 export const schools = pgTable(
   'schools',
@@ -31,8 +33,11 @@ export const schools = pgTable(
     // 📍 ubicación
     address: text('address'),
     city: text('city'),
+    state: text('state'), // Nuevo campo para estado
     latitude: doublePrecision('latitude'),
     longitude: doublePrecision('longitude'),
+    lat: doublePrecision('lat'), // Nueva columna para geolocalización
+    lng: doublePrecision('lng'), // Nueva columna para geolocalización
 
     // 🎓 info académica
     educationalLevel: text('educational_level'),
@@ -75,3 +80,14 @@ export const schools = pgTable(
     verifiedIdx: index('schools_verified_idx').on(table.isVerified),
   }),
 );
+
+export const schoolsRelations = relations(schools, ({ one }) => ({
+  owner: one(privateUsers, {
+    fields: [schools.ownerId],
+    references: [privateUsers.id],
+  }),
+  subscription: one(schoolSubscriptions, {
+    fields: [schools.id],
+    references: [schoolSubscriptions.schoolId],
+  }),
+}));

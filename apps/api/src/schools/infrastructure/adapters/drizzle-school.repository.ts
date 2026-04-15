@@ -1,6 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { schoolCategories, schools } from 'drizzle/schemas';
-import { and, eq, ilike, desc, lt, SQL, or, gte, lte } from 'drizzle-orm';
+import {
+  plans,
+  schoolCategories,
+  schoolSubscriptions,
+  schools,
+} from 'drizzle/schemas';
+import { and, eq, ilike, desc, lt, SQL, or, gte, lte, sql } from 'drizzle-orm';
 
 import { DATABASE } from 'src/db/db.module';
 import type { Database } from 'src/db/db.types';
@@ -31,17 +36,53 @@ export class DrizzleSchoolRepository implements SchoolRepository {
     name: string;
     description?: string;
     ownerId: string;
+    latitude?: number;
+    longitude?: number;
   }) {
-    const [school] = await this.db
-      .insert(schools)
-      .values({
-        name: params.name,
-        description: params.description,
-        ownerId: params.ownerId,
-      })
-      .returning();
+    return this.db.transaction(async (tx) => {
+      const now = new Date();
 
-    return school;
+      const [freemiumPlan] = await tx
+        .select({
+          id: plans.id,
+          interval: plans.interval,
+        })
+        .from(plans)
+        .where(eq(plans.name, 'Freemium'))
+        .limit(1);
+
+      if (!freemiumPlan) {
+        throw new Error('Freemium plan not found');
+      }
+
+      const [school] = await tx
+        .insert(schools)
+        .values({
+          name: params.name,
+          description: params.description,
+          ownerId: params.ownerId,
+          latitude: params.latitude,
+          longitude: params.longitude,
+        })
+        .returning();
+
+      const currentPeriodEnd = new Date(now);
+      if (freemiumPlan.interval === 'yearly') {
+        currentPeriodEnd.setFullYear(currentPeriodEnd.getFullYear() + 1);
+      } else {
+        currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
+      }
+
+      await tx.insert(schoolSubscriptions).values({
+        schoolId: school.id,
+        planId: freemiumPlan.id,
+        status: 'active',
+        currentPeriodStart: now,
+        currentPeriodEnd,
+      });
+
+      return school;
+    });
   }
 
   async findByOwner(ownerId: string): Promise<School | null> {
@@ -59,6 +100,7 @@ export class DrizzleSchoolRepository implements SchoolRepository {
 
         address: schools.address,
         city: schools.city,
+        state: schools.state,
         latitude: schools.latitude,
         longitude: schools.longitude,
 
@@ -107,6 +149,7 @@ export class DrizzleSchoolRepository implements SchoolRepository {
 
         address: schools.address,
         city: schools.city,
+        state: schools.state,
         latitude: schools.latitude,
         longitude: schools.longitude,
 
@@ -180,6 +223,7 @@ export class DrizzleSchoolRepository implements SchoolRepository {
     filters?: {
       educationalLevel?: string;
       city?: string;
+      state?: string;
       categoryId?: string;
       schedule?: string;
       languages?: string;
@@ -188,6 +232,8 @@ export class DrizzleSchoolRepository implements SchoolRepository {
       search?: string;
       sortBy?: 'favorites' | 'rating' | 'recent';
       onlyVerified?: boolean;
+      latitude?: number;
+      longitude?: number;
     };
     pagination?: {
       first: number;
@@ -198,14 +244,35 @@ export class DrizzleSchoolRepository implements SchoolRepository {
 
     const whereConditions: SQL[] = [];
 
+    // Si llegan lat/lng, filtrar por cercanía (10km)
+    if (typeof filters.latitude === 'number' && typeof filters.longitude === 'number') {
+      // Haversine formula en SQL (Postgres)
+      const earthRadiusKm = 6371;
+      const radiusKm = 10;
+      whereConditions.push(
+        sql`(
+          ${earthRadiusKm} * acos(
+            cos(radians(${filters.latitude})) * cos(radians(${schools.latitude})) *
+            cos(radians(${schools.longitude}) - radians(${filters.longitude})) +
+            sin(radians(${filters.latitude})) * sin(radians(${schools.latitude}))
+          )
+        ) <= ${radiusKm}`
+      );
+    }
+
     if (filters.educationalLevel) {
       whereConditions.push(
         ilike(schools.educationalLevel, `%${filters.educationalLevel}%`),
       );
     }
 
+
     if (filters.city) {
       whereConditions.push(ilike(schools.city, `%${filters.city}%`));
+    }
+
+    if (filters.state) {
+      whereConditions.push(ilike(schools.state, `%${filters.state}%`));
     }
 
     if (filters.categoryId) {
@@ -260,6 +327,7 @@ export class DrizzleSchoolRepository implements SchoolRepository {
 
       address: schools.address,
       city: schools.city,
+      state: schools.state,
       latitude: schools.latitude,
       longitude: schools.longitude,
 
@@ -385,5 +453,58 @@ export class DrizzleSchoolRepository implements SchoolRepository {
 
       return { oldFileId };
     });
+  }
+
+  async findNearby(lat: number, lng: number, radius: number) {
+    // Validación de coordenadas
+    if (lat == null || lng == null) {
+      return [];
+    }
+    // Radio por defecto (km)
+    const effectiveRadius = radius ?? 50;
+    // Haversine formula en SQL (distancia en km)
+    const distanceSql = sql`
+      6371 * acos(
+        cos(radians(${lat})) * cos(radians(${schools.lat})) * cos(radians(${schools.lng}) - radians(${lng}))
+        + sin(radians(${lat})) * sin(radians(${schools.lat}))
+      )
+    `;
+
+    const rows = await this.db
+      .select({
+        school: {
+          id: schools.id,
+          name: schools.name,
+          description: schools.description,
+          address: schools.address,
+          city: schools.city,
+          state: schools.state,
+          lat: schools.latitude ?? schools.lat,
+          lng: schools.longitude ?? schools.lng,
+          educationalLevel: schools.educationalLevel,
+          institutionType: schools.institutionType,
+          schedule: schools.schedule,
+          languages: schools.languages,
+          maxStudentsPerClass: schools.maxStudentsPerClass,
+          enrollmentYear: schools.enrollmentYear,
+          enrollmentOpen: schools.enrollmentOpen,
+          monthlyPrice: schools.monthlyPrice,
+          averageRating: schools.averageRating,
+          ratingsCount: schools.ratingsCount,
+          favoritesCount: schools.favoritesCount,
+          rankingScore: schools.rankingScore,
+          isFeatured: schools.isFeatured,
+          isVerified: schools.isVerified,
+          ownerId: schools.ownerId,
+          createdAt: schools.createdAt,
+          updatedAt: schools.updatedAt,
+        },
+        distance: distanceSql,
+      })
+      .from(schools)
+      .where(sql`${distanceSql} <= ${effectiveRadius}`)
+      .orderBy(sql`distance`);
+
+    return rows;
   }
 }

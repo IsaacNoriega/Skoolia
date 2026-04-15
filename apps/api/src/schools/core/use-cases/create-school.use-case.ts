@@ -13,6 +13,8 @@ export class CreateSchoolUseCase {
     role: 'public' | 'private';
     name: string;
     description?: string;
+    latitude?: number;
+    longitude?: number;
   }) {
     if (params.role !== 'private') {
       throw new ForbiddenException('Only private users can create schools');
@@ -28,6 +30,8 @@ export class CreateSchoolUseCase {
       name: params.name,
       description: params.description,
       ownerId: params.ownerId,
+      latitude: params.latitude,
+      longitude: params.longitude,
     });
   }
 }

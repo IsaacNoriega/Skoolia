@@ -6,8 +6,10 @@ export interface School {
   logoUrl: string | null;
   coverImageUrl: string | null;
 
+
   address: string | null;
   city: string | null;
+  state: string | null;
   latitude: number | null;
   longitude: number | null;
 

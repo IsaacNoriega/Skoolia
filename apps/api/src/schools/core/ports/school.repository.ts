@@ -6,6 +6,8 @@ export interface SchoolRepository {
     name: string;
     description?: string;
     ownerId: string;
+    latitude?: number;
+    longitude?: number;
   }): Promise<School>;
 
   findById(id: string): Promise<School | null>;
@@ -22,6 +24,7 @@ export interface SchoolRepository {
     filters?: {
       educationalLevel?: string;
       city?: string;
+      state?: string;
       categoryId?: string;
       schedule?: string;
       languages?: string;
@@ -30,6 +33,8 @@ export interface SchoolRepository {
       search?: string;
       sortBy?: 'favorites' | 'rating' | 'recent';
       onlyVerified?: boolean;
+      latitude?: number;
+      longitude?: number;
     };
     pagination?: {
       first: number;
@@ -48,4 +53,6 @@ export interface SchoolRepository {
     field: 'logoUrl' | 'coverImageUrl';
     newFileId: string;
   }): Promise<{ oldFileId: string | null }>;
+  
+  findNearby(lat: number, lng: number, radius: number): Promise<any>;
 }

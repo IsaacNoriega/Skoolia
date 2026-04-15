@@ -1,5 +1,7 @@
 "use client";
-import React, { createContext, useReducer, useContext } from "react";
+
+import { useToast } from "@/components/ui/toast";
+import React, { createContext, useReducer, useContext, useCallback } from "react";
 
 type OnboardingStep = 1 | 2 | 3 | 4;
 
@@ -23,6 +25,8 @@ export interface OnboardingState {
 
     city: string;
     address: string;
+    lat: number | null;
+    lng: number | null;
 
     categories: Category[];
   };
@@ -101,6 +105,8 @@ const initialState: OnboardingState = {
 
     city: "",
     address: "",
+    lat: null,
+    lng: null,
     categories: [],
   },
   errors: {},
@@ -210,33 +216,79 @@ function reducer(state: OnboardingState, action: Action): OnboardingState {
 
 type OnboardingContextType = {
   state: OnboardingState;
-
-  // 👇 ahora sí: setField tipado por clave (sirve para schoolId, strings, arrays, etc)
   setField: <K extends DataKey>(field: K, value: DataValue<K>) => void;
-
   next: () => void;
   back: () => void;
   validate: () => void;
   reset: () => void;
   toggleCategory: (category: Category) => void;
+  handleStep3Next?: () => Promise<void>;
 };
 
 const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
 
 export function OnboardingProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const { showToast } = useToast();
+
+  // Handler global para el paso 3 (geocodificación)
+  const handleStep3Next = useCallback(async () => {
+    // Usar dispatch directamente para evitar ReferenceError
+    value.validate();
+    if (!state.canContinue) return;
+    const address = state.data.address;
+    const city = state.data.city;
+    if (address && city) {
+      const query = encodeURIComponent(`${address}, ${city}, México`);
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${query}`;
+      try {
+        const res = await fetch(url, {
+          headers: { 'Accept-Language': 'es', 'User-Agent': 'Skoolia/1.0 (contacto@skoolia.mx)' },
+        });
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          dispatch({ type: "SET_FIELD", field: "lat", value: parseFloat(data[0].lat) });
+          dispatch({ type: "SET_FIELD", field: "lng", value: parseFloat(data[0].lon) });
+          showToast({
+            title: "Coordenadas encontradas",
+            description: `Latitud: ${parseFloat(data[0].lat).toFixed(6)}, Longitud: ${parseFloat(data[0].lon).toFixed(6)}`,
+            variant: "success",
+          });
+        } else {
+          dispatch({ type: "SET_FIELD", field: "lat", value: null });
+          dispatch({ type: "SET_FIELD", field: "lng", value: null });
+          showToast({
+            title: "No se pudo geocodificar la dirección",
+            description: "Verifica que la dirección y el estado sean correctos. Puedes continuar, pero las coordenadas no se guardarán.",
+            variant: "error",
+          });
+        }
+      } catch {
+        dispatch({ type: "SET_FIELD", field: "lat", value: null });
+        dispatch({ type: "SET_FIELD", field: "lng", value: null });
+        showToast({
+          title: "No se pudo geocodificar la dirección",
+          description: "Verifica que la dirección y el estado sean correctos. Puedes continuar, pero las coordenadas no se guardarán.",
+          variant: "error",
+        });
+      }
+    } else {
+      dispatch({ type: "SET_FIELD", field: "lat", value: null });
+      dispatch({ type: "SET_FIELD", field: "lng", value: null });
+    }
+    dispatch({ type: "NEXT_STEP" });
+  }, [state, dispatch, showToast]);
 
   const value: OnboardingContextType = {
     state,
-
     setField: (field, value) => dispatch({ type: "SET_FIELD", field, value }),
-
     next: () => dispatch({ type: "NEXT_STEP" }),
     back: () => dispatch({ type: "PREVIOUS_STEP" }),
     validate: () => dispatch({ type: "VALIDATE" }),
     reset: () => dispatch({ type: "RESET" }),
-
     toggleCategory: (category) => dispatch({ type: "TOGGLE_CATEGORY", category }),
+    handleStep3Next,
   };
 
   return <OnboardingContext.Provider value={value}>{children}</OnboardingContext.Provider>;

@@ -20,6 +20,7 @@ export class ListSchoolsFeedUseCase {
       search?: string;
       sortBy?: 'favorites' | 'rating' | 'recent';
       onlyVerified?: boolean;
+      state?: string;
     };
     pagination?: {
       first: number;

@@ -11,7 +11,7 @@ import Step4 from "@/components/onboarding/steps/Step4";
 import { useRouter } from "next/navigation";
 
 export default function OnboardingLayout() {
-  const { state, next, back, setField, validate } = useOnboarding();
+  const { state, next, back, setField, validate, handleStep3Next } = useOnboarding();
   const router = useRouter();
 
   const [submitting, setSubmitting] = useState(false);
@@ -21,34 +21,27 @@ export default function OnboardingLayout() {
   const canSubmitStep = isLastStep ? true : state.canContinue;
 
   async function handleContinue() {
-    if (!isLastStep) {
-      // fuerza validación visual antes de avanzar en steps intermedios
-      validate();
-      if (!state.canContinue) return;
-    }
     if (submitting) return;
-
+    setSubmitting(true);
     try {
-      setSubmitting(true);
-
+      if (state.step === 3 && handleStep3Next) {
+        await handleStep3Next();
+        return;
+      }
+      if (!isLastStep) {
+        validate();
+        if (!state.canContinue) return;
+      }
       // STEP 1: solo avanzamos (sin crear escuela todavia)
       if (state.step === 1) {
         next();
         return;
       }
-
       // STEP 2: solo avanzamos (categorias se guardan al final)
       if (state.step === 2) {
         next();
         return;
       }
-
-      // STEP 3: solo avanzamos (info academica se guarda al final)
-      if (state.step === 3) {
-        next();
-        return;
-      }
-
       // STEP 4 (FINAL)
       if (isLastStep) {
         await handleSubmit();
@@ -57,16 +50,19 @@ export default function OnboardingLayout() {
       }
     } catch (e) {
       console.error("Onboarding error:", e);
-      // aquí puedes setear un error UI si quieres
     } finally {
       setSubmitting(false);
     }
   }
 
   async function handleSubmit() {
+
+    // Guardar lat/lng desde el onboarding
     const school = await schoolsService.create({
       name: state.data.schoolName.trim(),
       description: state.data.description?.trim() || undefined,
+      latitude: state.data.lat ?? undefined,
+      longitude: state.data.lng ?? undefined,
     });
 
     setField("schoolId", school.id);
@@ -81,6 +77,8 @@ export default function OnboardingLayout() {
       institutionType: state.data.institutionType || undefined,
       city: state.data.city || undefined,
       address: state.data.address || undefined,
+      latitude: state.data.lat ?? undefined,
+      longitude: state.data.lng ?? undefined,
     });
   }
 

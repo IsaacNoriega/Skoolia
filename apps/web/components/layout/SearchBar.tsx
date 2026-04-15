@@ -73,13 +73,42 @@ export default function SearchBar() {
                 <div className="hidden md:block w-0.5 h-8 bg-[#d9d9d9] mx-3" />
 
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     const params = new URLSearchParams();
 
                     if (query.trim()) params.set("q", query.trim());
-                    if (city.trim()) params.set("loc", city.trim());
+                    if (city.trim()) {
+                      if (city.trim() === "Cerca de mí") {
+                        // Obtener ubicación y redirigir con lat/lon
+                        if (typeof window !== "undefined" && "geolocation" in navigator) {
+                          navigator.geolocation.getCurrentPosition(
+                            (position) => {
+                              params.set("loc", "Cerca de mí");
+                              params.set("near", "1");
+                              params.set("lat", String(position.coords.latitude));
+                              params.set("lon", String(position.coords.longitude));
+                              params.set("tab", activeTab);
+                              router.push(`/search?${params.toString()}`);
+                            },
+                            () => {
+                              // Si falla, solo redirige con loc
+                              params.set("loc", "Cerca de mí");
+                              params.set("tab", activeTab);
+                              router.push(`/search?${params.toString()}`);
+                            },
+                            {
+                              enableHighAccuracy: true,
+                              timeout: 12000,
+                              maximumAge: 1000 * 60 * 15,
+                            }
+                          );
+                          return;
+                        }
+                      } else {
+                        params.set("loc", city.trim());
+                      }
+                    }
                     params.set("tab", activeTab);
-
                     router.push(`/search?${params.toString()}`);
                   }}
                   className="flex items-center justify-center bg-[#2d2c2b] hover:bg-[#1666e3] text-white font-bold px-8 py-3 rounded-full transition text-base md:ml-4 w-full md:w-auto"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { MapPin } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { getSchoolHistory } from "@/lib/history/school-history";
@@ -90,7 +91,7 @@ function buildCatalogItem(node: SchoolNode): CatalogItem {
   if (node.city) tags.push(node.city);
 
   const location = node.city || node.address || "Ubicación no disponible";
-  const price = node.monthlyPrice ?? "Por definir";
+  const price = node.monthlyPrice ?? "";
 
   return {
     id: node.id,
@@ -100,10 +101,7 @@ function buildCatalogItem(node: SchoolNode): CatalogItem {
     title: node.name,
     location,
     price,
-    priceFormatted:
-      typeof node.monthlyPrice === "number"
-        ? formatPrice(node.monthlyPrice)
-        : "Por definir",
+    priceFormatted: node.monthlyPrice != null ? node.monthlyPrice.toString() : "",
     href: `/search?q=${encodeURIComponent(node.name)}`,
   };
 }
@@ -119,6 +117,7 @@ export default function CatalogSection() {
   const [itemsPerPage, setItemsPerPage] = useState(3);
   const [pageStart, setPageStart] = useState(0);
   const [userCoords, setUserCoords] = useState<UserCoords | null>(null);
+  const [onlyNearby, setOnlyNearby] = useState(false);
   const [buckets, setBuckets] = useState<RecommendationBuckets>({
     Nivel: [],
     Categorias: [],
@@ -240,13 +239,32 @@ export default function CatalogSection() {
           ? await safeFeed({ city: topHistoryCityRaw, sortBy: "rating" })
           : { edges: [], pageInfo: { hasNextPage: false, endCursor: null } };
 
+        // DEBUG: Log de filtros enviados para búsqueda 'Cerca de mí'
+        if (userCoords) {
+          console.log("[DEBUG][Cerca de mí] Filtros enviados:", {
+            latitude: userCoords.latitude,
+            longitude: userCoords.longitude,
+            sortBy: "rating",
+          });
+        } else {
+          console.log("[DEBUG][Cerca de mí] No hay coordenadas de usuario, no se envía filtro de ubicación");
+        }
+
         const nearbyFeed = userCoords
           ? await safeFeed({
               latitude: userCoords.latitude,
               longitude: userCoords.longitude,
-              sortBy: "rating",
             })
           : { edges: [], pageInfo: { hasNextPage: false, endCursor: null } };
+
+        // DEBUG: Log de resultados recibidos para búsqueda 'Cerca de mí'
+        console.log("[DEBUG][Cerca de mí] Resultados recibidos:", nearbyFeed.edges.map(e => ({
+          id: e.node.id,
+          name: e.node.name,
+          city: e.node.city,
+          latitude: e.node.latitude,
+          longitude: e.node.longitude,
+        })));
 
         const nearbyCityStats = new Map<string, number>();
         nearbyFeed.edges.forEach(({ node }) => {
@@ -461,6 +479,23 @@ export default function CatalogSection() {
     }
   };
 
+  // Botón para activar soloNearby
+  const handleOnlyNearbyToggle = () => {
+    setOnlyNearby((prev) => !prev);
+  };
+
+  {/* Botón Cerca de mí */}
+  <div className="flex gap-4 mb-4 justify-center">
+    <button
+      className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 font-semibold shadow-sm transition ${onlyNearby ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}
+      disabled={!userCoords}
+      onClick={() => setOnlyNearby((v) => !v)}
+    >
+      <MapPin className="w-5 h-5" />
+      {onlyNearby ? "Mostrando solo escuelas cerca de mí" : "Cerca de mí"}
+    </button>
+  </div>
+
   return (
     <section className="mx-auto max-w-7xl px-6 py-16 text-center flex flex-col items-center">
       {/* TITLE */}
@@ -550,7 +585,7 @@ export default function CatalogSection() {
                   title={item.title}
                   location={item.location}
                   price={item.price}
-                  priceFormatted={item.priceFormatted}
+                  priceFormatted={item.price}
                   href={item.href}
                   isFavorite={favoriteIds.has(item.id)}
                   onFavoriteToggle={() => handleFavoriteToggle(item.id)}

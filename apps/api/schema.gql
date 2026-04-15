@@ -10,6 +10,7 @@ type SchoolModel {
   coverImageUrl: String
   address: String
   city: String
+  state: String
   averageRating: Float!
   favoritesCount: Int!
   isVerified: Boolean!
@@ -37,6 +38,7 @@ type Query {
 }
 
 input SchoolsFeedInput {
+  state: String
   educationalLevel: String
   city: String
   categoryId: String

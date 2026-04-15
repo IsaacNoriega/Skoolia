@@ -93,4 +93,8 @@ export const schoolsService = {
       body: { fileId },
     });
   },
+
+  async getNearbySchools(lat: number, lng: number, radius = 10) {
+    return api<School[]>(`/schools/nearby?lat=${lat}&lng=${lng}&radius=${radius}`);
+  },
 };

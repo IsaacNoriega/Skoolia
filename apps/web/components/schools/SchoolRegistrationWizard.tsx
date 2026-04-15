@@ -1,295 +1,470 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState } from "react";
-import { X, ShieldCheck } from "lucide-react";
-import { schoolsService } from "@/lib/services/services/schools.service";
-import { MEXICO_STATES, resolveMexicanState } from "@/lib/mexico-states";
-import { filesService } from "@/lib/services/services/files.service";
-
-const EDUCATIONAL_LEVEL_OPTIONS = [
-    "Kinder",
-    "Primaria",
-    "Secundaria",
-    "Preparatoria",
-    "Universidad",
-] as const;
-
-const INSTITUTION_TYPE_OPTIONS = ["Privada", "Pública"] as const;
-
-const LANGUAGE_OPTIONS = [
-    "Español",
-    "Inglés",
-    "Español, Inglés",
-    "Español, Francés",
-    "Español, Inglés, Francés",
-] as const;
-
-const SCHEDULE_OPTIONS = [
-    "07:00 - 14:00",
-    "07:30 - 14:30",
-    "08:00 - 15:00",
-    "08:30 - 15:30",
-    "09:00 - 16:00",
-] as const;
-
-function normalizeOptionalImageUrl(value: string): string | undefined {
-    const trimmed = value.trim();
-    if (!trimmed) return undefined;
-
-    if (
-        trimmed.startsWith("http://") ||
-        trimmed.startsWith("https://") ||
-        trimmed.startsWith("/") ||
-        trimmed.startsWith("blob:")
-    ) {
-        return trimmed;
-    }
-
+import { useEffect, useState, type ReactNode } from "react";
+// Utilidad para geocodificar usando Nominatim
+async function geocodeAddress(address: string, city: string): Promise<{ lat: number; lng: number } | null> {
+    const query = encodeURIComponent(`${address}, ${city}, México`);
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${query}`;
     try {
-        return new URL(`https://${trimmed}`).toString();
+        const res = await fetch(url, {
+            headers: { 'Accept-Language': 'es', 'User-Agent': 'Skoolia/1.0 (contacto@skoolia.mx)' },
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+            return {
+                lat: parseFloat(data[0].lat),
+                lng: parseFloat(data[0].lon),
+            };
+        }
+        return null;
     } catch {
-        return undefined;
+        return null;
     }
 }
+import { useRouter } from "next/navigation";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { ShieldCheck, Upload, X } from "lucide-react";
+import {
+  useForm,
+  type FieldPath,
+} from "react-hook-form";
+
+import { useToast } from "@/components/ui/toast";
+import { MEXICO_STATES, resolveMexicanState } from "@/lib/mexico-states";
+import {
+    SCHOOL_REGISTRATION_DEFAULT_VALUES,
+    EDUCATIONAL_LEVEL_OPTIONS,
+    INSTITUTION_TYPE_OPTIONS,
+    LANGUAGE_OPTIONS,
+    SCHEDULE_OPTIONS,
+    schoolRegistrationWizardSchema,
+    type SchoolRegistrationWizardInput,
+    type SchoolRegistrationWizardValues,
+} from "@/lib/schemas/school-registration";
+import { ApiError } from "@/lib/services/api";
+import { filesService } from "@/lib/services/services/files.service";
+import { schoolsService } from "@/lib/services/services/schools.service";
+import { cn } from "@/lib/utils";
 
 type Props = {
     isOpen: boolean;
     onClose: () => void;
 };
 
+type PendingAction = "next" | "submit" | null;
+type FormErrorLike = { message?: string } | undefined;
+
+const STEP_FIELDS: Array<FieldPath<SchoolRegistrationWizardInput>[]> = [
+    ["name", "description", "address", "city"],
+    [
+        "educationalLevel",
+        "institutionType",
+        "languages",
+        "schedule",
+        "monthlyPrice",
+        "maxStudentsPerClass",
+        "enrollmentYear",
+        "enrollmentOpen",
+    ],
+    ["latitude", "longitude", "logoFile", "coverFile"],
+];
+
+const STEP_META = [
+    {
+        title: "Datos generales",
+        description:
+            "Presenta tu institucion con la informacion base que se guardara en el perfil.",
+    },
+    {
+        title: "Datos academicos",
+        description:
+            "Completa la oferta educativa, modalidad y datos clave de inscripcion.",
+    },
+    {
+        title: "Ubicacion y medios",
+        description:
+            "Agrega coordenadas opcionales y sube los archivos visuales que se asociaran al perfil.",
+    },
+    {
+        title: "Revision final",
+        description:
+            "Confirma los datos antes de crear o completar el perfil de la escuela.",
+    },
+] as const;
+
+function getApiErrorMessage(error: unknown): string {
+    if (error instanceof ApiError) {
+        if (error.status === 401 || error.status === 403) {
+            return "Debes iniciar sesion con una cuenta de escuela para completar este registro.";
+        }
+
+        const payload = error.data;
+
+        if (typeof payload === "string" && payload.trim()) {
+            return payload;
+        }
+
+        if (
+            payload &&
+            typeof payload === "object" &&
+            "message" in payload &&
+            typeof payload.message === "string"
+        ) {
+            return payload.message;
+        }
+
+        if (
+            payload &&
+            typeof payload === "object" &&
+            "message" in payload &&
+            Array.isArray(payload.message)
+        ) {
+            return payload.message.join(" ");
+        }
+    }
+
+    if (error instanceof Error && error.message) {
+        return error.message;
+    }
+
+    return "No pudimos guardar la escuela. Intentalo otra vez.";
+}
+
+function inputClassName(hasError: boolean) {
+  return cn(
+    "h-11 w-full rounded-2xl border bg-slate-50 px-4 text-sm text-slate-900 outline-none transition",
+    "placeholder:text-slate-400 focus:bg-white",
+    hasError
+      ? "border-rose-300 ring-2 ring-rose-100 focus:border-rose-400 focus:ring-rose-200"
+      : "border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100",
+  );
+}
+
+function textareaClassName(hasError: boolean) {
+  return cn(
+    "w-full rounded-2xl border bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition",
+    "placeholder:text-slate-400 focus:bg-white",
+    hasError
+      ? "border-rose-300 ring-2 ring-rose-100 focus:border-rose-400 focus:ring-rose-200"
+      : "border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100",
+  );
+}
+
+function FieldShell({
+    label,
+    error,
+    children,
+}: {
+  label: string;
+  error?: FormErrorLike;
+  children: ReactNode;
+}) {
+    return (
+        <div>
+            <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                {label}
+            </label>
+            {children}
+            {error ? (
+                <p className="mt-2 text-xs font-medium text-rose-600">{error.message}</p>
+            ) : null}
+        </div>
+    );
+}
+
+function FilePicker({
+    id,
+    label,
+    hint,
+    filename,
+    error,
+    onChange,
+}: {
+  id: string;
+  label: string;
+  hint: string;
+  filename?: string;
+  error?: FormErrorLike;
+  onChange: (file?: File) => void;
+}) {
+    return (
+        <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-5">
+            <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-slate-500 shadow-sm">
+                    <Upload size={16} />
+                </div>
+                <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-slate-900">{label}</p>
+                    <p className="mt-1 text-xs text-slate-500">{hint}</p>
+                    <input
+                        id={id}
+                        type="file"
+                        accept="image/*"
+                        className="mt-4 block w-full text-xs text-slate-600 file:mr-3 file:rounded-full file:border-0 file:bg-slate-900 file:px-3 file:py-2 file:font-semibold file:text-white"
+                        onChange={(event) => onChange(event.target.files?.[0])}
+                    />
+                    {filename ? (
+                        <p className="mt-2 truncate text-xs font-medium text-emerald-700">
+                            Archivo seleccionado: {filename}
+                        </p>
+                    ) : null}
+                    {error ? (
+                        <p className="mt-2 text-xs font-medium text-rose-600">{error.message}</p>
+                    ) : null}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function SchoolRegistrationWizard({ isOpen, onClose }: Props) {
-    const [step, setStep] = useState<2 | 3 | 4>(2);
+    const router = useRouter();
+    const { showToast } = useToast();
+    const [step, setStep] = useState(0);
+    const [pendingAction, setPendingAction] = useState<PendingAction>(null);
 
-    const [name, setName] = useState("");
-    const [educationalLevel, setEducationalLevel] = useState("");
-    const [institutionType, setInstitutionType] = useState("");
-    const [address, setAddress] = useState("");
-    const [city, setCity] = useState("");
-    const [description, setDescription] = useState("");
+    const {
+        register,
+        handleSubmit,
+        reset,
+        trigger,
+        watch,
+        setValue,
+        formState: { errors, isSubmitting },
+    } = useForm<
+        SchoolRegistrationWizardInput,
+        unknown,
+        SchoolRegistrationWizardValues
+    >({
+        resolver: zodResolver(schoolRegistrationWizardSchema),
+        mode: "onBlur",
+        shouldUnregister: false,
+        defaultValues: SCHOOL_REGISTRATION_DEFAULT_VALUES,
+    });
 
-    const [phone, setPhone] = useState("");
-    const [contactEmail, setContactEmail] = useState("");
+  const logoFile = watch("logoFile") as File | undefined;
+  const coverFile = watch("coverFile") as File | undefined;
+  const schoolName = watch("name") as string | undefined;
+  const schoolCity = watch("city") as string | undefined;
+  const educationalLevel = watch("educationalLevel") as string | undefined;
+  const institutionType = watch("institutionType") as string | undefined;
+  const schedule = watch("schedule") as string | undefined;
+  const monthlyPrice = watch("monthlyPrice") as number | undefined;
+  const currentStepMeta = STEP_META[step];
 
-    const [logoFile, setLogoFile] = useState<File | null>(null);
-    const [coverFile, setCoverFile] = useState<File | null>(null);
-
-    // Campos adicionales
-    const [languages, setLanguages] = useState("");
-    const [schedule, setSchedule] = useState("");
-    const [monthlyPrice, setMonthlyPrice] = useState<number | null>(null);
-    const [logoUrl, setLogoUrl] = useState("");
-    const [coverImageUrl, setCoverImageUrl] = useState("");
-    const [latitude, setLatitude] = useState<number | null>(null);
-    const [longitude, setLongitude] = useState<number | null>(null);
-    const [maxStudentsPerClass, setMaxStudentsPerClass] = useState<number | null>(null);
-    const [enrollmentYear, setEnrollmentYear] = useState<number | null>(null);
-    const [enrollmentOpen, setEnrollmentOpen] = useState<boolean>(false);
-
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    useEffect(() => {
+        if (!isOpen) {
+            setStep(0);
+            setPendingAction(null);
+            reset(SCHOOL_REGISTRATION_DEFAULT_VALUES);
+        }
+    }, [isOpen, reset]);
 
     if (!isOpen) return null;
 
-    const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (e.target === e.currentTarget) onClose();
-    };
-
-    const goNext = () => {
-        setError(null);
-        setStep((prev) => (prev === 2 ? 3 : 4));
-    };
-
-    const goPrev = () => {
-        setError(null);
-        setStep((prev) => (prev === 4 ? 3 : 2));
-    };
-
-    const handleConfirm = async () => {
-        setError(null);
-        setLoading(true);
-        try {
-            const normalizedLogoUrl = normalizeOptionalImageUrl(logoUrl);
-            const normalizedCoverImageUrl = normalizeOptionalImageUrl(coverImageUrl);
-
-            if (logoUrl.trim() && !normalizedLogoUrl) {
-                setError("La URL del logo no es válida.");
-                return;
-            }
-
-            if (coverImageUrl.trim() && !normalizedCoverImageUrl) {
-                setError("La URL de portada no es válida.");
-                return;
-            }
-
-            if (latitude != null && (!Number.isFinite(latitude) || latitude < -90 || latitude > 90)) {
-                setError("La latitud debe ser un número entre -90 y 90.");
-                return;
-            }
-
-            if (longitude != null && (!Number.isFinite(longitude) || longitude < -180 || longitude > 180)) {
-                setError("La longitud debe ser un número entre -180 y 180.");
-                return;
-            }
-
-            if (monthlyPrice != null && (!Number.isFinite(monthlyPrice) || monthlyPrice < 0)) {
-                setError("El precio mensual debe ser un número mayor o igual a 0.");
-                return;
-            }
-
-            if (maxStudentsPerClass != null && (!Number.isInteger(maxStudentsPerClass) || maxStudentsPerClass < 1)) {
-                setError("La cantidad de alumnos por clase debe ser un entero mayor o igual a 1.");
-                return;
-            }
-
-            if (enrollmentYear != null && (!Number.isInteger(enrollmentYear) || enrollmentYear < 1900 || enrollmentYear > 2100)) {
-                setError("El año de inscripción debe estar entre 1900 y 2100.");
-                return;
-            }
-
-            // 1️⃣ Crear la escuela (nombre + descripción)
-            await schoolsService.create({
-                name,
-                description,
-            });
-
-            // 2️⃣ Guardar información adicional usando update
-            await schoolsService.update({
-                address: address.trim() || undefined,
-                city: resolveMexicanState(city.trim()) || undefined,
-                educationalLevel: educationalLevel || undefined,
-                institutionType: institutionType || undefined,
-                languages: languages.trim() || undefined,
-                schedule: schedule.trim() || undefined,
-                monthlyPrice: monthlyPrice ?? undefined,
-                latitude: latitude ?? undefined,
-                longitude: longitude ?? undefined,
-                maxStudentsPerClass: maxStudentsPerClass ?? undefined,
-                enrollmentYear: enrollmentYear ?? undefined,
-                enrollmentOpen: enrollmentOpen ?? undefined,
-            });
-
-            if (logoFile) {
-                const uploadedLogo = await filesService.upload(logoFile);
-                await schoolsService.updateImage("logoUrl", uploadedLogo.id);
-            }
-
-            if (coverFile) {
-                const uploadedCover = await filesService.upload(coverFile);
-                await schoolsService.updateImage("coverImageUrl", uploadedCover.id);
-            }
-
+    const handleBackdropClick = (event: React.MouseEvent<HTMLDivElement>) => {
+        if (event.target === event.currentTarget && !isSubmitting) {
             onClose();
-        } catch (err: any) {
-            console.error(err);
-            if (err?.name === "ApiError" && (err.status === 401 || err.status === 403)) {
-                setError("Debes iniciar sesión como escuela para registrar tu institución.");
-            } else {
-                setError("No se pudo registrar la institución. Inténtalo de nuevo.");
-            }
-        } finally {
-            setLoading(false);
         }
     };
 
+    const goPrev = () => {
+        if (step === 0) {
+            onClose();
+            return;
+        }
+
+        setStep((current) => Math.max(current - 1, 0));
+    };
+
+
+    const goNext = async () => {
+        setPendingAction("next");
+        const isValid = await trigger(STEP_FIELDS[step], { shouldFocus: true });
+        if (!isValid) {
+            setPendingAction(null);
+            return;
+        }
+
+        // Si estamos en el paso 0, geocodificar antes de avanzar
+        if (step === 0) {
+            const addressRaw = watch("address");
+            const cityRaw = watch("city");
+            const address = typeof addressRaw === 'string' ? addressRaw : '';
+            const city = typeof cityRaw === 'string' ? cityRaw : '';
+            if (address && city) {
+                showToast({
+                    title: "Buscando coordenadas...",
+                    description: "Geocodificando la dirección ingresada.",
+                    variant: "info",
+                    duration: 2500,
+                });
+                const geo = await geocodeAddress(address, city);
+                if (geo) {
+                    setValue("latitude", geo.lat, { shouldValidate: true });
+                    setValue("longitude", geo.lng, { shouldValidate: true });
+                    showToast({
+                        title: "Coordenadas encontradas",
+                        description: `Latitud: ${geo.lat.toFixed(6)}, Longitud: ${geo.lng.toFixed(6)}`,
+                        variant: "success",
+                    });
+                } else {
+                    showToast({
+                        title: "No se pudo geocodificar la dirección",
+                        description: "Verifica que la dirección y el estado sean correctos. Puedes ingresar las coordenadas manualmente en el siguiente paso.",
+                        variant: "error",
+                    });
+                }
+            }
+        }
+        setPendingAction(null);
+        setStep((current) => Math.min(current + 1, STEP_META.length - 1));
+    };
+
+  const onSubmit = handleSubmit(async (values: SchoolRegistrationWizardValues) => {
+        setPendingAction("submit");
+
+        try {
+            let reusedExistingSchool = false;
+
+            try {
+                await schoolsService.create({
+                    name: values.name,
+                    description: values.description,
+                });
+            } catch (error) {
+                if (error instanceof ApiError && error.status === 409) {
+                    reusedExistingSchool = true;
+                } else {
+                    throw error;
+                }
+            }
+
+            await schoolsService.update({
+                name: values.name,
+                description: values.description,
+                address: values.address,
+                city: resolveMexicanState(values.city),
+                latitude: values.latitude,
+                longitude: values.longitude,
+                educationalLevel: values.educationalLevel,
+                institutionType: values.institutionType,
+                schedule: values.schedule,
+                languages: values.languages,
+                maxStudentsPerClass: values.maxStudentsPerClass,
+                enrollmentYear: values.enrollmentYear,
+                enrollmentOpen: values.enrollmentOpen,
+                monthlyPrice: values.monthlyPrice,
+            });
+
+            if (values.logoFile) {
+                const uploadedLogo = await filesService.upload(values.logoFile);
+                await schoolsService.updateImage("logoUrl", uploadedLogo.id);
+            }
+
+            if (values.coverFile) {
+                const uploadedCover = await filesService.upload(values.coverFile);
+                await schoolsService.updateImage("coverImageUrl", uploadedCover.id);
+            }
+
+            showToast({
+                title: reusedExistingSchool
+                    ? "Perfil de escuela actualizado"
+                    : "Escuela registrada con exito",
+                description: reusedExistingSchool
+                    ? "Detectamos una escuela previa y terminamos de completar su configuracion."
+                    : "Tu institucion ya puede continuar al dashboard.",
+                variant: "success",
+            });
+
+            reset(SCHOOL_REGISTRATION_DEFAULT_VALUES);
+            setStep(0);
+            onClose();
+            router.push("/schools");
+            router.refresh();
+        } catch (error) {
+            showToast({
+                title: "No pudimos guardar la escuela",
+                description: getApiErrorMessage(error),
+                variant: "error",
+            });
+        } finally {
+            setPendingAction(null);
+        }
+    });
+
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4"
             onClick={handleBackdropClick}
             aria-modal
             role="dialog"
         >
-            <div className="relative flex h-[90vh] w-full max-w-4xl flex-col rounded-3xl bg-white shadow-2xl">
-                {/* Close */}
+            <form
+                onSubmit={onSubmit}
+                className="relative flex h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"
+            >
                 <button
+                    type="button"
                     onClick={onClose}
                     aria-label="Cerrar"
-                    className="absolute right-6 top-6 rounded-full p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                    disabled={isSubmitting}
+                    className="absolute right-6 top-6 rounded-full p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
                 >
                     <X size={18} />
                 </button>
 
-                {/* Header */}
                 <header className="border-b border-slate-100 px-8 py-5">
                     <h2 className="text-lg font-extrabold text-slate-900 sm:text-xl">
-                        Datos de la Institución
+                        Registro de escuela
                     </h2>
-                    <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-slate-400">
-                        Paso {step} de 4 · Información General
+                    <div className="mt-1 flex items-center justify-between gap-4">
+                        <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                            Paso {step + 1} de {STEP_META.length} � {currentStepMeta.title}
+                        </p>
+                        <div className="flex flex-1 justify-end gap-2">
+                            {STEP_META.map((item, index) => (
+                                <span
+                                    key={item.title}
+                                    className={cn(
+                                        "h-2 w-16 rounded-full",
+                                        index <= step ? "bg-slate-900" : "bg-slate-200",
+                                    )}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                    <p className="mt-3 max-w-2xl text-sm text-slate-500">
+                        {currentStepMeta.description}
                     </p>
                 </header>
 
-                {/* Content */}
                 <div className="flex-1 overflow-y-auto px-8 py-6">
-                    {step === 2 && (
+                    {step === 0 ? (
                         <div className="space-y-6">
-                            <div>
-                                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                                    Nombre del colegio
-                                </label>
+                            <FieldShell label="Nombre del colegio" error={errors.name}>
                                 <input
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    placeholder="Ej. Colegio Británico de México"
-                                    className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
-                                />
-                            </div>
+                  {...register("name")}
+                  placeholder="Ej. Colegio Britanico de Mexico"
+                  className={inputClassName(Boolean(errors.name))}
+                />
+              </FieldShell>
 
                             <div className="grid gap-4 sm:grid-cols-2">
-                                <div>
-                                    <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                                        Nivel educativo
-                                    </label>
-                                    <select
-                                        value={educationalLevel}
-                                        onChange={(e) => setEducationalLevel(e.target.value)}
-                                        className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
-                                    >
-                                        <option value="">Selecciona...</option>
-                                        {EDUCATIONAL_LEVEL_OPTIONS.map((option) => (
-                                            <option key={option} value={option}>{option}</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                                        Tipo de institución
-                                    </label>
-                                    <select
-                                        value={institutionType}
-                                        onChange={(e) => setInstitutionType(e.target.value)}
-                                        className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
-                                    >
-                                        <option value="">Selecciona...</option>
-                                        {INSTITUTION_TYPE_OPTIONS.map((option) => (
-                                            <option key={option} value={option}>{option}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div className="grid gap-4 sm:grid-cols-2 mt-4">
-                                <div>
-                                    <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                                        Dirección
-                                    </label>
+                                <FieldShell label="Direccion" error={errors.address}>
                                     <input
-                                        value={address}
-                                        onChange={(e) => setAddress(e.target.value)}
-                                        placeholder="Calle y número"
-                                        className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                                        Estado
-                                    </label>
-                                    <select
-                                        value={city}
-                                        onChange={(e) => setCity(e.target.value)}
-                                        className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
-                                    >
+                    {...register("address")}
+                    placeholder="Calle y numero"
+                    className={inputClassName(Boolean(errors.address))}
+                  />
+                </FieldShell>
+
+                <FieldShell label="Estado" error={errors.city}>
+                  <select
+                    {...register("city")}
+                    className={inputClassName(Boolean(errors.city))}
+                  >
                                         <option value="">Selecciona un estado...</option>
                                         {MEXICO_STATES.map((state) => (
                                             <option key={state} value={state}>
@@ -297,289 +472,315 @@ export default function SchoolRegistrationWizard({ isOpen, onClose }: Props) {
                                             </option>
                                         ))}
                                     </select>
-                                </div>
+                                </FieldShell>
                             </div>
 
-                            <div>
-                                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                                    Descripción del proyecto
-                                </label>
+                            <FieldShell
+                                label="Descripcion del proyecto"
+                                error={errors.description}
+                            >
                                 <textarea
-                                    value={description}
-                                    onChange={(e) => setDescription(e.target.value)}
-                                    placeholder="Explica qué ofreces y por qué los padres deberían elegirte..."
-                                    rows={4}
-                                    className="w-full rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+                                    {...register("description")}
+                  rows={5}
+                  placeholder="Explica que ofrece tu institucion y por que deberian elegirla."
+                  className={textareaClassName(Boolean(errors.description))}
+                />
+              </FieldShell>
+                        </div>
+                    ) : null}
+
+                    {step === 1 ? (
+                        <div className="space-y-6">
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <FieldShell
+                                    label="Nivel educativo"
+                                    error={errors.educationalLevel}
+                                >
+                                    <select
+                    {...register("educationalLevel")}
+                    className={inputClassName(Boolean(errors.educationalLevel))}
+                  >
+                                        <option value="">Selecciona...</option>
+                                        {EDUCATIONAL_LEVEL_OPTIONS.map((option) => (
+                                            <option key={option} value={option}>
+                                                {option}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </FieldShell>
+
+                                <FieldShell
+                                    label="Tipo de institucion"
+                                    error={errors.institutionType}
+                                >
+                                    <select
+                    {...register("institutionType")}
+                    className={inputClassName(Boolean(errors.institutionType))}
+                  >
+                                        <option value="">Selecciona...</option>
+                                        {INSTITUTION_TYPE_OPTIONS.map((option) => (
+                                            <option key={option} value={option}>
+                                                {option}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </FieldShell>
+                            </div>
+
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <FieldShell label="Idiomas" error={errors.languages}>
+                                    <select
+                    {...register("languages")}
+                    className={inputClassName(Boolean(errors.languages))}
+                  >
+                                        <option value="">Selecciona...</option>
+                                        {LANGUAGE_OPTIONS.map((option) => (
+                                            <option key={option} value={option}>
+                                                {option}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </FieldShell>
+
+                                <FieldShell label="Horario" error={errors.schedule}>
+                                    <select
+                    {...register("schedule")}
+                    className={inputClassName(Boolean(errors.schedule))}
+                  >
+                                        <option value="">Selecciona...</option>
+                                        {SCHEDULE_OPTIONS.map((option) => (
+                                            <option key={option} value={option}>
+                                                {option}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </FieldShell>
+                            </div>
+
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <FieldShell label="Precio mensual" error={errors.monthlyPrice}>
+                                    <input
+                                        {...register("monthlyPrice")}
+                    type="number"
+                    min={0}
+                    step={1}
+                    placeholder="Ej. 2500"
+                    className={inputClassName(Boolean(errors.monthlyPrice))}
+                  />
+                                </FieldShell>
+
+                                <FieldShell
+                                    label="Max. alumnos por clase"
+                                    error={errors.maxStudentsPerClass}
+                                >
+                                    <input
+                                        {...register("maxStudentsPerClass")}
+                    type="number"
+                    min={1}
+                    step={1}
+                    placeholder="Ej. 25"
+                    className={inputClassName(Boolean(errors.maxStudentsPerClass))}
+                  />
+                                </FieldShell>
+                            </div>
+
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <FieldShell
+                                    label="Anio de inscripcion"
+                                    error={errors.enrollmentYear}
+                                >
+                                    <input
+                                        {...register("enrollmentYear")}
+                    type="number"
+                    min={1900}
+                    max={2100}
+                    step={1}
+                    placeholder="Ej. 2026"
+                    className={inputClassName(Boolean(errors.enrollmentYear))}
+                  />
+                                </FieldShell>
+
+                                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                                    <label className="flex items-center justify-between gap-3">
+                                        <span>
+                                            <span className="block text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                                                Inscripcion abierta
+                                            </span>
+                                            <span className="mt-1 block text-sm text-slate-600">
+                                                Marca esta opcion si estas recibiendo solicitudes.
+                                            </span>
+                                        </span>
+                                        <input
+                                            {...register("enrollmentOpen")}
+                                            type="checkbox"
+                                            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                        />
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    ) : null}
+
+                    {step === 2 ? (
+                        <div className="space-y-6">
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <FieldShell label="Latitud" error={errors.latitude}>
+                                    <input
+                                        {...register("latitude")}
+                    type="number"
+                    min={-90}
+                    max={90}
+                    step="0.000001"
+                    placeholder="Ej. 20.6597"
+                    className={inputClassName(Boolean(errors.latitude))}
+                  />
+                                </FieldShell>
+
+                                <FieldShell label="Longitud" error={errors.longitude}>
+                                    <input
+                                        {...register("longitude")}
+                    type="number"
+                    min={-180}
+                    max={180}
+                    step="0.000001"
+                    placeholder="Ej. -103.3496"
+                    className={inputClassName(Boolean(errors.longitude))}
+                  />
+                                </FieldShell>
+                            </div>
+
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <FilePicker
+                                    id="logoFile"
+                                    label="Logo institucional"
+                                    hint="Se subira al backend y se asociara como imagen principal del perfil."
+                                    filename={logoFile?.name}
+                                    error={errors.logoFile}
+                                    onChange={(file) =>
+                                        setValue("logoFile", file, {
+                                            shouldDirty: true,
+                                            shouldValidate: true,
+                                        })
+                                    }
+                                />
+                                <FilePicker
+                                    id="coverFile"
+                                    label="Imagen de portada"
+                                    hint="Usa una imagen horizontal para que luzca mejor en el dashboard y el perfil publico."
+                                    filename={coverFile?.name}
+                                    error={errors.coverFile}
+                                    onChange={(file) =>
+                                        setValue("coverFile", file, {
+                                            shouldDirty: true,
+                                            shouldValidate: true,
+                                        })
+                                    }
                                 />
                             </div>
                         </div>
-                    )}
+                    ) : null}
 
-                    {step === 3 && (
-                        <div className="space-y-6">
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                <div>
-                                    <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                                        Whatsapp / Teléfono
-                                    </label>
-                                    <input
-                                        value={phone}
-                                        onChange={(e) => setPhone(e.target.value)}
-                                        placeholder="+52 ..."
-                                        className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                                        Email de contacto
-                                    </label>
-                                    <input
-                                        value={contactEmail}
-                                        onChange={(e) => setContactEmail(e.target.value)}
-                                        placeholder="contacto@tuproyecto.com"
-                                        className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="mt-4 rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-center">
-                                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-                                    <span className="text-xl">📷</span>
-                                </div>
-                                <h3 className="mt-4 text-sm font-extrabold text-slate-900">
-                                    Identidad Visual
-                                </h3>
-                                <p className="mt-1 text-xs text-slate-500">
-                                    Sube el logo de tu escuela y fotos de portada.
-                                </p>
-                                <div className="mt-4 grid gap-4 sm:grid-cols-2 text-left">
-                                    <div>
-                                        <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Logo URL</label>
-                                        <input
-                                            value={logoUrl}
-                                            onChange={(e) => setLogoUrl(e.target.value)}
-                                            placeholder="https://..."
-                                            className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
-                                        />
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            className="mt-2 block w-full text-xs text-slate-600"
-                                            onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Portada URL</label>
-                                        <input
-                                            value={coverImageUrl}
-                                            onChange={(e) => setCoverImageUrl(e.target.value)}
-                                            placeholder="https://..."
-                                            className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
-                                        />
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            className="mt-2 block w-full text-xs text-slate-600"
-                                            onChange={(e) => setCoverFile(e.target.files?.[0] ?? null)}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="grid gap-4 sm:grid-cols-2 mt-6">
-                                <div>
-                                    <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                                        Idiomas
-                                    </label>
-                                    <select
-                                        value={languages}
-                                        onChange={(e) => setLanguages(e.target.value)}
-                                        className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
-                                    >
-                                        <option value="">Selecciona...</option>
-                                        {LANGUAGE_OPTIONS.map((option) => (
-                                            <option key={option} value={option}>{option}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                                        Horario
-                                    </label>
-                                    <select
-                                        value={schedule}
-                                        onChange={(e) => setSchedule(e.target.value)}
-                                        className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
-                                    >
-                                        <option value="">Selecciona...</option>
-                                        {SCHEDULE_OPTIONS.map((option) => (
-                                            <option key={option} value={option}>{option}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div className="grid gap-4 sm:grid-cols-2 mt-4">
-                                <div>
-                                    <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                                        Precio mensual
-                                    </label>
-                                    <input
-                                        value={monthlyPrice ?? ""}
-                                        onChange={(e) => {
-                                            const v = e.target.value;
-                                            setMonthlyPrice(v === "" ? null : Number(v));
-                                        }}
-                                        placeholder="Ej. 2500"
-                                        type="number"
-                                        min={0}
-                                        step={1}
-                                        className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Máx. alumnos por clase</label>
-                                    <input
-                                        value={maxStudentsPerClass ?? ""}
-                                        onChange={(e) => {
-                                            const v = e.target.value;
-                                            setMaxStudentsPerClass(v === "" ? null : Number(v));
-                                        }}
-                                        placeholder="Ej. 25"
-                                        type="number"
-                                        min={1}
-                                        step={1}
-                                        className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid gap-4 sm:grid-cols-2 mt-4">
-                                <div>
-                                    <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Año de inscripción</label>
-                                    <input
-                                        value={enrollmentYear ?? ""}
-                                        onChange={(e) => {
-                                            const v = e.target.value;
-                                            setEnrollmentYear(v === "" ? null : Number(v));
-                                        }}
-                                        placeholder="Ej. 2026"
-                                        type="number"
-                                        min={1900}
-                                        max={2100}
-                                        step={1}
-                                        className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
-                                    />
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <input
-                                        id="enrollmentOpen"
-                                        type="checkbox"
-                                        checked={enrollmentOpen}
-                                        onChange={(e) => setEnrollmentOpen(e.target.checked)}
-                                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                                    />
-                                    <label htmlFor="enrollmentOpen" className="text-xs font-bold text-slate-600">Inscripción abierta</label>
-                                </div>
-                            </div>
-
-                            <div className="grid gap-4 sm:grid-cols-2 mt-4">
-                                <div>
-                                    <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Latitud</label>
-                                    <input
-                                        value={latitude ?? ""}
-                                        onChange={(e) => {
-                                            const v = e.target.value;
-                                            setLatitude(v === "" ? null : Number(v));
-                                        }}
-                                        placeholder="Ej. 20.6597"
-                                        type="number"
-                                        min={-90}
-                                        max={90}
-                                        step="0.000001"
-                                        className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Longitud</label>
-                                    <input
-                                        value={longitude ?? ""}
-                                        onChange={(e) => {
-                                            const v = e.target.value;
-                                            setLongitude(v === "" ? null : Number(v));
-                                        }}
-                                        placeholder="Ej. -103.3496"
-                                        type="number"
-                                        min={-180}
-                                        max={180}
-                                        step="0.000001"
-                                        className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {step === 4 && (
+                    {step === 3 ? (
                         <div className="flex h-full flex-col items-center justify-center gap-6 text-center">
                             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
                                 <ShieldCheck size={32} />
                             </div>
+
                             <div>
                                 <h3 className="text-xl font-extrabold text-slate-900 sm:text-2xl">
-                                    ¡Listo para despegar!
+                                    Listo para publicar
                                 </h3>
-                                <p className="mt-2 text-sm text-slate-600">
-                                    Al registrar tu escuela, aparecerás en las búsquedas de miles de padres.
+                                <p className="mt-2 max-w-xl text-sm text-slate-600">
+                                    Revisamos el formulario y esta listo para crear la escuela y
+                                    sincronizar la informacion complementaria con el backend.
                                 </p>
                             </div>
 
-                            <div className="mt-4 w-full max-w-md rounded-3xl bg-emerald-50 px-6 py-4 text-left">
-                                <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">
-                                    Activarás estas funciones:
-                                </p>
-                                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-emerald-900">
-                                    <li>Perfil público optimizado</li>
-                                    <li>Recepción de mensajes ilimitados</li>
-                                    <li>Pipeline de inscripciones</li>
-                                </ul>
-                            </div>
+                            <div className="grid w-full max-w-2xl gap-4 rounded-3xl bg-slate-50 p-6 text-left sm:grid-cols-2">
+                                <div>
+                                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                                        Escuela
+                                    </p>
+                                    <p className="mt-2 text-sm font-semibold text-slate-900">
+                    {schoolName || "Sin nombre"}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    {schoolCity || "Estado sin definir"}
+                  </p>
+                                </div>
 
-                            {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+                                <div>
+                                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                                        Oferta academica
+                                    </p>
+                                    <p className="mt-2 text-sm font-semibold text-slate-900">
+                    {educationalLevel || "Nivel pendiente"}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    {institutionType || "Tipo pendiente"}
+                  </p>
+                                </div>
+
+                                <div>
+                                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                                        Operacion
+                                    </p>
+                                    <p className="mt-2 text-sm font-semibold text-slate-900">
+                    {schedule || "Horario pendiente"}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    {monthlyPrice
+                      ? `$${monthlyPrice} MXN / mes`
+                      : "Precio sin definir"}
+                  </p>
+                                </div>
+
+                                <div>
+                                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                                        Archivos
+                                    </p>
+                                    <p className="mt-2 text-sm font-semibold text-slate-900">
+                                        {logoFile ? "Logo listo" : "Sin logo"}
+                                    </p>
+                                    <p className="mt-1 text-sm text-slate-600">
+                                        {coverFile ? "Portada lista" : "Sin portada"}
+                                    </p>
+                                </div>
+                            </div>
                         </div>
-                    )}
+                    ) : null}
                 </div>
 
-                {/* Footer */}
                 <footer className="flex items-center justify-between border-t border-slate-100 px-8 py-4 text-xs sm:text-sm">
                     <button
                         type="button"
-                        onClick={step === 2 ? onClose : goPrev}
-                        className="font-semibold text-slate-500 hover:text-slate-700"
+                        onClick={goPrev}
+                        disabled={isSubmitting}
+                        className="font-semibold text-slate-500 transition hover:text-slate-700 disabled:opacity-50"
                     >
-                        Anterior
+                        {step === 0 ? "Cancelar" : "Anterior"}
                     </button>
 
-                    {step < 4 ? (
+                    {step < STEP_META.length - 1 ? (
                         <button
                             type="button"
                             onClick={goNext}
-                            className="inline-flex items-center rounded-full bg-slate-900 px-6 py-2 text-xs font-bold text-white shadow hover:bg-indigo-700"
+                            disabled={pendingAction !== null}
+                            className="inline-flex items-center rounded-full bg-slate-900 px-6 py-2 text-xs font-bold text-white shadow transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                            Continuar
+                            {pendingAction === "next" ? "Validando..." : "Siguiente"}
                         </button>
                     ) : (
                         <button
-                            type="button"
-                            disabled={loading || !name}
-                            onClick={handleConfirm}
-                            className="inline-flex items-center rounded-full bg-slate-900 px-6 py-2 text-xs font-bold text-white shadow hover:bg-indigo-700 disabled:opacity-60"
+                            type="submit"
+                            disabled={isSubmitting}
+                            className="inline-flex items-center rounded-full bg-slate-900 px-6 py-2 text-xs font-bold text-white shadow transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                            {loading ? "Publicando..." : "Confirmar y publicar"}
+                            {pendingAction === "submit" ? "Finalizando..." : "Finalizar"}
                         </button>
                     )}
                 </footer>
-            </div>
+            </form>
         </div>
     );
 }
