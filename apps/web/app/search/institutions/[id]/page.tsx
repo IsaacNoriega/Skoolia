@@ -15,6 +15,8 @@ import {
   ChevronRight,
   Heart,
 } from "lucide-react";
+import dynamic from "next/dynamic";
+const SchoolsMap = dynamic(() => import("@/components/onboarding/SchoolsMap"), { ssr: false });
 
 import { schoolsService, type School } from "@/lib/services/services/schools.service";
 import { coursesService, type Course } from "@/lib/services/services/courses.service";
@@ -391,6 +393,43 @@ export default function InstitutionDetailsPage() {
           )}
         </div>
       </div>
+
+      {/* MAPA DE LA ESCUELA */}
+      {school.latitude && school.longitude && (
+        <div className="my-8">
+          <h3 className="text-lg font-semibold mb-2">Ubicación en el mapa</h3>
+          <div className="w-full" style={{ minHeight: 320 }}>
+            <SchoolsMap
+              schools={[{
+                id: school.id,
+                name: school.name,
+                lat: school.latitude,
+                lng: school.longitude,
+                level: school.educationalLevel ?? undefined,
+              }]}
+              height={320}
+            />
+          </div>
+        </div>
+      )}
+        {/* MAPA DE LA ESCUELA */}
+        {school.latitude && school.longitude && (
+          <div className="my-8">
+            <h3 className="text-lg font-semibold mb-2">Ubicación en el mapa</h3>
+            <div className="w-full" style={{ minHeight: 320 }}>
+              <SchoolsMap
+                schools={[{
+                  id: school.id,
+                  name: school.name,
+                  lat: school.latitude,
+                  lng: school.longitude,
+                  level: school.educationalLevel,
+                }]}
+                height={320}
+              />
+            </div>
+          </div>
+        )}
     </section>
   );
 }

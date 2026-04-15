@@ -11,6 +11,7 @@ import { favoritesService } from "@/lib/services/services/favorites.service";
 import { recordSchoolVisit } from "@/lib/history/school-history";
 import { useAuth } from "@/contexts/AuthContext";
 import { resolveMexicanState } from "@/lib/mexico-states";
+import NearbySchoolsButton from "@/components/search/NearbySchoolsButton";
 
 type CatalogItem = {
   id: string;
@@ -300,6 +301,27 @@ export default function SearchPage() {
         ))}
       </div>
 
+      <div className="mb-6 flex justify-end">
+        <NearbySchoolsButton
+          onResults={(schools) => {
+            setItems(
+              schools.map((node) => ({
+                id: node.id,
+                imageSrc: node.coverImageUrl || node.logoUrl || "",
+                tags: [node.city, ...(node.isVerified ? ["VERIFICADA"] : [])].filter(Boolean),
+                typeLabel: "ESCUELA",
+                title: node.name,
+                location: node.city || node.address || "Ubicación no disponible",
+                price: node.monthlyPrice ?? "Por definir",
+                description: node.description ?? undefined,
+                rating: node.averageRating ?? undefined,
+                // ...otros campos si los necesitas
+              }))
+            );
+          }}
+        />
+      </div>
+
       {error ? (
         <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
           {error}
@@ -335,6 +357,12 @@ export default function SearchPage() {
             monthlyPrice: selected.monthlyPrice,
           }
         }
+      />
+      <NearbySchoolsButton
+        lat={latitude}
+        lon={longitude}
+        near={near}
+        hasValidCoords={hasValidCoords}
       />
     </section>
     </>
