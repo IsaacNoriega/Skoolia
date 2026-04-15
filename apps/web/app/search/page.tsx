@@ -7,6 +7,7 @@ import FavoriteDetailModal from "@/components/parents/FavoriteDetailModal";
 import SearchToolbar from "@/components/search/SearchToolbar";
 import { schoolsFeedService } from "@/lib/services/services/school-feeed.service";
 import { schoolsService } from "@/lib/services/services/schools.service";
+import { coursesService } from "@/lib/services/services/courses.service";
 import { favoritesService } from "@/lib/services/services/favorites.service";
 import { recordSchoolVisit } from "@/lib/history/school-history";
 import { useAuth } from "@/contexts/AuthContext";
@@ -56,7 +57,7 @@ export default function SearchPage() {
       ? sortByParam
       : "recent";
   const verifiedOnly = sp.get("verified") === "1";
-  const tab = (sp.get("tab") ?? "escuelas").toUpperCase();
+  const tab = (sp.get("tab") ?? "escuelas").toLowerCase();
 
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -84,11 +85,9 @@ export default function SearchPage() {
   useEffect(() => {
     let active = true;
 
-
-    const load = async () => {
+    const loadSchools = async () => {
       setLoading(true);
       setError(null);
-
       try {
         const normalizedLoc =
           loc &&
@@ -96,24 +95,6 @@ export default function SearchPage() {
           loc !== "Cerca de mí"
             ? (resolveMexicanState(loc) ?? undefined)
             : undefined;
-
-        // Log de depuración de filtros
-
-        console.log("[BUSQUEDA] Filtros enviados:", {
-          search: q || undefined,
-          state: near ? undefined : normalizedLoc,
-          latitude: near && hasValidCoords ? latitude : undefined,
-          longitude: near && hasValidCoords ? longitude : undefined,
-          educationalLevel: level || undefined,
-          categoryId: categoryId || undefined,
-          schedule: schedule || undefined,
-          languages: languages || undefined,
-          minPrice: Number.isFinite(minPrice) ? minPrice : undefined,
-          maxPrice: Number.isFinite(maxPrice) ? maxPrice : undefined,
-          sortBy,
-          onlyVerified: verifiedOnly,
-        });
-
 
         const connection = await schoolsFeedService.list({
           filters: {
@@ -133,9 +114,6 @@ export default function SearchPage() {
           pagination: { first: 24 },
         });
 
-        // Log de depuración de resultados
-        console.log("[BUSQUEDA] Resultados recibidos:", connection);
-
         if (!active) return;
 
         const mapped: CatalogItem[] = connection.edges.map(({ node }) => {
@@ -153,7 +131,6 @@ export default function SearchPage() {
             price: node.monthlyPrice ?? "Por definir",
             description: node.description ?? undefined,
             rating: node.averageRating ?? undefined,
-            // Campos adicionales (cuando el backend los exponga en este feed):
             schedule: undefined,
             languages: undefined,
             studentsPerClass: undefined,
@@ -162,7 +139,6 @@ export default function SearchPage() {
             monthlyPrice: node.monthlyPrice ?? undefined,
           };
         });
-
         setItems(mapped);
       } catch (err) {
         console.error(err);
@@ -172,12 +148,50 @@ export default function SearchPage() {
       }
     };
 
-    void load();
+    const loadCourses = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // Aquí puedes agregar filtros para cursos si tu backend los soporta
+        // Por ahora, solo se listan todos los cursos públicos
+        const allCourses = await coursesService.listAll();
+        if (!active) return;
+        const mapped: CatalogItem[] = allCourses.map((course) => ({
+          id: course.id,
+          imageSrc: course.coverImageUrl || "",
+          tags: [course.modality || "Curso"],
+          typeLabel: "CURSO",
+          title: course.name,
+          location: course.schoolName || "",
+          price: course.price ?? "Por definir",
+          description: course.description ?? undefined,
+          rating: undefined,
+          schedule: course.startDate ? `Inicio: ${course.startDate}` : undefined,
+          languages: undefined,
+          studentsPerClass: undefined,
+          enrollmentOpen: undefined,
+          enrollmentYear: undefined,
+          monthlyPrice: undefined,
+        }));
+        setItems(mapped);
+      } catch (err) {
+        console.error(err);
+        if (active) setError("No se pudieron cargar los cursos.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    if (tab === "cursos") {
+      void loadCourses();
+    } else {
+      void loadSchools();
+    }
 
     return () => {
       active = false;
     };
-  }, [q, loc, near, latitude, longitude, hasValidCoords, level, categoryId, schedule, languages, minPrice, maxPrice, sortBy, verifiedOnly]);
+  }, [q, loc, near, latitude, longitude, hasValidCoords, level, categoryId, schedule, languages, minPrice, maxPrice, sortBy, verifiedOnly, tab]);
 
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<CatalogItem | undefined>();

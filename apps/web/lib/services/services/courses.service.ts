@@ -1,4 +1,5 @@
 // src/services/courses.service.ts
+// src/services/courses.service.ts
 import { api } from "../api";
 
 export interface Course {
@@ -16,6 +17,10 @@ export interface Course {
 }
 
 export const coursesService = {
+  async listAll() {
+    // Ajusta el endpoint según tu backend, aquí se asume /courses devuelve todos los cursos públicos
+    return api<Course[]>("/courses");
+  },
   async listBySchoolId(schoolId: string) {
     return api<Course[]>(`/courses/schools/${schoolId}`);
   },

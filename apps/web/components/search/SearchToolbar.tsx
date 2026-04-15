@@ -6,6 +6,7 @@ import { schoolCategoriesService, type Category } from "@/lib/services/services/
 import { MEXICO_STATES, resolveMexicanState } from "@/lib/mexico-states";
 
 type Props = {
+  tab?: "escuelas" | "cursos";
   q?: string;
   loc?: string;
   level?: string;
@@ -24,6 +25,7 @@ type Props = {
 const ALL_ZONES_LABEL = "México (Todas las zonas)";
 
 export default function SearchToolbar({
+  tab = "escuelas",
   q = "",
   loc = ALL_ZONES_LABEL,
   level = "",
@@ -38,6 +40,12 @@ export default function SearchToolbar({
   latitude,
   longitude,
 }: Props) {
+    const [activeTab, setActiveTab] = useState<"escuelas" | "cursos">(
+      tab || "escuelas"
+    );
+    useEffect(() => {
+      setActiveTab(tab || "escuelas");
+    }, [tab]);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -216,13 +224,62 @@ export default function SearchToolbar({
       }
     }
 
-    params.set("tab", "escuelas");
+    params.set("tab", activeTab);
+  // Selector visual de tab
+  // Puedes ajustar el estilo según tu diseño
+  // ---
+  // Botones para cambiar entre escuelas y cursos
+  // ---
+  // Puedes mover esto donde prefieras en el layout
+  // ---
+  // Ejemplo simple:
+  //
+  // <div className="flex gap-2 mb-4">
+  //   <button
+  //     className={`px-4 py-2 rounded-full font-bold ${activeTab === "escuelas" ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-700"}`}
+  //     onClick={() => setActiveTab("escuelas")}
+  //   >
+  //     Escuelas
+  //   </button>
+  //   <button
+  //     className={`px-4 py-2 rounded-full font-bold ${activeTab === "cursos" ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-700"}`}
+  //     onClick={() => setActiveTab("cursos")}
+  //   >
+  //     Cursos
+  //   </button>
+  // </div>
 
     router.push(`${pathname}?${params.toString()}`);
   };
 
   return (
     <div className="mx-auto max-w-7xl px-6 pt-6">
+      <div className="flex gap-2 mb-4">
+        <button
+          className={`px-4 py-2 rounded-full font-bold ${activeTab === "escuelas" ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-700"}`}
+          onClick={() => {
+            setActiveTab("escuelas");
+            // Cambia el tab en la URL inmediatamente
+            const params = new URLSearchParams(window.location.search);
+            params.set("tab", "escuelas");
+            router.push(`${pathname}?${params.toString()}`);
+          }}
+        >
+          Escuelas
+        </button>
+        <button
+          className={`px-4 py-2 rounded-full font-bold ${activeTab === "cursos" ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-700"}`}
+          onClick={() => {
+            setActiveTab("cursos");
+            // Cambia el tab en la URL inmediatamente
+            const params = new URLSearchParams(window.location.search);
+            params.set("tab", "cursos");
+            router.push(`${pathname}?${params.toString()}`);
+          }}
+        >
+          Cursos
+        </button>
+      </div>
       <div className="flex flex-wrap items-center gap-3">
         {/* Back */}
         <button
