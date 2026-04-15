@@ -35,6 +35,8 @@ export const schools = pgTable(
     city: text('city'),
     latitude: doublePrecision('latitude'),
     longitude: doublePrecision('longitude'),
+    lat: doublePrecision('lat'), // Nueva columna para geolocalización
+    lng: doublePrecision('lng'), // Nueva columna para geolocalización
 
     // 🎓 info académica
     educationalLevel: text('educational_level'),
