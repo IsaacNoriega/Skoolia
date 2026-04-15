@@ -100,6 +100,7 @@ export class DrizzleSchoolRepository implements SchoolRepository {
 
         address: schools.address,
         city: schools.city,
+        state: schools.state,
         latitude: schools.latitude,
         longitude: schools.longitude,
 
@@ -148,6 +149,7 @@ export class DrizzleSchoolRepository implements SchoolRepository {
 
         address: schools.address,
         city: schools.city,
+        state: schools.state,
         latitude: schools.latitude,
         longitude: schools.longitude,
 
@@ -221,6 +223,7 @@ export class DrizzleSchoolRepository implements SchoolRepository {
     filters?: {
       educationalLevel?: string;
       city?: string;
+      state?: string;
       categoryId?: string;
       schedule?: string;
       languages?: string;
@@ -229,6 +232,8 @@ export class DrizzleSchoolRepository implements SchoolRepository {
       search?: string;
       sortBy?: 'favorites' | 'rating' | 'recent';
       onlyVerified?: boolean;
+      latitude?: number;
+      longitude?: number;
     };
     pagination?: {
       first: number;
@@ -239,14 +244,35 @@ export class DrizzleSchoolRepository implements SchoolRepository {
 
     const whereConditions: SQL[] = [];
 
+    // Si llegan lat/lng, filtrar por cercanía (10km)
+    if (typeof filters.latitude === 'number' && typeof filters.longitude === 'number') {
+      // Haversine formula en SQL (Postgres)
+      const earthRadiusKm = 6371;
+      const radiusKm = 10;
+      whereConditions.push(
+        sql`(
+          ${earthRadiusKm} * acos(
+            cos(radians(${filters.latitude})) * cos(radians(${schools.latitude})) *
+            cos(radians(${schools.longitude}) - radians(${filters.longitude})) +
+            sin(radians(${filters.latitude})) * sin(radians(${schools.latitude}))
+          )
+        ) <= ${radiusKm}`
+      );
+    }
+
     if (filters.educationalLevel) {
       whereConditions.push(
         ilike(schools.educationalLevel, `%${filters.educationalLevel}%`),
       );
     }
 
+
     if (filters.city) {
       whereConditions.push(ilike(schools.city, `%${filters.city}%`));
+    }
+
+    if (filters.state) {
+      whereConditions.push(ilike(schools.state, `%${filters.state}%`));
     }
 
     if (filters.categoryId) {
@@ -301,6 +327,7 @@ export class DrizzleSchoolRepository implements SchoolRepository {
 
       address: schools.address,
       city: schools.city,
+      state: schools.state,
       latitude: schools.latitude,
       longitude: schools.longitude,
 
@@ -451,6 +478,7 @@ export class DrizzleSchoolRepository implements SchoolRepository {
           description: schools.description,
           address: schools.address,
           city: schools.city,
+          state: schools.state,
           lat: schools.latitude ?? schools.lat,
           lng: schools.longitude ?? schools.lng,
           educationalLevel: schools.educationalLevel,

@@ -24,6 +24,7 @@ export interface SchoolRepository {
     filters?: {
       educationalLevel?: string;
       city?: string;
+      state?: string;
       categoryId?: string;
       schedule?: string;
       languages?: string;
@@ -32,6 +33,8 @@ export interface SchoolRepository {
       search?: string;
       sortBy?: 'favorites' | 'rating' | 'recent';
       onlyVerified?: boolean;
+      latitude?: number;
+      longitude?: number;
     };
     pagination?: {
       first: number;
