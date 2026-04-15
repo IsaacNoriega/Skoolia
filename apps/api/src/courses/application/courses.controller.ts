@@ -50,8 +50,7 @@ export class CoursesController {
   ) {}
 
   /**
-   * 🔒 Solo PRIVATE users pueden crear cursos
-   * (porque están ligados a una escuela)
+   * Crear curso (requiere autenticación)
    */
   @Post()
   @UseGuards(AuthGuard, RolesGuard)
@@ -59,11 +58,10 @@ export class CoursesController {
   async create(@Body() dto: CreateCourseDto, @CurrentUser() user: JwtPayload) {
     return this.createCourse.execute({
       ownerId: user.sub,
-      role: user.role,
       name: dto.name,
       description: dto.description,
       coverImageUrl: dto.coverImageUrl,
-      price: dto.price ?? 0,
+      ...(dto.price !== undefined ? { price: dto.price } : {}),
       capacity: dto.capacity,
       startDate: dto.startDate,
       endDate: dto.endDate,
