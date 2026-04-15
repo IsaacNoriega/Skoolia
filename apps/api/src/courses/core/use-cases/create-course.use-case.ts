@@ -19,19 +19,17 @@ export class CreateCourseUseCase {
 
   async execute(params: {
     ownerId: string;
-    role: 'public' | 'private';
+    role?: 'public' | 'private';
     name: string;
     description?: string;
     coverImageUrl?: string;
-    price: number;
+    price?: number;
     capacity?: number;
     startDate?: Date;
     endDate?: Date;
     modality?: string;
   }) {
-    if (params.role !== 'private') {
-      throw new ForbiddenException('Only school owners can create courses');
-    }
+    // Ya no se requiere ser "private" ni tener escuela
 
     if (params.startDate && params.endDate) {
       if (params.startDate > params.endDate) {
@@ -39,7 +37,7 @@ export class CreateCourseUseCase {
       }
     }
 
-    if (params.price <= 0) {
+    if (params.price !== undefined && params.price !== null && params.price <= 0) {
       throw new BadRequestException('Price must be greater than zero');
     }
 
@@ -47,18 +45,12 @@ export class CreateCourseUseCase {
       throw new BadRequestException('Capacity must be greater than zero');
     }
 
-    const school = await this.schoolRepository.findByOwner(params.ownerId);
-
-    if (!school) {
-      throw new ForbiddenException('You must create a school first');
-    }
-
+    // Permitir cursos sin escuela
     return this.courseRepository.create({
-      schoolId: school.id,
       name: params.name,
       description: params.description,
       coverImageUrl: params.coverImageUrl,
-      price: params.price,
+      price: params.price ?? null,
       capacity: params.capacity,
       startDate: params.startDate,
       endDate: params.endDate,

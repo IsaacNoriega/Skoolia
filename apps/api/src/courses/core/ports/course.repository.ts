@@ -2,11 +2,11 @@ import type { Course } from '../entities/course.types';
 
 export interface CourseRepository {
   create(params: {
-    schoolId: string;
+    schoolId?: string | null;
     name: string;
     description?: string;
     coverImageUrl?: string;
-    price: number;
+    price: number | null;
     capacity?: number;
     startDate?: Date;
     endDate?: Date;
@@ -37,7 +37,7 @@ export interface CourseRepository {
 
   findRawById(courseId: string): Promise<{
     id: string;
-    schoolId: string;
+    schoolId: string | null;
     coverImageFileId: string | null;
   } | null>;
 

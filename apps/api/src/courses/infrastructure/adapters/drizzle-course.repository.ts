@@ -13,7 +13,7 @@ export class DrizzleCourseRepository implements CourseRepository {
   constructor(@Inject(DATABASE) private readonly db: dbTypes.Database) {}
 
   async create(params: {
-    schoolId: string;
+    schoolId?: string | null;
     name: string;
     description?: string;
     coverImageUrl?: string;
@@ -26,11 +26,11 @@ export class DrizzleCourseRepository implements CourseRepository {
     const [course] = await this.db
       .insert(courses)
       .values({
-        schoolId: params.schoolId,
+        schoolId: params.schoolId ?? null,
         name: params.name,
         description: params.description ?? null,
         coverImageUrl: params.coverImageUrl ?? null,
-        price: params.price,
+        price: params.price ?? null,
         capacity: params.capacity ?? null,
         startDate: params.startDate ?? null,
         endDate: params.endDate ?? null,
@@ -165,7 +165,7 @@ export class DrizzleCourseRepository implements CourseRepository {
 
   async findRawById(courseId: string): Promise<{
     id: string;
-    schoolId: string;
+    schoolId: string | null;
     coverImageFileId: string | null;
   } | null> {
     const rows = await this.db

@@ -2,13 +2,13 @@ export type CourseStatus = 'draft' | 'published' | 'archived';
 
 export interface Course {
   id: string;
-  schoolId: string;
+  schoolId?: string | null;
 
   name: string;
   description: string | null;
   coverImageUrl: string | null;
 
-  price: number;
+  price: number | null;
   capacity: number | null;
 
   startDate: Date | null;
