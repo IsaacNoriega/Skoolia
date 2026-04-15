@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import bcrypt from 'bcrypt';
-import { inArray } from 'drizzle-orm';
+import { inArray, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 
@@ -19,397 +19,334 @@ import {
   type PlanFeatures,
 } from 'drizzle/schemas';
 
-type SeedPlan = {
-  name: string;
-  price: number;
-  interval: 'monthly' | 'yearly';
-  features: PlanFeatures;
-};
-
-const BASE_PLANS: SeedPlan[] = [
-  {
-    name: 'Freemium',
-    price: 0,
-    interval: 'monthly',
-    features: [
-      'Registro gratuito',
-      'Aparicion en directorio',
-      'Gestion de perfil basico',
-    ],
-  },
-  {
-    name: 'Premium',
-    price: 1500,
-    interval: 'monthly',
-    features: [
-      'Aparicion en busquedas premium',
-      'Panel avanzado de leads',
-      'Soporte prioritario',
-    ],
-  },
-];
-
 async function seed() {
-  const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-  });
-
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   const db = drizzle(pool);
 
-  console.log('Seeding database...');
+  console.log('🚀 Iniciando limpieza de base de datos...');
 
-  await db.insert(plans).values(BASE_PLANS).onConflictDoNothing();
+  // Limpieza en orden de dependencia
+  await db.delete(schoolRatings);
+  await db.delete(schoolFavorites);
+  await db.delete(schoolCategories);
+  await db.delete(schoolSubscriptions);
+  await db.delete(courses);
+  await db.delete(schools);
+  await db.delete(files);
+  await db.delete(categories);
+  await db.delete(plans);
+  await db.delete(privateUsers);
+  await db.delete(publicUsers);
 
-  const insertedPlans = await db
-    .select({
-      id: plans.id,
-      name: plans.name,
-      interval: plans.interval,
-    })
-    .from(plans)
-    .where(inArray(plans.name, BASE_PLANS.map((plan) => plan.name)));
+  console.log('✅ Base de datos limpia.');
 
-  const freemiumPlan = insertedPlans.find((plan) => plan.name === 'Freemium');
-  const premiumPlan = insertedPlans.find((plan) => plan.name === 'Premium');
+  // 1. PLANES
+  const BASE_PLANS: any[] = [
+    {
+      name: 'Freemium',
+      price: 0,
+      interval: 'monthly',
+      features: ['Registro básico', 'Directorio'],
+    },
+    {
+      name: 'Premium',
+      price: 1500,
+      interval: 'monthly',
+      features: ['Leads avanzados', 'Prioridad', 'Mapa destacado'],
+    },
+  ];
+  const insertedPlans = await db.insert(plans).values(BASE_PLANS).returning();
+  const freemiumPlan = insertedPlans.find(p => p.name === 'Freemium')!;
+  const premiumPlan = insertedPlans.find(p => p.name === 'Premium')!;
 
-  if (!freemiumPlan || !premiumPlan) {
-    throw new Error('Failed to load base subscription plans');
-  }
-
-  console.log('Base plans ready');
-
+  // 2. CATEGORÍAS
   const categoryList = [
+    { name: 'Bilingüe', slug: 'Languages' },
+    { name: 'Tecnología', slug: 'Cpu' },
     { name: 'Deportes', slug: 'Trophy' },
-    { name: 'Bilingue', slug: 'Languages' },
-    { name: 'Arte', slug: 'Palette' },
-    { name: 'Tecnologia', slug: 'Cpu' },
-    { name: 'Robotica', slug: 'Bot' },
-    { name: 'Teatro', slug: 'Drama' },
-    { name: 'Programacion', slug: 'Code' },
-    { name: 'Para ninos', slug: 'Baby' },
-    { name: 'Para hombres', slug: 'User' },
+    { name: 'Arte y Cultura', slug: 'Palette' },
+    { name: 'Robótica', slug: 'Bot' },
   ];
+  const insertedCats = await db
+    .insert(categories)
+    .values(categoryList)
+    .returning();
 
-  const categorySlugs = categoryList.map((category) => category.slug);
+  // 3. USUARIOS (15 Owners y 10 Públicos)
   const hashedPassword = await bcrypt.hash('123456', 10);
-
-  await db.insert(categories).values(categoryList).onConflictDoNothing();
-
-  const insertedCategories = await db
-    .select()
-    .from(categories)
-    .where(inArray(categories.slug, categorySlugs));
-
-  console.log('Categories created');
-
-  const ownerEmails = Array.from({ length: 15 }).map(
-    (_, index) => `owner${index + 1}@test.com`,
-  );
-
-  const ownerSeedData = ownerEmails.map((email, index) => ({
-    email,
+  const ownerData = Array.from({ length: 15 }).map((_, i) => ({
+    email: `owner${i + 1}@skoolia.com`,
     passwordHash: hashedPassword,
-    name: `Owner ${index + 1}`,
+    name: `Director Académico ${i + 1}`,
   }));
+  const owners = await db.insert(privateUsers).values(ownerData).returning();
 
-  await db.insert(privateUsers).values(ownerSeedData).onConflictDoNothing();
-
-  const ownerRows = await db
-    .select({ id: privateUsers.id, email: privateUsers.email })
-    .from(privateUsers)
-    .where(inArray(privateUsers.email, ownerEmails));
-
-  const ownerByEmail = new Map(ownerRows.map((owner) => [owner.email, owner]));
-  const owners = ownerEmails
-    .map((email) => ownerByEmail.get(email))
-    .filter((owner): owner is { id: string; email: string } => Boolean(owner));
-
-  if (owners.length !== ownerEmails.length) {
-    throw new Error('Failed to load all private test users for seed');
-  }
-
-  console.log('15 private users created');
-
-  const publicEmails = Array.from({ length: 10 }).map(
-    (_, index) => `public${index + 1}@test.com`,
-  );
-
-  const publicSeedData = publicEmails.map((email, index) => ({
-    email,
+  const publicData = Array.from({ length: 10 }).map((_, i) => ({
+    email: `padre${i + 1}@gmail.com`,
     passwordHash: hashedPassword,
-    name: `Public ${index + 1}`,
+    name: `Padre de Familia ${i + 1}`,
   }));
+  const publics = await db.insert(publicUsers).values(publicData).returning();
 
-  await db.insert(publicUsers).values(publicSeedData).onConflictDoNothing();
+  // 4. GENERACIÓN DE ESCUELAS POR ESTADO
+  // Dividimos las 15 escuelas: 5 Jalisco, 5 Sinaloa, 5 CDMX
+  const schoolProfiles = [
+    // --- JALISCO (Cerca del ITESO / Tlaquepaque) ---
+    {
+      name: 'Instituto Tecnológico del Sur',
+      city: 'Tlaquepaque',
+      lat: 20.5898,
+      lng: -103.415,
+      level: 'Universidad',
+    },
+    {
+      name: 'Colegio Cervantes Bosque',
+      city: 'Guadalajara',
+      lat: 20.6744,
+      lng: -103.3872,
+      level: 'Preparatoria',
+    },
+    {
+      name: 'American School Foundation',
+      city: 'Guadalajara',
+      lat: 20.686,
+      lng: -103.381,
+      level: 'Primaria',
+    },
+    {
+      name: 'Kinder Tlaquepaque Mágico',
+      city: 'Tlaquepaque',
+      lat: 20.606,
+      lng: -103.313,
+      level: 'Preescolar',
+    },
+    {
+      name: 'Secundaria Técnica 121',
+      city: 'Zapopan',
+      lat: 20.635,
+      lng: -103.43,
+      level: 'Secundaria',
+    },
 
-  const publicRows = await db
-    .select({ id: publicUsers.id, email: publicUsers.email })
-    .from(publicUsers)
-    .where(inArray(publicUsers.email, publicEmails));
+    // --- SINALOA (Mazatlán) ---
+    {
+      name: 'Colegio British de Mazatlán',
+      city: 'Mazatlán',
+      lat: 23.245,
+      lng: -106.425,
+      level: 'Primaria',
+    },
+    {
+      name: 'Instituto Cultural de Occidente',
+      city: 'Mazatlán',
+      lat: 23.238,
+      lng: -106.412,
+      level: 'Preparatoria',
+    },
+    {
+      name: 'Pacific National School',
+      city: 'Mazatlán',
+      lat: 23.272,
+      lng: -106.446,
+      level: 'Secundaria',
+    },
+    {
+      name: 'Maternal Las Gaviotas',
+      city: 'Mazatlán',
+      lat: 23.251,
+      lng: -106.439,
+      level: 'Maternal',
+    },
+    {
+      name: 'Centro Educativo Anglo',
+      city: 'Mazatlán',
+      lat: 23.21,
+      lng: -106.41,
+      level: 'Primaria',
+    },
 
-  const publicByEmail = new Map(publicRows.map((user) => [user.email, user]));
-  const publics = publicEmails
-    .map((email) => publicByEmail.get(email))
-    .filter((user): user is { id: string; email: string } => Boolean(user));
-
-  if (publics.length !== publicEmails.length) {
-    throw new Error('Failed to load all public test users for seed');
-  }
-
-  console.log('10 public users created');
-
-  const logoPool = Array.from({ length: 60 }).map(
-    (_, index) => `https://picsum.photos/seed/skoolia-logo-${index + 1}/400/400`,
-  );
-
-  const coverPool = Array.from({ length: 60 }).map(
-    (_, index) => `https://picsum.photos/seed/skoolia-cover-${index + 1}/1200/800`,
-  );
-
-  const logoUrls = owners.map((_, index) => logoPool[(index * 7) % logoPool.length]);
-  const coverUrls = owners.map((_, index) => coverPool[(index * 11) % coverPool.length]);
-
-  const logoFiles = await db
-    .insert(files)
-    .values(
-      logoUrls.map((url, index) => ({
-        url,
-        key: `school-logos/logo-${index}.jpg`,
-        mimeType: 'image/jpeg',
-        sizeBytes: Math.floor(Math.random() * 500000) + 100000,
-        ownerId: owners[index].id,
-        ownerType: 'school' as const,
-      })),
-    )
-    .returning();
-
-  const coverFiles = await db
-    .insert(files)
-    .values(
-      coverUrls.map((url, index) => ({
-        url,
-        key: `school-covers/cover-${index}.jpg`,
-        mimeType: 'image/jpeg',
-        sizeBytes: Math.floor(Math.random() * 1000000) + 500000,
-        ownerId: owners[index].id,
-        ownerType: 'school' as const,
-      })),
-    )
-    .returning();
-
-  console.log(`${logoFiles.length + coverFiles.length} files created`);
-
-  const schoolNames = Array.from({ length: 15 }).map(
-    (_, index) => `Academia ${index + 1}`,
-  );
-
-  const educationalLevels = [
-    'Maternal',
-    'Preescolar',
-    'Primaria',
-    'Secundaria',
-    'Preparatoria',
-    'Universidad',
+    // --- CDMX ---
+    {
+      name: 'Liceo Franco Mexicano',
+      city: 'Ciudad de México',
+      lat: 19.432,
+      lng: -99.202,
+      level: 'Preparatoria',
+    },
+    {
+      name: 'Colegio Alemán Alexander von Humboldt',
+      city: 'Ciudad de México',
+      lat: 19.248,
+      lng: -99.163,
+      level: 'Secundaria',
+    },
+    {
+      name: 'Escuela Moderna Polanco',
+      city: 'Ciudad de México',
+      lat: 19.441,
+      lng: -99.182,
+      level: 'Primaria',
+    },
+    {
+      name: 'Kinder Montessori Condesa',
+      city: 'Ciudad de México',
+      lat: 19.412,
+      lng: -99.174,
+      level: 'Preescolar',
+    },
+    {
+      name: 'Instituto Coyoacán',
+      city: 'Ciudad de México',
+      lat: 19.349,
+      lng: -99.162,
+      level: 'Universidad',
+    },
   ];
 
-  const schedules = [
-    '7:30 AM - 2:30 PM',
-    '8:00 AM - 3:00 PM',
-    '8:30 AM - 3:30 PM',
-    '7:00 AM - 2:00 PM',
-    '9:00 AM - 4:00 PM',
-  ];
+  console.log('🖼️ Generando archivos y perfiles de escuelas...');
 
-  const languageOptions = [
-    'Espanol',
-    'Bilingue (Espanol-Ingles)',
-    'Bilingue (Espanol-Frances)',
-    'Trilingue',
-    'Espanol',
-  ];
+  for (let i = 0; i < schoolProfiles.length; i++) {
+    const profile = schoolProfiles[i];
+    const owner = owners[i];
 
-  const prices = [5000, 7500, 10000, 12500, 15000, 18000, 20000];
-  const institutionTypes = ['Privada', 'Publica', 'Privada', 'Privada', 'Publica'];
-  const maxStudentsList = [15, 18, 20, 22, 25, 30];
+    // Crear archivos (Logo y Portada) usando imágenes de Unsplash
+    const unsplashLogos = [
+      'https://images.unsplash.com/photo-1519125323398-675f0ddb6308?w=400&q=80',
+      'https://images.unsplash.com/photo-1503676382389-4809596d5290?w=400&q=80',
+      'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?w=400&q=80',
+      'https://images.unsplash.com/photo-1500917293891-ef795e70e1f6?w=400&q=80',
+      'https://images.unsplash.com/photo-1464983953574-0892a716854b?w=400&q=80',
+    ];
+    const unsplashCovers = [
+      'https://images.unsplash.com/photo-1523050335392-93851179ae22?q=80&w=1200',
+      'https://images.unsplash.com/photo-1465101178521-c1a9136a3fd9?q=80&w=1200',
+      'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?q=80&w=1200',
+      'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=1200',
+      'https://images.unsplash.com/photo-1464983953574-0892a716854b?q=80&w=1200',
+    ];
+    const [logo, cover] = await db
+      .insert(files)
+      .values([
+        {
+          url: unsplashLogos[i % unsplashLogos.length],
+          key: `logos/logo-${i}.jpg`,
+          mimeType: 'image/jpeg',
+          sizeBytes: 150000,
+          ownerId: owner.id,
+          ownerType: 'school',
+        },
+        {
+          url: unsplashCovers[i % unsplashCovers.length],
+          key: `covers/cover-${i}.jpg`,
+          mimeType: 'image/jpeg',
+          sizeBytes: 800000,
+          ownerId: owner.id,
+          ownerType: 'school',
+        },
+      ])
+      .returning();
 
-  const citiesWithCoords: Array<{ city: string; lat: number; lng: number }> = [
-    { city: 'Ciudad de Mexico', lat: 19.4326, lng: -99.1332 },
-    { city: 'Guadalajara', lat: 20.6597, lng: -103.3496 },
-    { city: 'Monterrey', lat: 25.6866, lng: -100.3161 },
-    { city: 'Puebla', lat: 19.0327, lng: -98.2364 },
-    { city: 'Mexico', lat: 19.5998, lng: -99.2511 },
-    { city: 'Cancun', lat: 21.1629, lng: -86.8519 },
-    { city: 'Leon', lat: 21.1341, lng: -101.6826 },
-    { city: 'Queretaro', lat: 20.5888, lng: -100.3899 },
-  ];
+    // Crear Escuela con TODOS los campos
+    const state = profile.city === 'Mazatlán'
+      ? 'Sinaloa'
+      : profile.city === 'Ciudad de México'
+      ? 'Ciudad de Mexico'
+      : ['Guadalajara', 'Zapopan', 'Tlaquepaque'].includes(profile.city)
+      ? 'Jalisco'
+      : '';
 
-  const ownerIds = owners.map((owner) => owner.id);
+    const [school] = await db
+      .insert(schools)
+      .values({
+        name: profile.name,
+        description: `Bienvenido a ${profile.name}. Líderes en el estado de ${state}. Contamos con instalaciones modernas y un enfoque en valores.`,
+        logoUrl: logo.id,
+        coverImageUrl: cover.id,
+        address: `Av. Educación No. ${100 + i}, Col. Centro`,
+        city: profile.city,
+        state,
+        latitude: profile.lat,
+        longitude: profile.lng,
+        lat: profile.lat, // Por si usas float
+        lng: profile.lng, // Por si usas float
+        educationalLevel: profile.level,
+        institutionType: i % 2 === 0 ? 'Privada' : 'Publica',
+        schedule: '07:30 AM - 02:30 PM',
+        maxStudentsPerClass: 25,
+        languages: i % 3 === 0 ? 'Bilingüe (Español-Inglés)' : 'Español',
+        enrollmentYear: 2026,
+        enrollmentOpen: true,
+        monthlyPrice: 2500 + i * 450,
+        averageRating: parseFloat((Math.random() * 1.5 + 3.5).toFixed(1)),
+        ratingsCount: Math.floor(Math.random() * 40) + 5,
+        favoritesCount: Math.floor(Math.random() * 20),
+        rankingScore: Math.random() * 100,
+        isFeatured: i < 3,
+        isVerified: true,
+        ownerId: owner.id,
+      })
+      .returning();
 
-  await db.delete(schools).where(inArray(schools.ownerId, ownerIds));
+    // Suscripción
+    await db.insert(schoolSubscriptions).values({
+      schoolId: school.id,
+      planId: i % 5 === 0 ? premiumPlan.id : freemiumPlan.id,
+      status: 'active',
+      currentPeriodStart: new Date(),
+      currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    });
 
-  const insertedSchools = await db
-    .insert(schools)
-    .values(
-      schoolNames.map((name, index) => {
-        const coordsData = citiesWithCoords[index % citiesWithCoords.length];
+    // Categorías (Robótica para todos los pares, Deportes para impares) evitando duplicados
+    const categoryIds = [
+      insertedCats[i % insertedCats.length].id,
+      insertedCats[4].id, // Robótica
+    ].filter((id, idx, arr) => arr.indexOf(id) === idx);
 
-        return {
-          name,
-          description: `Institucion educativa ${name} con programas academicos de calidad.`,
-          city: coordsData.city,
-          address: `Calle Principal ${index + 1} No. ${100 + index * 50}, ${coordsData.city}`,
-          latitude: coordsData.lat + (index % 10) * 0.01,
-          longitude: coordsData.lng + (index % 10) * 0.01,
-          educationalLevel: educationalLevels[index % educationalLevels.length],
-          institutionType: institutionTypes[index % institutionTypes.length],
-          schedule: schedules[index % schedules.length],
-          maxStudentsPerClass: maxStudentsList[index % maxStudentsList.length],
-          languages: languageOptions[index % languageOptions.length],
-          logoUrl: logoFiles[index].id,
-          coverImageUrl: coverFiles[index].id,
-          enrollmentYear: 2024 + (index % 3),
-          monthlyPrice: prices[index % prices.length],
-          enrollmentOpen: index % 2 === 0,
-          averageRating: parseFloat((Math.random() * 2 + 3.5).toFixed(1)),
-          ratingsCount: Math.floor(Math.random() * 50) + 10,
-          favoritesCount: Math.floor(Math.random() * 100) + 5,
-          rankingScore: parseFloat((Math.random() * 100).toFixed(2)),
-          isFeatured: index < 5,
-          ownerId: owners[index].id,
-          isVerified: index % 3 === 0,
-        };
-      }),
-    )
-    .returning();
-
-  console.log('15 schools created');
-
-  await db.delete(schoolSubscriptions).where(
-    inArray(
-      schoolSubscriptions.schoolId,
-      insertedSchools.map((school) => school.id),
-    ),
-  );
-
-  const now = new Date();
-
-  await db.insert(schoolSubscriptions).values(
-    insertedSchools.map((school, index) => {
-      const selectedPlan =
-        index < Math.ceil(insertedSchools.length * 0.8)
-          ? freemiumPlan
-          : premiumPlan;
-
-      const currentPeriodStart = new Date(now);
-      const currentPeriodEnd = new Date(now);
-      currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
-
-      return {
+    await db.insert(schoolCategories).values(
+      categoryIds.map((categoryId) => ({
         schoolId: school.id,
-        planId: selectedPlan.id,
-        status: 'active' as const,
-        currentPeriodStart,
-        currentPeriodEnd,
-      };
-    }),
-  );
+        categoryId,
+      })),
+    );
 
-  console.log('School subscriptions assigned');
-
-  await db.delete(schoolCategories).where(
-    inArray(
-      schoolCategories.schoolId,
-      insertedSchools.map((school) => school.id),
-    ),
-  );
-
-  await db.insert(schoolCategories).values(
-    insertedSchools.flatMap((school, index) => {
-      const firstCategory = insertedCategories[index % insertedCategories.length];
-      const secondCategory = insertedCategories[(index + 3) % insertedCategories.length];
-
-      return [
-        { schoolId: school.id, categoryId: firstCategory.id },
-        { schoolId: school.id, categoryId: secondCategory.id },
-      ];
-    }),
-  );
-
-  console.log('Categories assigned');
-
-  await db.delete(courses).where(
-    inArray(
-      courses.schoolId,
-      insertedSchools.map((school) => school.id),
-    ),
-  );
-
-  await db.insert(courses).values(
-    insertedSchools.flatMap((school, index) => [
+    // Cursos
+    await db.insert(courses).values([
       {
         schoolId: school.id,
-        name: `Curso Basico ${index + 1}`,
-        description: 'Curso introductorio',
-        price: 1000 + index * 100,
+        name: `Inscripción Anual ${profile.level}`,
+        description: 'Cubre gastos administrativos y seguro escolar.',
+        price: 4500,
+        capacity: 100,
+        modality: 'presencial',
+        status: 'published',
+      },
+      {
+        schoolId: school.id,
+        name: 'Taller de Robótica Avanzada',
+        description: 'Competencias nacionales e internacionales.',
+        price: 850,
         capacity: 20,
         modality: 'presencial',
-        status: 'published' as const,
+        status: 'published',
       },
-      {
-        schoolId: school.id,
-        name: `Curso Avanzado ${index + 1}`,
-        description: 'Curso avanzado profesional',
-        price: 2000 + index * 150,
-        capacity: 15,
-        modality: 'online',
-        status: 'published' as const,
-      },
-    ]),
-  );
+    ]);
 
-  console.log('Courses created');
-
-  const ratingsData = insertedSchools.flatMap((school) =>
-    publics.slice(0, 3).map((user) => ({
+    // Ratings (Padres comentando)
+    await db.insert(schoolRatings).values({
       schoolId: school.id,
-      publicUserId: user.id,
-      rating: Math.floor(Math.random() * 5) + 1,
-      comment: 'Excelente escuela!',
-    })),
+      publicUserId: publics[i % publics.length].id,
+      rating: 5,
+      comment: '¡Excelente nivel académico y atención de los profesores!',
+    });
+  }
+
+  console.log(
+    '✅ SEED COMPLETADO: 15 Escuelas en 3 Estados creadas con éxito.',
   );
-
-  await db.delete(schoolRatings).where(
-    inArray(
-      schoolRatings.schoolId,
-      insertedSchools.map((school) => school.id),
-    ),
-  );
-
-  await db.insert(schoolRatings).values(ratingsData);
-  console.log('Ratings created');
-
-  await db.delete(schoolFavorites).where(
-    inArray(
-      schoolFavorites.schoolId,
-      insertedSchools.map((school) => school.id),
-    ),
-  );
-
-  await db.insert(schoolFavorites).values(
-    insertedSchools.map((school) => ({
-      schoolId: school.id,
-      publicUserId: publics[Math.floor(Math.random() * publics.length)].id,
-    })),
-  );
-
-  console.log('Favorites created');
-  console.log('Seed completed successfully');
-
   await pool.end();
 }
 
-seed().catch((error) => {
-  console.error('Seed failed');
-  console.error(error);
+seed().catch((e) => {
+  console.error('❌ Error en el seed:', e);
   process.exit(1);
 });
