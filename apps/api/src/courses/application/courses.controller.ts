@@ -26,6 +26,7 @@ import { UpdateCourseImageDto } from './dto/update-image.dto';
 import { UpdateCourseImageUseCase } from '../core/use-cases/update-image.use-case';
 import { ListMyCoursesUseCase } from '../core/use-cases/list-my-courses.use-case';
 import { ListPublicCoursesBySchoolUseCase } from '../core/use-cases/list-public-courses-by-school.use-case';
+import { ListPublicCoursesUseCase } from '../core/use-cases/list-public-courses.use-case';
 
 @Controller('courses')
 export class CoursesController {
@@ -47,6 +48,9 @@ export class CoursesController {
 
     @Inject(ListPublicCoursesBySchoolUseCase)
     private readonly listPublicCoursesBySchool: ListPublicCoursesBySchoolUseCase,
+
+    @Inject(ListPublicCoursesUseCase)
+    private readonly listPublicCourses: ListPublicCoursesUseCase,
   ) {}
 
   /**
@@ -79,6 +83,11 @@ export class CoursesController {
   @Get('schools/:schoolId')
   async listPublicBySchool(@Param('schoolId') schoolId: string) {
     return this.listPublicCoursesBySchool.execute(schoolId);
+  }
+
+  @Get()
+  async listAllPublic() {
+    return this.listPublicCourses.execute();
   }
 
   @Patch(':id/image')

@@ -1,6 +1,7 @@
 import type { Course } from '../entities/course.types';
 
 export interface CourseRepository {
+  findAllPublic(): Promise<Course[]>;
   create(params: {
     schoolId?: string | null;
     name: string;

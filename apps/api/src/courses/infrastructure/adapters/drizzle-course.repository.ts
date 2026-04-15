@@ -139,6 +139,33 @@ export class DrizzleCourseRepository implements CourseRepository {
     return rows;
   }
 
+  async findAllPublic(): Promise<Course[]> {
+    const coverFile = alias(files, 'cover_file');
+    const rows = await this.db
+      .select({
+        id: courses.id,
+        schoolId: courses.schoolId,
+        name: courses.name,
+        description: courses.description,
+        coverImageUrl: coverFile.url,
+        price: courses.price,
+        capacity: courses.capacity,
+        startDate: courses.startDate,
+        endDate: courses.endDate,
+        modality: courses.modality,
+        averageRating: courses.averageRating,
+        enrollmentsCount: courses.enrollmentsCount,
+        status: courses.status,
+        isActive: courses.isActive,
+        createdAt: courses.createdAt,
+        updatedAt: courses.updatedAt,
+      })
+      .from(courses)
+      .leftJoin(coverFile, eq(coverFile.id, courses.coverImageUrl))
+      .where(eq(courses.isActive, true));
+    return rows;
+  }
+
   async update(params: { courseId: string; data: Partial<Course> }) {
     const [updated] = await this.db
       .update(courses)

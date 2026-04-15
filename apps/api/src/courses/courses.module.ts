@@ -15,6 +15,7 @@ import { UpdateCourseImageUseCase } from './core/use-cases/update-image.use-case
 import { FilesModule } from 'src/files/files.module';
 import { ListMyCoursesUseCase } from './core/use-cases/list-my-courses.use-case';
 import { ListPublicCoursesBySchoolUseCase } from './core/use-cases/list-public-courses-by-school.use-case';
+import { ListPublicCoursesUseCase } from './core/use-cases/list-public-courses.use-case';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { ListPublicCoursesBySchoolUseCase } from './core/use-cases/list-public-c
     UpdateCourseImageUseCase,
     ListMyCoursesUseCase,
     ListPublicCoursesBySchoolUseCase,
+    ListPublicCoursesUseCase,
     {
       provide: COURSE_REPOSITORY,
       useClass: DrizzleCourseRepository,
