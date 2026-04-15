@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { schoolCategories, schools } from 'drizzle/schemas';
+import { plans, schoolCategories, schoolSubscriptions, schools } from 'drizzle/schemas';
 import { and, eq, ilike, desc, lt, SQL, or, gte, lte } from 'drizzle-orm';
 
 import { DATABASE } from 'src/db/db.module';
@@ -32,16 +32,48 @@ export class DrizzleSchoolRepository implements SchoolRepository {
     description?: string;
     ownerId: string;
   }) {
-    const [school] = await this.db
-      .insert(schools)
-      .values({
-        name: params.name,
-        description: params.description,
-        ownerId: params.ownerId,
-      })
-      .returning();
+    return this.db.transaction(async (tx) => {
+      const now = new Date();
 
-    return school;
+      const [freemiumPlan] = await tx
+        .select({
+          id: plans.id,
+          interval: plans.interval,
+        })
+        .from(plans)
+        .where(eq(plans.name, 'Freemium'))
+        .limit(1);
+
+      if (!freemiumPlan) {
+        throw new Error('Freemium plan not found');
+      }
+
+      const [school] = await tx
+        .insert(schools)
+        .values({
+          name: params.name,
+          description: params.description,
+          ownerId: params.ownerId,
+        })
+        .returning();
+
+      const currentPeriodEnd = new Date(now);
+      if (freemiumPlan.interval === 'yearly') {
+        currentPeriodEnd.setFullYear(currentPeriodEnd.getFullYear() + 1);
+      } else {
+        currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
+      }
+
+      await tx.insert(schoolSubscriptions).values({
+        schoolId: school.id,
+        planId: freemiumPlan.id,
+        status: 'active',
+        currentPeriodStart: now,
+        currentPeriodEnd,
+      });
+
+      return school;
+    });
   }
 
   async findByOwner(ownerId: string): Promise<School | null> {
