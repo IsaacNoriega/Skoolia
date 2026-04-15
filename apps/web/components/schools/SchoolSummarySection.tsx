@@ -160,6 +160,26 @@ export default function SchoolSummarySection() {
 				</p>
 			</section>
 
+			{/* MAPA DE LA ESCUELA */}
+			{school?.lat && school?.lng && (
+				<div className="my-6">
+					<h3 className="text-lg font-semibold mb-2">Ubicación en el mapa</h3>
+					<div className="w-full" style={{ minHeight: 320 }}>
+						{/* @ts-expect-error Server Component import */}
+						import SchoolsMap from "@/components/onboarding/SchoolsMap";
+						<SchoolsMap
+							schools={[{
+								id: school.id,
+								name: school.name,
+								lat: school.lat,
+								lng: school.lng,
+								level: school.educationalLevel,
+							}]} height={320}
+						/>
+					</div>
+				</div>
+			)}
+
 			<section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
 				{cards.map((card) => {
 					const Icon = card.icon;

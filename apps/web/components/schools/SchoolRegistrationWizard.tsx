@@ -1,6 +1,27 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+// Utilidad para geocodificar usando Nominatim
+async function geocodeAddress(address: string, city: string): Promise<{ lat: number; lng: number } | null> {
+    const query = encodeURIComponent(`${address}, ${city}, México`);
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${query}`;
+    try {
+        const res = await fetch(url, {
+            headers: { 'Accept-Language': 'es', 'User-Agent': 'Skoolia/1.0 (contacto@skoolia.mx)' },
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+            return {
+                lat: parseFloat(data[0].lat),
+                lng: parseFloat(data[0].lon),
+            };
+        }
+        return null;
+    } catch {
+        return null;
+    }
+}
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ShieldCheck, Upload, X } from "lucide-react";
@@ -257,14 +278,48 @@ export default function SchoolRegistrationWizard({ isOpen, onClose }: Props) {
         setStep((current) => Math.max(current - 1, 0));
     };
 
+
     const goNext = async () => {
         setPendingAction("next");
         const isValid = await trigger(STEP_FIELDS[step], { shouldFocus: true });
-        setPendingAction(null);
-
-        if (isValid) {
-            setStep((current) => Math.min(current + 1, STEP_META.length - 1));
+        if (!isValid) {
+            setPendingAction(null);
+            return;
         }
+
+        // Si estamos en el paso 0, geocodificar antes de avanzar
+        if (step === 0) {
+            const addressRaw = watch("address");
+            const cityRaw = watch("city");
+            const address = typeof addressRaw === 'string' ? addressRaw : '';
+            const city = typeof cityRaw === 'string' ? cityRaw : '';
+            if (address && city) {
+                showToast({
+                    title: "Buscando coordenadas...",
+                    description: "Geocodificando la dirección ingresada.",
+                    variant: "info",
+                    duration: 2500,
+                });
+                const geo = await geocodeAddress(address, city);
+                if (geo) {
+                    setValue("latitude", geo.lat, { shouldValidate: true });
+                    setValue("longitude", geo.lng, { shouldValidate: true });
+                    showToast({
+                        title: "Coordenadas encontradas",
+                        description: `Latitud: ${geo.lat.toFixed(6)}, Longitud: ${geo.lng.toFixed(6)}`,
+                        variant: "success",
+                    });
+                } else {
+                    showToast({
+                        title: "No se pudo geocodificar la dirección",
+                        description: "Verifica que la dirección y el estado sean correctos. Puedes ingresar las coordenadas manualmente en el siguiente paso.",
+                        variant: "error",
+                    });
+                }
+            }
+        }
+        setPendingAction(null);
+        setStep((current) => Math.min(current + 1, STEP_META.length - 1));
     };
 
   const onSubmit = handleSubmit(async (values: SchoolRegistrationWizardValues) => {

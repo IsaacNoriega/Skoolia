@@ -5,6 +5,17 @@ import { useEffect, useMemo, useState } from "react";
 import { CalendarClock, MessageCircle, User } from "lucide-react";
 
 import { messagesService, type SchoolThread } from "@/lib/services/services/messages.service";
+import { updateLeadStatus } from "@/lib/services/leadsService";
+// Toast minimalista para errores
+function Toast({ message, onClose }: { message: string; onClose: () => void }) {
+	if (!message) return null;
+	return (
+		<div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-rose-600 px-4 py-2 text-white shadow-lg animate-fade-in">
+			<span>{message}</span>
+			<button className="ml-3 text-white/80 hover:text-white" onClick={onClose}>&times;</button>
+		</div>
+	);
+}
 import { useAuth } from "@/contexts/AuthContext";
 
 type LeadStage = "nuevo_contacto" | "interesado" | "visita" | "inscrito";
@@ -140,6 +151,7 @@ function createDefaultLead(thread: SchoolThread): LeadRecord {
 }
 
 export default function SchoolLeadsSection() {
+	const [toast, setToast] = useState("");
 	const { user } = useAuth();
 	const [threads, setThreads] = useState<SchoolThread[]>([]);
 	const [filter, setFilter] = useState<LeadsFilter>("week");
@@ -222,11 +234,11 @@ export default function SchoolLeadsSection() {
 		});
 	}, [threads]);
 
-	const patchLead = (publicUserId: string, patch: Partial<LeadRecord>) => {
+	// Optimistic UI para cambio de estado
+	const patchLead = (publicUserId: string, patch: Partial<LeadRecord>, optimistic?: boolean) => {
 		setLeads((prev) => {
 			const current = prev[publicUserId];
 			if (!current) return prev;
-
 			const next = {
 				...prev,
 				[publicUserId]: {
@@ -234,11 +246,22 @@ export default function SchoolLeadsSection() {
 					...patch,
 				},
 			};
-
 			writeLeads(next, user?.id);
 			setLastSavedAt(new Date().toISOString());
 			return next;
 		});
+	};
+
+	// Handler para cambio de estado con Optimistic UI
+	const handleStageChange = async (publicUserId: string, newStage: LeadStage) => {
+		const prevStage = leads[publicUserId]?.stage;
+		patchLead(publicUserId, { stage: newStage }, true);
+		try {
+			await updateLeadStatus(publicUserId, newStage);
+		} catch (err) {
+			patchLead(publicUserId, { stage: prevStage }, true);
+			setToast("No se pudo actualizar el estado del lead. Intenta de nuevo.");
+		}
 	};
 
 	const stageCounters = useMemo(() => {
@@ -483,9 +506,18 @@ export default function SchoolLeadsSection() {
 								</div>
 							</div>
 							<div className="flex items-center gap-3">
-								<span className={`inline-flex items-center rounded-full px-3 py-1 text-[10px] sm:text-xs font-bold ${status.classes}`}>
-									{status.label}
-								</span>
+												{/* Selector de estado minimalista */}
+												<select
+													value={lead.stage}
+													onChange={e => handleStageChange(thread.publicUserId, e.target.value as LeadStage)}
+													className={`rounded-full border px-2 py-1 text-xs font-bold transition ${status.classes} focus:outline-none focus:ring-2 focus:ring-indigo-300`}
+													style={{ minWidth: 110 }}
+												>
+													<option value="nuevo_contacto">Nuevo contacto</option>
+													<option value="interesado">Interesado</option>
+													<option value="visita">Visita</option>
+													<option value="inscrito">Inscrito</option>
+												</select>
 								<div className="flex items-center gap-1 sm:gap-2">
 									<Link
 										href={`/schools/messages?thread=${thread.publicUserId}`}
@@ -625,6 +657,7 @@ export default function SchoolLeadsSection() {
 					</aside>
 				</div>
 			</div>
+		<Toast message={toast} onClose={() => setToast("")} />
 		</section>
 	);
 }
