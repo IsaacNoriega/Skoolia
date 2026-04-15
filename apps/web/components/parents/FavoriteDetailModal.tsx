@@ -1,6 +1,6 @@
 'use client';
 import Image from 'next/image';
-import { X, MapPin, Star, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, MapPin, Star, ChevronLeft, ChevronRight, Users } from 'lucide-react';
 import { ArrowUpRight } from 'lucide-react';
 import { JSX, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -179,18 +179,18 @@ export default function FavoriteDetailModal({
           </div>
 
           {/* Right content */}
-          <div className="p-5 sm:p-8 overflow-y-auto">
+          <div className="p-5 sm:p-8 flex flex-col h-full">
             {/* Header */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 mb-2">
               <span className="rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-extrabold tracking-widest text-indigo-700">
-                {item.level ?? 'CURSO EXTRACURRICULAR'}
+                {item.level ?? 'ESCUELA'}
               </span>
               <span className="text-[11px] font-bold tracking-widest text-slate-400">FUTURE TECH GLOBAL</span>
             </div>
-            <h2 className="mt-3 text-2xl sm:text-[28px] font-extrabold leading-tight text-slate-900">{item.title}</h2>
-            <div className="mt-2 flex items-center gap-3 text-xs sm:text-sm text-slate-600">
+            <h2 className="text-2xl sm:text-[28px] font-extrabold leading-tight text-slate-900 mb-1">{item.title}</h2>
+            <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-600 mb-2">
               <MapPin className="h-4 w-4" />
-              <span>{item.location}</span>
+              <span>{item.location || 'Sin ubicación'}</span>
               <Star className="h-4 w-4 text-amber-400" />
               <span>
                 {typeof item.rating === 'number' ? item.rating.toFixed(1) : '—'}
@@ -198,26 +198,81 @@ export default function FavoriteDetailModal({
               </span>
             </div>
 
-            {/* Short description */}
-            {item.description ? (
-              <p className="mt-4 text-xs sm:text-sm leading-relaxed text-slate-700">
-                {item.description}
+            {/* Descripción */}
+            <div className="mb-3">
+              <p className="text-xs sm:text-sm leading-relaxed text-slate-700 max-h-[120px] overflow-y-auto">
+                {item.description?.trim() ? item.description : 'Sin descripción registrada.'}
               </p>
-            ) : null}
-
-            <div className="mt-6 space-y-2 text-xs sm:text-sm text-slate-600">
-              {item.schedule ? <p><span className="font-semibold">Horario:</span> {item.schedule}</p> : null}
-              {item.languages ? <p><span className="font-semibold">Idiomas:</span> {item.languages}</p> : null}
-              {item.studentsPerClass ? <p><span className="font-semibold">Alumnos por salón:</span> {item.studentsPerClass}</p> : null}
             </div>
 
-            {/* Footer action */}
-            <div className="mt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            {/* Grid de atributos */}
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-3">
+              {/* Horario */}
+              <div className="bg-slate-50 rounded-2xl p-3 flex-1 flex items-center gap-2 min-h-[64px]">
+                <svg className="w-5 h-5 text-indigo-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 8v4l3 2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                <div>
+                  <div className="text-[11px] text-slate-500 font-semibold">Horario</div>
+                  <div className="text-xs font-bold text-slate-700">{item.schedule?.trim() ? item.schedule : 'No registrado'}</div>
+                </div>
+              </div>
+              {/* Idiomas */}
+              <div className="bg-slate-50 rounded-2xl p-3 flex-1 flex items-center gap-2 min-h-[64px]">
+                <svg className="w-5 h-5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 20v-6m0 0V4m0 10l3-3m-3 3l-3-3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                <div>
+                  <div className="text-[11px] text-slate-500 font-semibold">Idiomas</div>
+                  <div className="text-xs font-bold text-slate-700">{item.languages?.trim() ? item.languages : 'No registrado'}</div>
+                </div>
+              </div>
+              {/* Alumnos por salón */}
+              <div className="bg-slate-50 rounded-2xl p-3 flex-1 flex items-center gap-2 min-h-[64px]">
+                <Users className="w-5 h-5 text-pink-400 shrink-0" />
+                <div>
+                  <div className="text-[11px] text-slate-500 font-semibold">Alumnos por salón</div>
+                  <div className="text-xs font-bold text-slate-700">{item.studentsPerClass != null && String(item.studentsPerClass).trim() !== '' ? item.studentsPerClass : 'No registrado'}</div>
+                </div>
+              </div>
+              {/* Tipo de institución */}
+              <div className="bg-slate-50 rounded-2xl p-3 flex-1 flex items-center gap-2 min-h-[64px]">
+                <svg className="w-5 h-5 text-blue-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 10l9-7 9 7v7a2 2 0 01-2 2H5a2 2 0 01-2-2v-7z" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                <div>
+                  <div className="text-[11px] text-slate-500 font-semibold">Tipo de institución</div>
+                  <div className="text-xs font-bold text-slate-700">{item.institutionType?.trim() ? item.institutionType : 'No registrado'}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Banner de inscripción */}
+            <div className="mb-3">
+              {item.enrollmentOpen ? (
+                <div className="flex items-center gap-2 bg-emerald-50 rounded-2xl px-4 py-2 min-h-[40px]">
+                  <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 mr-2"></span>
+                  <span className="text-xs font-semibold text-emerald-700">Inscripciones abiertas</span>
+                  {item.enrollmentYear ? (
+                    <span className="ml-2 bg-emerald-100 text-emerald-700 rounded-full px-3 py-1 text-[11px] font-bold">
+                      {item.enrollmentYear}
+                    </span>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 bg-slate-100 rounded-2xl px-4 py-2 min-h-[40px]">
+                  <span className="inline-block h-2 w-2 rounded-full bg-slate-400 mr-2"></span>
+                  <span className="text-xs font-semibold text-slate-500">Inscripciones cerradas</span>
+                  {item.enrollmentYear ? (
+                    <span className="ml-2 bg-slate-200 text-slate-700 rounded-full px-3 py-1 text-[11px] font-bold">
+                      {item.enrollmentYear}
+                    </span>
+                  ) : null}
+                </div>
+              )}
+            </div>
+
+            {/* Precio mensual y botones alineados */}
+            <div className="mt-auto mb-4 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
               <div>
-                <p className="text-[10px] sm:text-[11px] font-extrabold tracking-widest text-slate-500">MENSUALIDAD ESTIMADA</p>
-                <p className="mt-2 text-3xl sm:text-4xl font-extrabold text-slate-900">{priceValue}</p>
+                <div className="text-[10px] sm:text-[11px] font-extrabold tracking-widest text-slate-500">MENSUALIDAD</div>
+                <div className="mt-2 text-3xl sm:text-4xl font-extrabold text-emerald-700">{priceValue || '—'}</div>
                 {priceUnit ? (
-                  <p className="-mt-1 text-lg sm:text-xl font-extrabold text-slate-900">{priceUnit}</p>
+                  <div className="-mt-1 text-lg sm:text-xl font-extrabold text-emerald-700">{priceUnit}</div>
                 ) : null}
               </div>
               <div className="flex items-center gap-3">
