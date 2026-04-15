@@ -33,6 +33,7 @@ export const schools = pgTable(
     // 📍 ubicación
     address: text('address'),
     city: text('city'),
+    state: text('state'), // Nuevo campo para estado
     latitude: doublePrecision('latitude'),
     longitude: doublePrecision('longitude'),
     lat: doublePrecision('lat'), // Nueva columna para geolocalización
