@@ -8,6 +8,7 @@ export default function page() {
       <main className="pt-6 md:pt-8">
                 <div className="space-y-10 md:space-y-14">
                     <HeroParentsSection />
+
                     <CatalogSection />
                 </div>
             </main>

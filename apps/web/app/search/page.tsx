@@ -84,6 +84,7 @@ export default function SearchPage() {
   useEffect(() => {
     let active = true;
 
+
     const load = async () => {
       setLoading(true);
       setError(null);
@@ -96,10 +97,28 @@ export default function SearchPage() {
             ? (resolveMexicanState(loc) ?? undefined)
             : undefined;
 
+        // Log de depuración de filtros
+
+        console.log("[BUSQUEDA] Filtros enviados:", {
+          search: q || undefined,
+          state: near ? undefined : normalizedLoc,
+          latitude: near && hasValidCoords ? latitude : undefined,
+          longitude: near && hasValidCoords ? longitude : undefined,
+          educationalLevel: level || undefined,
+          categoryId: categoryId || undefined,
+          schedule: schedule || undefined,
+          languages: languages || undefined,
+          minPrice: Number.isFinite(minPrice) ? minPrice : undefined,
+          maxPrice: Number.isFinite(maxPrice) ? maxPrice : undefined,
+          sortBy,
+          onlyVerified: verifiedOnly,
+        });
+
+
         const connection = await schoolsFeedService.list({
           filters: {
             search: q || undefined,
-            city: near ? undefined : normalizedLoc,
+            state: near ? undefined : normalizedLoc,
             latitude: near && hasValidCoords ? latitude : undefined,
             longitude: near && hasValidCoords ? longitude : undefined,
             educationalLevel: level || undefined,
@@ -113,6 +132,9 @@ export default function SearchPage() {
           },
           pagination: { first: 24 },
         });
+
+        // Log de depuración de resultados
+        console.log("[BUSQUEDA] Resultados recibidos:", connection);
 
         if (!active) return;
 
