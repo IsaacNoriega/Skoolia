@@ -39,12 +39,19 @@ export interface OnboardingState {
    VALIDACIÓN POR STEP
 ========================= */
 
+
 function validateStep(state: OnboardingState) {
   const errors: OnboardingState["errors"] = {};
 
   if (state.step === 1) {
-    if (!state.data.schoolName.trim()) {
-      errors.schoolName = "El nombre de la escuela es obligatorio";
+    if (state.data.tipoRegistro === "escuela") {
+      if (!state.data.schoolName.trim()) {
+        errors.schoolName = "El nombre de la escuela es obligatorio";
+      }
+    } else if (state.data.tipoRegistro === "curso") {
+      if (!state.data.cursoNombre || !state.data.cursoNombre.trim()) {
+        errors.cursoNombre = "El nombre del curso es obligatorio";
+      }
     }
   }
 
@@ -55,16 +62,32 @@ function validateStep(state: OnboardingState) {
   }
 
   if (state.step === 3) {
-    if (!state.data.educationalLevel.trim()) {
-      errors.educationalLevel = "El nivel educativo es obligatorio";
-    }
-
-    if (!state.data.institutionType.trim()) {
-      errors.institutionType = "Selecciona el tipo de institucion";
-    }
-
-    if (!state.data.city.trim()) {
-      errors.city = "Selecciona un estado";
+    if (state.data.tipoRegistro === "escuela") {
+      if (!state.data.educationalLevel.trim()) {
+        errors.educationalLevel = "El nivel educativo es obligatorio";
+      }
+      if (!state.data.institutionType.trim()) {
+        errors.institutionType = "Selecciona el tipo de institucion";
+      }
+      if (!state.data.city.trim()) {
+        errors.city = "Selecciona un estado";
+      }
+    } else if (state.data.tipoRegistro === "curso") {
+      if (!state.data.cursoDuracion || isNaN(Number(state.data.cursoDuracion)) || Number(state.data.cursoDuracion) <= 0) {
+        errors.cursoDuracion = "La duración es obligatoria y debe ser mayor a 0";
+      }
+      if (!state.data.cursoModalidad || !state.data.cursoModalidad.trim()) {
+        errors.cursoModalidad = "Selecciona la modalidad";
+      }
+      // Si modalidad es presencial o híbrido, dirección y estado obligatorios
+      if (state.data.cursoModalidad === "presencial" || state.data.cursoModalidad === "hibrido") {
+        if (!state.data.address || !state.data.address.trim()) {
+          errors.address = "La dirección es obligatoria";
+        }
+        if (!state.data.city || !state.data.city.trim()) {
+          errors.city = "Selecciona un estado";
+        }
+      }
     }
   }
 
@@ -95,6 +118,7 @@ type Action =
 const initialState: OnboardingState = {
   step: 1,
   data: {
+    tipoRegistro: "escuela", // "escuela" o "curso"
     schoolId: undefined,
     schoolName: "",
     website: "",
@@ -108,6 +132,10 @@ const initialState: OnboardingState = {
     lat: null,
     lng: null,
     categories: [],
+
+    // Para curso
+    cursoNombre: "",
+    cursoDescripcion: "",
   },
   errors: {},
   canContinue: false,

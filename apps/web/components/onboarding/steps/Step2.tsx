@@ -7,6 +7,17 @@ import { CategoryIcon } from "@/components/layout/CategoryIcon";
 import { Input } from "@/components/ui/input";
 import { schoolCategoriesService, Category } from "@/lib/services/services/schools-categories.service";
 
+
+// Puedes cambiar esto por un servicio real de categorías de cursos si lo tienes
+const CURSO_CATEGORIES = [
+  { id: "1", name: "Arte", slug: "arte" },
+  { id: "2", name: "Deportes", slug: "deportes" },
+  { id: "3", name: "Tecnología", slug: "tecnologia" },
+  { id: "4", name: "Idiomas", slug: "idiomas" },
+  { id: "5", name: "Ciencias", slug: "ciencias" },
+  { id: "6", name: "Música", slug: "musica" },
+];
+
 export default function Step2() {
   const { state, toggleCategory } = useOnboarding();
 
@@ -17,16 +28,21 @@ export default function Step2() {
   useEffect(() => {
     async function loadCategories() {
       try {
-        const data = await schoolCategoriesService.getAllCategories();
-        setCategories(data);
+        if (state.data.tipoRegistro === "curso") {
+          setCategories(CURSO_CATEGORIES);
+        } else {
+          const data = await schoolCategoriesService.getAllCategories();
+          setCategories(data);
+        }
       } catch (err) {
-        console.error("Error loading categories", err);
+        console.error("Error loading categorías", err);
       } finally {
         setLoading(false);
       }
     }
     loadCategories();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.data.tipoRegistro]);
 
   function isSelected(id: string) {
     return state.data.categories.some((c) => c.id === id);
@@ -60,7 +76,9 @@ export default function Step2() {
             Configuración de la cuenta
           </p>
           <h1 className="text-4xl sm:text-6xl font-extrabold leading-[1.05] tracking-tight text-black">
-            Selecciona las categorías que describen mejor a la escuela
+            {state.data.tipoRegistro === "curso"
+              ? "Selecciona las categorías que describen mejor el curso"
+              : "Selecciona las categorías que describen mejor a la escuela"}
           </h1>
         </div>
 

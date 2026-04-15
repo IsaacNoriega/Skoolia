@@ -30,31 +30,44 @@ export default function Step4() {
 
       {/* CARD */}
       <div className="rounded-[28px] border border-black/10 bg-white p-8 shadow-sm space-y-8">
-        <Section title="Escuela">
-          <Row label="School ID" value={state.data.schoolId ?? "—"} mono />
-          <Row label="Nombre" value={state.data.schoolName || "—"} />
-          <Row label="Sitio web" value={state.data.website || "—"} />
-          <Row
-            label="Descripción"
-            value={state.data.description?.trim() ? state.data.description : "—"}
-            multiline
-          />
-        </Section>
-
-        <Divider />
-
-        <Section title="Categorías">
-          <Row label="Seleccionadas" value={categoriesText} multiline />
-        </Section>
-
-        <Divider />
-
-        <Section title="Información académica">
-          <Row label="Nivel educativo" value={state.data.educationalLevel || "—"} />
-          <Row label="Tipo de institución" value={state.data.institutionType || "—"} />
-          <Row label="Ciudad" value={state.data.city || "—"} />
-          <Row label="Dirección" value={state.data.address || "—"} multiline />
-        </Section>
+        {state.data.tipoRegistro === "escuela" ? (
+          <>
+            <Section title="Escuela">
+              <Row label="School ID" value={state.data.schoolId ?? "—"} mono />
+              <Row label="Nombre" value={state.data.schoolName || "—"} />
+              <Row label="Sitio web" value={state.data.website || "—"} />
+              <Row
+                label="Descripción"
+                value={state.data.description?.trim() ? state.data.description : "—"}
+                multiline
+              />
+            </Section>
+            <Divider />
+            <Section title="Categorías">
+              <Row label="Seleccionadas" value={categoriesText} multiline />
+            </Section>
+            <Divider />
+            <Section title="Información académica">
+              <Row label="Nivel educativo" value={state.data.educationalLevel || "—"} />
+              <Row label="Tipo de institución" value={state.data.institutionType || "—"} />
+              <Row label="Ciudad" value={state.data.city || "—"} />
+              <Row label="Dirección" value={state.data.address || "—"} multiline />
+            </Section>
+          </>
+        ) : (
+          <>
+            <Section title="Curso">
+              <Row label="Nombre" value={state.data.cursoNombre || "—"} />
+              <Row label="Descripción" value={state.data.cursoDescripcion?.trim() ? state.data.cursoDescripcion : "—"} multiline />
+              <Row label="Duración (horas)" value={state.data.cursoDuracion || "—"} />
+              <Row label="Modalidad" value={state.data.cursoModalidad || "—"} />
+            </Section>
+            <Divider />
+            <Section title="Categorías">
+              <Row label="Seleccionadas" value={categoriesText} multiline />
+            </Section>
+          </>
+        )}
       </div>
     </div>
   );
