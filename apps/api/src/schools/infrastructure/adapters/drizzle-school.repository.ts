@@ -1,6 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { plans, schoolCategories, schoolSubscriptions, schools } from 'drizzle/schemas';
-import { and, eq, ilike, desc, lt, SQL, or, gte, lte } from 'drizzle-orm';
+import {
+  plans,
+  schoolCategories,
+  schoolSubscriptions,
+  schools,
+} from 'drizzle/schemas';
+import { and, eq, ilike, desc, lt, SQL, or, gte, lte, sql } from 'drizzle-orm';
 
 import { DATABASE } from 'src/db/db.module';
 import type { Database } from 'src/db/db.types';
@@ -31,6 +36,8 @@ export class DrizzleSchoolRepository implements SchoolRepository {
     name: string;
     description?: string;
     ownerId: string;
+    latitude?: number;
+    longitude?: number;
   }) {
     return this.db.transaction(async (tx) => {
       const now = new Date();
@@ -54,6 +61,8 @@ export class DrizzleSchoolRepository implements SchoolRepository {
           name: params.name,
           description: params.description,
           ownerId: params.ownerId,
+          latitude: params.latitude,
+          longitude: params.longitude,
         })
         .returning();
 
@@ -417,5 +426,57 @@ export class DrizzleSchoolRepository implements SchoolRepository {
 
       return { oldFileId };
     });
+  }
+
+  async findNearby(lat: number, lng: number, radius: number) {
+    // Validación de coordenadas
+    if (lat == null || lng == null) {
+      return [];
+    }
+    // Radio por defecto (km)
+    const effectiveRadius = radius ?? 50;
+    // Haversine formula en SQL (distancia en km)
+    const distanceSql = sql`
+      6371 * acos(
+        cos(radians(${lat})) * cos(radians(${schools.lat})) * cos(radians(${schools.lng}) - radians(${lng}))
+        + sin(radians(${lat})) * sin(radians(${schools.lat}))
+      )
+    `;
+
+    const rows = await this.db
+      .select({
+        school: {
+          id: schools.id,
+          name: schools.name,
+          description: schools.description,
+          address: schools.address,
+          city: schools.city,
+          lat: schools.latitude ?? schools.lat,
+          lng: schools.longitude ?? schools.lng,
+          educationalLevel: schools.educationalLevel,
+          institutionType: schools.institutionType,
+          schedule: schools.schedule,
+          languages: schools.languages,
+          maxStudentsPerClass: schools.maxStudentsPerClass,
+          enrollmentYear: schools.enrollmentYear,
+          enrollmentOpen: schools.enrollmentOpen,
+          monthlyPrice: schools.monthlyPrice,
+          averageRating: schools.averageRating,
+          ratingsCount: schools.ratingsCount,
+          favoritesCount: schools.favoritesCount,
+          rankingScore: schools.rankingScore,
+          isFeatured: schools.isFeatured,
+          isVerified: schools.isVerified,
+          ownerId: schools.ownerId,
+          createdAt: schools.createdAt,
+          updatedAt: schools.updatedAt,
+        },
+        distance: distanceSql,
+      })
+      .from(schools)
+      .where(sql`${distanceSql} <= ${effectiveRadius}`)
+      .orderBy(sql`distance`);
+
+    return rows;
   }
 }

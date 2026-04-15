@@ -6,6 +6,8 @@ export interface SchoolRepository {
     name: string;
     description?: string;
     ownerId: string;
+    latitude?: number;
+    longitude?: number;
   }): Promise<School>;
 
   findById(id: string): Promise<School | null>;
@@ -48,4 +50,6 @@ export interface SchoolRepository {
     field: 'logoUrl' | 'coverImageUrl';
     newFileId: string;
   }): Promise<{ oldFileId: string | null }>;
+  
+  findNearby(lat: number, lng: number, radius: number): Promise<any>;
 }

@@ -7,6 +7,7 @@ import {
   Post,
   UseGuards,
   Param,
+  Query,
   BadRequestException,
 } from '@nestjs/common';
 
@@ -28,6 +29,7 @@ import { AssignSchoolCategoriesUseCase } from '../core/use-cases/assign-school-c
 import { GetSchoolByIdUseCase } from '../core/use-cases/get-school-by-id.use-case';
 import { UpdateSchoolImageUseCase } from '../core/use-cases/UpdateSchooImage.use-case';
 import { UpdateSchoolImageDto } from './dto/update-school-image.dto';
+import { FindNearbySchoolsUseCase } from '../core/use-cases/find-nearby-schools.use-case';
 
 @Controller('schools')
 export class SchoolsController {
@@ -49,6 +51,9 @@ export class SchoolsController {
 
     @Inject(UpdateSchoolImageUseCase)
     private readonly updateSchoolImage: UpdateSchoolImageUseCase,
+
+    @Inject(FindNearbySchoolsUseCase)
+    private readonly findNearbySchools: FindNearbySchoolsUseCase,
   ) {}
 
   /**
@@ -137,6 +142,26 @@ export class SchoolsController {
       role: user.role,
       field,
       fileId: dto.fileId,
+    });
+  }
+
+  /**
+   * Público: obtener escuelas cercanas
+   */
+
+  /**
+   * Público: búsqueda geoespacial de escuelas cercanas
+   */
+  @Get('nearby')
+  async getNearbySchools(
+    @Query('lat') lat: string,
+    @Query('lng') lng: string,
+    @Query('radius') radius?: string,
+  ) {
+    return this.findNearbySchools.execute({
+      lat: parseFloat(lat),
+      lng: parseFloat(lng),
+      radius: radius ? parseFloat(radius) : 10,
     });
   }
 }
