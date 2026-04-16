@@ -46,6 +46,7 @@ export default function SearchPage() {
   const level = sp.get("level") ?? "";
   const categoryId = sp.get("categoryId") ?? "";
   const schedule = sp.get("schedule") ?? "";
+  const modality = sp.get("modality") ?? "";
   const languages = sp.get("languages") ?? "";
   const minPriceParam = sp.get("minPrice") ?? "";
   const maxPriceParam = sp.get("maxPrice") ?? "";
@@ -174,6 +175,9 @@ export default function SearchPage() {
         if (schedule) {
           filtered = filtered.filter(c => c.startDate?.includes(schedule));
         }
+        if (modality) {
+          filtered = filtered.filter(c => (c.modality?.toLowerCase() === modality.toLowerCase()));
+        }
         if (languages) {
           filtered = filtered.filter(c => c.languages?.toLowerCase().includes(languages.toLowerCase()));
         }
@@ -213,7 +217,7 @@ export default function SearchPage() {
     return () => {
       active = false;
     };
-  }, [q, loc, near, latitude, longitude, hasValidCoords, level, categoryId, schedule, languages, minPrice, maxPrice, sortBy, verifiedOnly, tab]);
+  }, [q, loc, near, latitude, longitude, hasValidCoords, level, categoryId, schedule, modality, languages, minPrice, maxPrice, sortBy, verifiedOnly, tab]);
 
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<CatalogItem | undefined>();
