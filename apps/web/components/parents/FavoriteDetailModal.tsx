@@ -288,7 +288,11 @@ export default function FavoriteDetailModal({
                   onClick={() => {
                     if (!item.id) return;
                     onClose();
-                    router.push(`/search/institutions/${item.id}`);
+                    if (item.level && item.level.toLowerCase().includes("curso")) {
+                      router.push(`/search/course/${item.id}`);
+                    } else {
+                      router.push(`/search/institutions/${item.id}`);
+                    }
                   }}
                   disabled={!item.id}
                 >
