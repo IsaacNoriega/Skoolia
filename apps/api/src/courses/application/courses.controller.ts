@@ -26,6 +26,7 @@ import { UpdateCourseImageDto } from './dto/update-image.dto';
 import { UpdateCourseImageUseCase } from '../core/use-cases/update-image.use-case';
 import { ListMyCoursesUseCase } from '../core/use-cases/list-my-courses.use-case';
 import { ListPublicCoursesBySchoolUseCase } from '../core/use-cases/list-public-courses-by-school.use-case';
+import { ListPublicCoursesUseCase } from '../core/use-cases/list-public-courses.use-case';
 
 @Controller('courses')
 export class CoursesController {
@@ -47,11 +48,13 @@ export class CoursesController {
 
     @Inject(ListPublicCoursesBySchoolUseCase)
     private readonly listPublicCoursesBySchool: ListPublicCoursesBySchoolUseCase,
+
+    @Inject(ListPublicCoursesUseCase)
+    private readonly listPublicCourses: ListPublicCoursesUseCase,
   ) {}
 
   /**
-   * 🔒 Solo PRIVATE users pueden crear cursos
-   * (porque están ligados a una escuela)
+   * Crear curso (requiere autenticación)
    */
   @Post()
   @UseGuards(AuthGuard, RolesGuard)
@@ -59,11 +62,10 @@ export class CoursesController {
   async create(@Body() dto: CreateCourseDto, @CurrentUser() user: JwtPayload) {
     return this.createCourse.execute({
       ownerId: user.sub,
-      role: user.role,
       name: dto.name,
       description: dto.description,
       coverImageUrl: dto.coverImageUrl,
-      price: dto.price ?? 0,
+      ...(dto.price !== undefined ? { price: dto.price } : {}),
       capacity: dto.capacity,
       startDate: dto.startDate,
       endDate: dto.endDate,
@@ -81,6 +83,11 @@ export class CoursesController {
   @Get('schools/:schoolId')
   async listPublicBySchool(@Param('schoolId') schoolId: string) {
     return this.listPublicCoursesBySchool.execute(schoolId);
+  }
+
+  @Get()
+  async listAllPublic() {
+    return this.listPublicCourses.execute();
   }
 
   @Patch(':id/image')

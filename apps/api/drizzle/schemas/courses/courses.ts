@@ -28,7 +28,6 @@ export const courses = pgTable(
     id: uuid('id').defaultRandom().primaryKey(),
 
     schoolId: uuid('school_id')
-      .notNull()
       .references(() => schools.id, {
         onDelete: 'cascade',
       }),
@@ -42,7 +41,7 @@ export const courses = pgTable(
     }),
 
     // 💰 pricing
-    price: integer('price').notNull().default(0),
+    price: integer('price'),
 
     // 👥 capacity
     capacity: integer('capacity'),
@@ -50,11 +49,10 @@ export const courses = pgTable(
     // 📅 scheduling
     startDate: timestamp('start_date'),
     endDate: timestamp('end_date'),
-
+        // schoolId definido arriba
     // 🌐 modalidad
     modality: text('modality'), // presencial | online | híbrido
 
-    // ⭐ métricas
     averageRating: doublePrecision('average_rating').default(0).notNull(),
 
     enrollmentsCount: integer('enrollments_count').default(0).notNull(),

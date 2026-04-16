@@ -127,6 +127,20 @@
       "when": 1776242141475,
       "tag": "0017_far_christian_walker",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1776286917152,
+      "tag": "0018_dark_marvel_zombies",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1776287328536,
+      "tag": "0019_round_squadron_sinister",
+      "breakpoints": true
     }
   ]
 }

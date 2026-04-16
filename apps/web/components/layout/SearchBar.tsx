@@ -15,6 +15,8 @@ export default function SearchBar() {
 
   const [query, setQuery] = useState("");
   const [city, setCity] = useState("");
+  // Modalidad solo para cursos
+  const [modality, setModality] = useState("");
 
   const [aiMode, setAiMode] = useState(false);
 
@@ -64,7 +66,35 @@ export default function SearchBar() {
           >
             <div className="w-full max-w-5xl mx-auto bg-[#f3f3f3] rounded-full px-6 sm:px-8 py-3 flex flex-col gap-4">
               <div className="flex w-full flex-col md:flex-row md:items-center">
-                <EducationInput value={query} onChange={setQuery} />
+
+                {activeTab === "escuelas" ? (
+                  <EducationInput value={query} onChange={setQuery} />
+                ) : (
+                  <div className="flex flex-col md:flex-row gap-2 w-full">
+                    <div className="flex items-center w-full px-4 py-3 rounded-xl transition focus-within:bg-neutral-50 bg-white border border-neutral-200">
+                      <GraduationCap className="text-black mr-3" size={26} />
+                      <input
+                        value={query}
+                        onChange={e => setQuery(e.target.value)}
+                        placeholder="Nombre del curso"
+                        className="bg-transparent outline-none w-full text-base placeholder:text-black/56"
+                      />
+                    </div>
+                    <div className="flex items-center px-4 py-3 rounded-xl transition focus-within:bg-neutral-50 bg-white border border-neutral-200 min-w-[180px]">
+                      <svg width="22" height="22" fill="none" viewBox="0 0 24 24" className="text-black mr-3" style={{minWidth:22}}><rect width="22" height="22" fill="none"/><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" fill="#1973FC"/></svg>
+                      <select
+                        value={modality}
+                        onChange={e => setModality(e.target.value)}
+                        className="bg-transparent outline-none text-base w-full placeholder:text-black/56"
+                      >
+                        <option value="">Modalidad</option>
+                        <option value="Presencial">Presencial</option>
+                        <option value="En línea">En línea</option>
+                        <option value="Híbrido">Híbrido</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
 
                 <div className="hidden md:block w-0.5 h-8 bg-[#d9d9d9] mx-3" />
 
@@ -77,6 +107,7 @@ export default function SearchBar() {
                     const params = new URLSearchParams();
 
                     if (query.trim()) params.set("q", query.trim());
+                    if (activeTab === "cursos" && modality) params.set("modality", modality);
                     if (city.trim()) {
                       if (city.trim() === "Cerca de mí") {
                         // Obtener ubicación y redirigir con lat/lon

@@ -13,7 +13,7 @@ export class DrizzleCourseRepository implements CourseRepository {
   constructor(@Inject(DATABASE) private readonly db: dbTypes.Database) {}
 
   async create(params: {
-    schoolId: string;
+    schoolId?: string | null;
     name: string;
     description?: string;
     coverImageUrl?: string;
@@ -26,11 +26,11 @@ export class DrizzleCourseRepository implements CourseRepository {
     const [course] = await this.db
       .insert(courses)
       .values({
-        schoolId: params.schoolId,
+        schoolId: params.schoolId ?? null,
         name: params.name,
         description: params.description ?? null,
         coverImageUrl: params.coverImageUrl ?? null,
-        price: params.price,
+        price: params.price ?? null,
         capacity: params.capacity ?? null,
         startDate: params.startDate ?? null,
         endDate: params.endDate ?? null,
@@ -139,6 +139,33 @@ export class DrizzleCourseRepository implements CourseRepository {
     return rows;
   }
 
+  async findAllPublic(): Promise<Course[]> {
+    const coverFile = alias(files, 'cover_file');
+    const rows = await this.db
+      .select({
+        id: courses.id,
+        schoolId: courses.schoolId,
+        name: courses.name,
+        description: courses.description,
+        coverImageUrl: coverFile.url,
+        price: courses.price,
+        capacity: courses.capacity,
+        startDate: courses.startDate,
+        endDate: courses.endDate,
+        modality: courses.modality,
+        averageRating: courses.averageRating,
+        enrollmentsCount: courses.enrollmentsCount,
+        status: courses.status,
+        isActive: courses.isActive,
+        createdAt: courses.createdAt,
+        updatedAt: courses.updatedAt,
+      })
+      .from(courses)
+      .leftJoin(coverFile, eq(coverFile.id, courses.coverImageUrl))
+      .where(eq(courses.isActive, true));
+    return rows;
+  }
+
   async update(params: { courseId: string; data: Partial<Course> }) {
     const [updated] = await this.db
       .update(courses)
@@ -165,7 +192,7 @@ export class DrizzleCourseRepository implements CourseRepository {
 
   async findRawById(courseId: string): Promise<{
     id: string;
-    schoolId: string;
+    schoolId: string | null;
     coverImageFileId: string | null;
   } | null> {
     const rows = await this.db

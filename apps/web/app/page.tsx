@@ -37,15 +37,7 @@ export default async function Home({
         {isParents ? (
           <div className="space-y-10 md:space-y-14">
             <HeroParentsSection />
-
-            <Reveal>
-              <CatalogSection />
-            </Reveal>
-
-            <Reveal>
-              <CategoriesSection />
-            </Reveal>
-
+            {/* Carrusel/Catálogo eliminado solo en Home */}
             <CallParentsSections />
             <Footer />
           </div>

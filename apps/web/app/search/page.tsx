@@ -7,6 +7,7 @@ import FavoriteDetailModal from "@/components/parents/FavoriteDetailModal";
 import SearchToolbar from "@/components/search/SearchToolbar";
 import { schoolsFeedService } from "@/lib/services/services/school-feeed.service";
 import { schoolsService } from "@/lib/services/services/schools.service";
+import { coursesService } from "@/lib/services/services/courses.service";
 import { favoritesService } from "@/lib/services/services/favorites.service";
 import { recordSchoolVisit } from "@/lib/history/school-history";
 import { useAuth } from "@/contexts/AuthContext";
@@ -45,6 +46,7 @@ export default function SearchPage() {
   const level = sp.get("level") ?? "";
   const categoryId = sp.get("categoryId") ?? "";
   const schedule = sp.get("schedule") ?? "";
+  const modality = sp.get("modality") ?? "";
   const languages = sp.get("languages") ?? "";
   const minPriceParam = sp.get("minPrice") ?? "";
   const maxPriceParam = sp.get("maxPrice") ?? "";
@@ -56,7 +58,7 @@ export default function SearchPage() {
       ? sortByParam
       : "recent";
   const verifiedOnly = sp.get("verified") === "1";
-  const tab = (sp.get("tab") ?? "escuelas").toUpperCase();
+  const tab = (sp.get("tab") ?? "escuelas").toLowerCase();
 
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -84,11 +86,9 @@ export default function SearchPage() {
   useEffect(() => {
     let active = true;
 
-
-    const load = async () => {
+    const loadSchools = async () => {
       setLoading(true);
       setError(null);
-
       try {
         const normalizedLoc =
           loc &&
@@ -96,24 +96,6 @@ export default function SearchPage() {
           loc !== "Cerca de mí"
             ? (resolveMexicanState(loc) ?? undefined)
             : undefined;
-
-        // Log de depuración de filtros
-
-        console.log("[BUSQUEDA] Filtros enviados:", {
-          search: q || undefined,
-          state: near ? undefined : normalizedLoc,
-          latitude: near && hasValidCoords ? latitude : undefined,
-          longitude: near && hasValidCoords ? longitude : undefined,
-          educationalLevel: level || undefined,
-          categoryId: categoryId || undefined,
-          schedule: schedule || undefined,
-          languages: languages || undefined,
-          minPrice: Number.isFinite(minPrice) ? minPrice : undefined,
-          maxPrice: Number.isFinite(maxPrice) ? maxPrice : undefined,
-          sortBy,
-          onlyVerified: verifiedOnly,
-        });
-
 
         const connection = await schoolsFeedService.list({
           filters: {
@@ -133,9 +115,6 @@ export default function SearchPage() {
           pagination: { first: 24 },
         });
 
-        // Log de depuración de resultados
-        console.log("[BUSQUEDA] Resultados recibidos:", connection);
-
         if (!active) return;
 
         const mapped: CatalogItem[] = connection.edges.map(({ node }) => {
@@ -153,7 +132,6 @@ export default function SearchPage() {
             price: node.monthlyPrice ?? "Por definir",
             description: node.description ?? undefined,
             rating: node.averageRating ?? undefined,
-            // Campos adicionales (cuando el backend los exponga en este feed):
             schedule: undefined,
             languages: undefined,
             studentsPerClass: undefined,
@@ -162,7 +140,6 @@ export default function SearchPage() {
             monthlyPrice: node.monthlyPrice ?? undefined,
           };
         });
-
         setItems(mapped);
       } catch (err) {
         console.error(err);
@@ -172,12 +149,75 @@ export default function SearchPage() {
       }
     };
 
-    void load();
+    const loadCourses = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // Obtener todos los cursos públicos
+        const allCourses = await coursesService.listAll();
+        if (!active) return;
+        // Filtros locales (ajusta si tu backend soporta filtros por query params)
+        let filtered = allCourses;
+        if (q) {
+          const qLower = q.toLowerCase();
+          filtered = filtered.filter(c => c.name.toLowerCase().includes(qLower) || (c.description?.toLowerCase().includes(qLower)));
+        }
+        if (loc) {
+          const locLower = loc.toLowerCase();
+          filtered = filtered.filter(c => (c.schoolName?.toLowerCase().includes(locLower)));
+        }
+        if (minPrice != null && !isNaN(minPrice)) {
+          filtered = filtered.filter(c => c.price >= minPrice);
+        }
+        if (maxPrice != null && !isNaN(maxPrice)) {
+          filtered = filtered.filter(c => c.price <= maxPrice);
+        }
+        if (schedule) {
+          filtered = filtered.filter(c => c.startDate?.includes(schedule));
+        }
+        if (modality) {
+          filtered = filtered.filter(c => (c.modality?.toLowerCase() === modality.toLowerCase()));
+        }
+        if (languages) {
+          filtered = filtered.filter(c => c.languages?.toLowerCase().includes(languages.toLowerCase()));
+        }
+        // Puedes agregar más filtros según los campos de tu modelo de curso
+        const mapped: CatalogItem[] = filtered.map((course) => ({
+          id: course.id,
+          imageSrc: course.coverImageUrl || "",
+          tags: [course.modality || "Curso"],
+          typeLabel: "CURSO",
+          title: course.name,
+          location: course.schoolName || "",
+          price: course.price ?? "Por definir",
+          description: course.description ?? undefined,
+          rating: undefined,
+          schedule: course.startDate ? `Inicio: ${course.startDate}` : undefined,
+          languages: course.languages ?? undefined,
+          studentsPerClass: course.capacity ?? undefined,
+          enrollmentOpen: undefined,
+          enrollmentYear: undefined,
+          monthlyPrice: undefined,
+        }));
+        setItems(mapped);
+      } catch (err) {
+        console.error(err);
+        if (active) setError("No se pudieron cargar los cursos.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    if (tab === "cursos") {
+      void loadCourses();
+    } else {
+      void loadSchools();
+    }
 
     return () => {
       active = false;
     };
-  }, [q, loc, near, latitude, longitude, hasValidCoords, level, categoryId, schedule, languages, minPrice, maxPrice, sortBy, verifiedOnly]);
+  }, [q, loc, near, latitude, longitude, hasValidCoords, level, categoryId, schedule, modality, languages, minPrice, maxPrice, sortBy, verifiedOnly, tab]);
 
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<CatalogItem | undefined>();
@@ -297,7 +337,13 @@ export default function SearchPage() {
             <span className="grid h-2 w-2 place-items-center rounded-full bg-indigo-600" /> ENCONTRADOS
           </p>
           <h1 className="mt-2 text-3xl font-extrabold text-slate-900">
-            {loading ? "Cargando escuelas..." : `${items.length} Escuelas disponibles`}
+            {loading
+              ? tab === "cursos"
+                ? "Cargando cursos..."
+                : "Cargando escuelas..."
+              : tab === "cursos"
+                ? `${items.length} Cursos disponibles`
+                : `${items.length} Escuelas disponibles`}
           </h1>
           {q || loc ? (
             <p className="mt-1 text-sm text-slate-600">
@@ -314,35 +360,45 @@ export default function SearchPage() {
       <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-3">
         {items.map((it) => (
           <CatalogCard
-            priceFormatted={""} key={it.id}
+            priceFormatted={""}
+            key={it.id}
             {...it}
             isFavorite={favoriteIds.has(it.id)}
             onFavoriteToggle={(e) => handleFavoriteToggle(it.id, e)}
             onCardClick={() => openModal(it)}
-            onAction={() => openModal(it)}          />
+            onAction={() => openModal(it)}
+          >
+            <div className="absolute top-4 left-4 z-10">
+              <span className={`px-3 py-1 rounded-full text-xs font-bold shadow-md ${it.typeLabel === "CURSO" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
+                {it.typeLabel === "CURSO" ? "CURSO" : "ESCUELA"}
+              </span>
+            </div>
+          </CatalogCard>
         ))}
       </div>
 
-      <div className="mb-6 flex justify-end">
-        <NearbySchoolsButton
-          onResults={(schools) => {
-            setItems(
-              schools.map((node) => ({
-                id: node.id,
-                imageSrc: node.coverImageUrl || node.logoUrl || "",
-                tags: [node.city, ...(node.isVerified ? ["VERIFICADA"] : [])].filter(Boolean),
-                typeLabel: "ESCUELA",
-                title: node.name,
-                location: node.city || node.address || "Ubicación no disponible",
-                price: node.monthlyPrice ?? "Por definir",
-                description: node.description ?? undefined,
-                rating: node.averageRating ?? undefined,
-                // ...otros campos si los necesitas
-              }))
-            );
-          }}
-        />
-      </div>
+      {tab === "escuelas" && (
+        <div className="mb-6 flex justify-end">
+          <NearbySchoolsButton
+            onResults={(schools) => {
+              setItems(
+                schools.map((node) => ({
+                  id: node.id,
+                  imageSrc: node.coverImageUrl || node.logoUrl || "",
+                  tags: [node.city, ...(node.isVerified ? ["VERIFICADA"] : [])].filter(Boolean),
+                  typeLabel: "ESCUELA",
+                  title: node.name,
+                  location: node.city || node.address || "Ubicación no disponible",
+                  price: node.monthlyPrice ?? "Por definir",
+                  description: node.description ?? undefined,
+                  rating: node.averageRating ?? undefined,
+                  // ...otros campos si los necesitas
+                }))
+              );
+            }}
+          />
+        </div>
+      )}
 
       {error ? (
         <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -352,7 +408,9 @@ export default function SearchPage() {
 
       {!loading && !error && items.length === 0 ? (
         <div className="mt-8 rounded-2xl border border-slate-200 bg-white px-5 py-6 text-sm text-slate-600">
-          No encontramos escuelas con esos filtros. Intenta ajustar estado, nivel o rango de precio.
+          {tab === "cursos"
+            ? "No encontramos cursos con esos filtros. Intenta ajustar los filtros o el rango de precio."
+            : "No encontramos escuelas con esos filtros. Intenta ajustar estado, nivel o rango de precio."}
         </div>
       ) : null}
 

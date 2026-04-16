@@ -7,6 +7,7 @@ import Step2 from "@/components/onboarding/steps/Step2";
 import Step3 from "@/components/onboarding/steps/Step3";
 import { schoolsService } from "@/lib/services/services/schools.service";
 import { schoolCategoriesService } from "@/lib/services/services/schools-categories.service";
+import { coursesService } from "@/lib/services/services/courses.service";
 import Step4 from "@/components/onboarding/steps/Step4";
 import { useRouter } from "next/navigation";
 
@@ -45,7 +46,11 @@ export default function OnboardingLayout() {
       // STEP 4 (FINAL)
       if (isLastStep) {
         await handleSubmit();
-        router.push("/schools");
+        if (state.data.tipoRegistro === "curso") {
+          router.push("/courses");
+        } else {
+          router.push("/schools");
+        }
         return;
       }
     } catch (e) {
@@ -56,32 +61,36 @@ export default function OnboardingLayout() {
   }
 
   async function handleSubmit() {
-
-    // Guardar lat/lng desde el onboarding
-    const school = await schoolsService.create({
-      name: state.data.schoolName.trim(),
-      description: state.data.description?.trim() || undefined,
-      latitude: state.data.lat ?? undefined,
-      longitude: state.data.lng ?? undefined,
-    });
-
-    setField("schoolId", school.id);
-
-    const categoryIds = state.data.categories.map((c) => c.id);
-    if (categoryIds.length > 0) {
-      await schoolCategoriesService.assign(categoryIds);
+    if (state.data.tipoRegistro === "escuela") {
+      // Guardar escuela
+      const school = await schoolsService.create({
+        name: state.data.schoolName.trim(),
+        description: state.data.description?.trim() || undefined,
+      });
+      setField("schoolId", school.id);
+      const categoryIds = state.data.categories.map((c) => c.id);
+      if (categoryIds.length > 0) {
+        await schoolCategoriesService.assign(categoryIds);
+      }
+      await schoolsService.update({
+        educationalLevel: state.data.educationalLevel || undefined,
+        institutionType: state.data.institutionType || undefined,
+        city: state.data.city || undefined,
+        address: state.data.address || undefined,
+        latitude: state.data.lat ?? undefined,
+        longitude: state.data.lng ?? undefined,
+      });
+    } else if (state.data.tipoRegistro === "curso") {
+      // Guardar curso usando el servicio real (solo campos básicos)
+      const curso = await coursesService.create({
+        name: state.data.cursoNombre.trim(),
+        description: state.data.cursoDescripcion?.trim() || undefined,
+        modality: state.data.cursoModalidad || undefined,
+        // Solo los campos básicos, sin price ni capacity
+      });
+      setField("schoolId", curso.id); // O usa otro campo si es necesario
     }
-
-    await schoolsService.update({
-      educationalLevel: state.data.educationalLevel || undefined,
-      institutionType: state.data.institutionType || undefined,
-      city: state.data.city || undefined,
-      address: state.data.address || undefined,
-      latitude: state.data.lat ?? undefined,
-      longitude: state.data.lng ?? undefined,
-    });
   }
-
   return (
     <div className="min-h-screen flex flex-col justify-between p-8">
       {/* HEADER */}
