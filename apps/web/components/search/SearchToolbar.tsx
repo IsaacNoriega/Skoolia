@@ -254,32 +254,7 @@ export default function SearchToolbar({
 
   return (
     <div className="mx-auto max-w-7xl px-6 pt-6">
-      <div className="flex gap-2 mb-4">
-        <button
-          className={`px-4 py-2 rounded-full font-bold ${activeTab === "escuelas" ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-700"}`}
-          onClick={() => {
-            setActiveTab("escuelas");
-            // Cambia el tab en la URL inmediatamente
-            const params = new URLSearchParams(window.location.search);
-            params.set("tab", "escuelas");
-            router.push(`${pathname}?${params.toString()}`);
-          }}
-        >
-          Escuelas
-        </button>
-        <button
-          className={`px-4 py-2 rounded-full font-bold ${activeTab === "cursos" ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-700"}`}
-          onClick={() => {
-            setActiveTab("cursos");
-            // Cambia el tab en la URL inmediatamente
-            const params = new URLSearchParams(window.location.search);
-            params.set("tab", "cursos");
-            router.push(`${pathname}?${params.toString()}`);
-          }}
-        >
-          Cursos
-        </button>
-      </div>
+      {/* Tabs eliminados para que solo se muestre el buscador y filtros dinámicos */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Back */}
         <button
@@ -299,7 +274,7 @@ export default function SearchToolbar({
             onKeyDown={(e) => {
               if (e.key === "Enter") void applyFilters();
             }}
-            placeholder="Mejores Escuelas"
+            placeholder={activeTab === "cursos" ? "Mejores Cursos" : "Mejores Escuelas"}
           />
         </div>
 
@@ -360,111 +335,155 @@ export default function SearchToolbar({
 
       {showAdvanced ? (
         <div className="mt-3 grid grid-cols-1 gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-3">
-          <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
-            Nivel educativo
-            <select
-              value={educationalLevel}
-              onChange={(e) => setEducationalLevel(e.target.value)}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none"
-            >
-              <option value="">Todos</option>
-              <option value="Maternal">Maternal</option>
-              <option value="Preescolar">Preescolar</option>
-              <option value="Primaria">Primaria</option>
-              <option value="Secundaria">Secundaria</option>
-              <option value="Preparatoria">Preparatoria</option>
-              <option value="Universidad">Universidad</option>
-            </select>
-          </label>
+          {activeTab === "cursos" ? (
+            <>
+              <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
+                Modalidad
+                <select
+                  value={scheduleFilter}
+                  onChange={(e) => setScheduleFilter(e.target.value)}
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none"
+                >
+                  <option value="">Todas</option>
+                  <option value="Presencial">Presencial</option>
+                  <option value="En línea">En línea</option>
+                  <option value="Híbrido">Híbrido</option>
+                </select>
+              </label>
 
-          <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
-            Categoría
-            <select
-              value={selectedCategoryId}
-              onChange={(e) => setSelectedCategoryId(e.target.value)}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none"
-            >
-              <option value="">Todas</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </label>
+              <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
+                Fecha de inicio
+                <input
+                  type="date"
+                  value={languagesFilter}
+                  onChange={(e) => setLanguagesFilter(e.target.value)}
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none"
+                />
+              </label>
 
-          <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
-            Horario
-            <select
-              value={scheduleFilter}
-              onChange={(e) => setScheduleFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none"
-            >
-              <option value="">Todos</option>
-              <option value="7:30 AM">7:30 AM</option>
-              <option value="8:00 AM">8:00 AM</option>
-              <option value="8:30 AM">8:30 AM</option>
-              <option value="9:00 AM">9:00 AM</option>
-            </select>
-          </label>
+              <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
+                Capacidad mínima
+                <input
+                  type="number"
+                  value={priceMin}
+                  onChange={(e) => setPriceMin(e.target.value)}
+                  placeholder="Ej. 10"
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none"
+                />
+              </label>
 
-          <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
-            Idioma
-            <select
-              value={languagesFilter}
-              onChange={(e) => setLanguagesFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none"
-            >
-              <option value="">Todos</option>
-              <option value="Español">Español</option>
-              <option value="Inglés">Inglés</option>
-              <option value="Francés">Francés</option>
-              <option value="Trilingüe">Trilingüe</option>
-            </select>
-          </label>
+              <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
+                Precio máximo
+                <input
+                  type="number"
+                  value={priceMax}
+                  onChange={(e) => setPriceMax(e.target.value)}
+                  placeholder="Ej. 15000"
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none"
+                />
+              </label>
 
-          <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
-            Precio mínimo
-            <input
-              value={priceMin}
-              onChange={(e) => setPriceMin(e.target.value)}
-              placeholder="Ej. 5000"
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none"
-            />
-          </label>
+              <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
+                Idioma
+                <select
+                  value={educationalLevel}
+                  onChange={(e) => setEducationalLevel(e.target.value)}
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none"
+                >
+                  <option value="">Todos</option>
+                  <option value="Español">Español</option>
+                  <option value="Inglés">Inglés</option>
+                  <option value="Francés">Francés</option>
+                  <option value="Trilingüe">Trilingüe</option>
+                </select>
+              </label>
+            </>
+          ) : (
+            <>
+              <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
+                Nivel educativo
+                <select
+                  value={educationalLevel}
+                  onChange={(e) => setEducationalLevel(e.target.value)}
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none"
+                >
+                  <option value="">Todos</option>
+                  <option value="Maternal">Maternal</option>
+                  <option value="Preescolar">Preescolar</option>
+                  <option value="Primaria">Primaria</option>
+                  <option value="Secundaria">Secundaria</option>
+                  <option value="Preparatoria">Preparatoria</option>
+                  <option value="Universidad">Universidad</option>
+                </select>
+              </label>
 
-          <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
-            Precio máximo
-            <input
-              value={priceMax}
-              onChange={(e) => setPriceMax(e.target.value)}
-              placeholder="Ej. 15000"
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none"
-            />
-          </label>
+              <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
+                Categoría
+                <select
+                  value={selectedCategoryId}
+                  onChange={(e) => setSelectedCategoryId(e.target.value)}
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none"
+                >
+                  <option value="">Todas</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-          <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
-            Ordenar por
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value as "favorites" | "rating" | "recent")}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none"
-            >
-              <option value="recent">Recientes</option>
-              <option value="rating">Mejor calificadas</option>
-              <option value="favorites">Más populares</option>
-            </select>
-          </label>
+              <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
+                Horario
+                <select
+                  value={scheduleFilter}
+                  onChange={(e) => setScheduleFilter(e.target.value)}
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none"
+                >
+                  <option value="">Todos</option>
+                  <option value="7:30 AM">7:30 AM</option>
+                  <option value="8:00 AM">8:00 AM</option>
+                  <option value="8:30 AM">8:30 AM</option>
+                  <option value="9:00 AM">9:00 AM</option>
+                </select>
+              </label>
 
-          <label className="flex items-center gap-2 pt-7 text-sm font-medium text-slate-700">
-            <input
-              type="checkbox"
-              checked={onlyVerified}
-              onChange={(e) => setOnlyVerified(e.target.checked)}
-              className="h-4 w-4 rounded border-slate-300"
-            />
-            Solo verificadas
-          </label>
+              <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
+                Idioma
+                <select
+                  value={languagesFilter}
+                  onChange={(e) => setLanguagesFilter(e.target.value)}
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none"
+                >
+                  <option value="">Todos</option>
+                  <option value="Español">Español</option>
+                  <option value="Inglés">Inglés</option>
+                  <option value="Francés">Francés</option>
+                  <option value="Trilingüe">Trilingüe</option>
+                </select>
+              </label>
+
+              <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
+                Precio mínimo
+                <input
+                  value={priceMin}
+                  onChange={(e) => setPriceMin(e.target.value)}
+                  placeholder="Ej. 5000"
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none"
+                />
+              </label>
+
+              <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
+                Precio máximo
+                <input
+                  value={priceMax}
+                  onChange={(e) => setPriceMax(e.target.value)}
+                  placeholder="Ej. 15000"
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none"
+                />
+              </label>
+            </>
+          )}
         </div>
       ) : null}
     </div>
