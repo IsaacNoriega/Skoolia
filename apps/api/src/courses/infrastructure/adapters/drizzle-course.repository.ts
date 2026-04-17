@@ -14,6 +14,7 @@ export class DrizzleCourseRepository implements CourseRepository {
 
   async create(params: {
     schoolId?: string | null;
+    ownerId: string;
     name: string;
     description?: string;
     coverImageUrl?: string;
@@ -22,11 +23,17 @@ export class DrizzleCourseRepository implements CourseRepository {
     startDate?: Date;
     endDate?: Date;
     modality?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    latitude?: number;
+    longitude?: number;
   }): Promise<Course> {
     const [course] = await this.db
       .insert(courses)
       .values({
         schoolId: params.schoolId ?? null,
+        ownerId: params.ownerId,
         name: params.name,
         description: params.description ?? null,
         coverImageUrl: params.coverImageUrl ?? null,
@@ -35,6 +42,11 @@ export class DrizzleCourseRepository implements CourseRepository {
         startDate: params.startDate ?? null,
         endDate: params.endDate ?? null,
         modality: params.modality ?? null,
+        address: params.address ?? null,
+        city: params.city ?? null,
+        state: params.state ?? null,
+        latitude: params.latitude ?? null,
+        longitude: params.longitude ?? null,
       })
       .returning();
 
@@ -87,6 +99,7 @@ export class DrizzleCourseRepository implements CourseRepository {
       .select({
         id: courses.id,
         schoolId: courses.schoolId,
+        ownerId: courses.ownerId,
         name: courses.name,
         description: courses.description,
         coverImageUrl: coverFile.url,
@@ -95,6 +108,11 @@ export class DrizzleCourseRepository implements CourseRepository {
         startDate: courses.startDate,
         endDate: courses.endDate,
         modality: courses.modality,
+        address: courses.address,
+        city: courses.city,
+        state: courses.state,
+        latitude: courses.latitude,
+        longitude: courses.longitude,
         averageRating: courses.averageRating,
         enrollmentsCount: courses.enrollmentsCount,
         status: courses.status,
@@ -103,9 +121,8 @@ export class DrizzleCourseRepository implements CourseRepository {
         updatedAt: courses.updatedAt,
       })
       .from(courses)
-      .innerJoin(schools, eq(schools.id, courses.schoolId))
       .leftJoin(coverFile, eq(coverFile.id, courses.coverImageUrl))
-      .where(eq(schools.ownerId, ownerId));
+      .where(eq(courses.ownerId, ownerId));
 
     return rows;
   }
@@ -125,6 +142,11 @@ export class DrizzleCourseRepository implements CourseRepository {
         startDate: courses.startDate,
         endDate: courses.endDate,
         modality: courses.modality,
+          address: courses.address,
+          city: courses.city,
+          state: courses.state,
+          latitude: courses.latitude,
+          longitude: courses.longitude,
         averageRating: courses.averageRating,
         enrollmentsCount: courses.enrollmentsCount,
         status: courses.status,

@@ -39,5 +39,6 @@ import { ListPublicCoursesUseCase } from './core/use-cases/list-public-courses.u
       useClass: DrizzleCourseRepository,
     },
   ],
+  exports: [COURSE_REPOSITORY, DrizzleCourseRepository],
 })
 export class CoursesModule {}

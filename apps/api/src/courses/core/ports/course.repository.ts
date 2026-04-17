@@ -4,6 +4,7 @@ export interface CourseRepository {
   findAllPublic(): Promise<Course[]>;
   create(params: {
     schoolId?: string | null;
+    ownerId: string;
     name: string;
     description?: string;
     coverImageUrl?: string;
@@ -12,6 +13,11 @@ export interface CourseRepository {
     startDate?: Date;
     endDate?: Date;
     modality?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    latitude?: number;
+    longitude?: number;
   }): Promise<Course>;
 
   findByOwner(ownerId: string): Promise<Course[]>;

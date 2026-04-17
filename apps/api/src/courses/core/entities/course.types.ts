@@ -16,6 +16,13 @@ export interface Course {
 
   modality: string | null;
 
+  // Ubicación (solo si modality es presencial o híbrido)
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+
   averageRating: number;
   enrollmentsCount: number;
 
