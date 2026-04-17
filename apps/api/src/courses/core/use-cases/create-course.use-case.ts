@@ -47,6 +47,7 @@ export class CreateCourseUseCase {
 
     // Permitir cursos sin escuela
     return this.courseRepository.create({
+      ownerId: params.ownerId,
       name: params.name,
       description: params.description,
       coverImageUrl: params.coverImageUrl,
