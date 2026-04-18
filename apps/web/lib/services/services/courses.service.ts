@@ -57,4 +57,7 @@ export const coursesService = {
       method: 'DELETE',
     });
   },
+  async getById(courseId: string) {
+    return api<Course>(`/courses/${courseId}`);
+  },
 };

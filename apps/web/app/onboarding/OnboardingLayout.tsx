@@ -46,12 +46,12 @@ export default function OnboardingLayout() {
       // STEP 4 (FINAL)
       if (isLastStep) {
         await handleSubmit();
-          if (state.data.tipoRegistro === "curso") {
-            router.push("/(private)/courses");
-          } else {
-            router.push("/(private)/schools");
-          }
-          return;
+        if (state.data.tipoRegistro === "curso") {
+          router.push("/courses");
+        } else {
+          router.push("/schools");
+        }
+        return;
       }
     } catch (e) {
       console.error("Onboarding error:", e);

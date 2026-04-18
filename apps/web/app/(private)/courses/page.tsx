@@ -1,42 +1,23 @@
-"use client";
 
-import { useEffect, useState } from "react";
-import { coursesService, type Course } from "@/lib/services/services/courses.service";
 
-export default function PrivateCoursesPage() {
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
-  useEffect(() => {
-    coursesService
-      .listAll()
-      .then((data) => {
-        setCourses(data);
-        console.log("[PRIVATE/COURSES] Cursos cargados:", data);
-      })
-      .catch(() => setError("Error al cargar los cursos"))
-      .finally(() => setLoading(false));
-  }, []);
+import CoursesNavbar from "@/components/courses/CoursesNavbar";
+import CoursesSidebar from "@/components/courses/CoursesSidebar";
+import CourseSummarySection from "@/components/courses/CourseSummarySection";
 
-  if (loading) return <div>Cargando cursos...</div>;
-  if (error) return <div>{error}</div>;
 
-  return (
-    <div>
-      <h1 className="text-2xl font-bold mb-4">Mis cursos</h1>
-      {courses.length === 0 ? (
-        <div>No tienes cursos registrados.</div>
-      ) : (
-        <ul>
-          {courses.map((course) => (
-            <li key={course.id} className="mb-2">
-              <strong>{course.name}</strong> <br />
-              <span className="text-sm text-gray-500">{course.description}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
+export default function CoursesDashboardPage() {
+	return (
+		<>
+			<CoursesNavbar />
+			<main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+				<div className="grid grid-cols-1 gap-6 lg:grid-cols-[260px_1fr]">
+					<CoursesSidebar active="summary" />
+					<div className="space-y-5 sm:space-y-6">
+						<CourseSummarySection />
+					</div>
+				</div>
+			</main>
+		</>
+	);
 }
