@@ -23,16 +23,20 @@ export class AuthGuard implements CanActivate {
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const token = request.cookies?.access_token;
+    console.log('[AuthGuard] access_token:', token);
 
     if (!token) {
+      console.log('[AuthGuard] No token, UNAUTHORIZED');
       throw new UnauthorizedException();
     }
 
     try {
       const payload = await this.jwt.verifyAccessToken(token);
+      console.log('[AuthGuard] Payload:', payload);
       request.user = payload;
       return true;
-    } catch {
+    } catch (e) {
+      console.log('[AuthGuard] Invalid token', e);
       throw new UnauthorizedException();
     }
   }

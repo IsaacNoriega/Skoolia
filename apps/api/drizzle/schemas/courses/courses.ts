@@ -52,7 +52,7 @@ export const courses = pgTable(
     // 📅 scheduling
     startDate: timestamp('start_date'),
     endDate: timestamp('end_date'),
-        // schoolId definido arriba
+    // schoolId definido arriba
     // 🌐 modalidad
     modality: text('modality'), // presencial | online | híbrido
 
