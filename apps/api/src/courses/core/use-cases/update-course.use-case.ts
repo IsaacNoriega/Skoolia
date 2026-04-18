@@ -33,11 +33,7 @@ export class UpdateCourseUseCase {
       throw new ForbiddenException();
     }
 
-    const school = await this.schoolRepository.findByOwner(params.ownerId);
-
-    if (!school) {
-      throw new ForbiddenException('You do not own a school');
-    }
+    // Eliminada validación de escuela, solo se valida dueño del curso
 
     const course = await this.courseRepository.findById(params.courseId);
 
@@ -45,11 +41,17 @@ export class UpdateCourseUseCase {
       throw new NotFoundException('Course not found');
     }
 
-    if (course.schoolId !== school.id) {
-      throw new ForbiddenException(
-        'You cannot update a course from another school',
-      );
+    // Permitir si el usuario es dueño del curso, aunque no tenga escuela
+    if (course.ownerId !== params.ownerId) {
+      throw new ForbiddenException('You cannot update a course you do not own');
     }
+
+    // Si tiene escuela, validar que sea dueño de la escuela (opcional, puedes quitar este bloque si ya no aplica)
+    // if (course.schoolId && course.schoolId !== school.id) {
+    //   throw new ForbiddenException(
+    //     'You cannot update a course from another school',
+    //   );
+    // }
 
     return this.courseRepository.update({
       courseId: params.courseId,

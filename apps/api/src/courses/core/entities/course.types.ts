@@ -1,6 +1,7 @@
 export type CourseStatus = 'draft' | 'published' | 'archived';
 
 export interface Course {
+  ownerId: string;
   id: string;
   schoolId?: string | null;
 

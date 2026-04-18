@@ -29,6 +29,7 @@ export class DrizzleCourseRepository implements CourseRepository {
     latitude?: number;
     longitude?: number;
   }): Promise<Course> {
+    console.log('[DrizzleCourseRepository][create] params:', params);
     const [course] = await this.db
       .insert(courses)
       .values({
@@ -49,38 +50,30 @@ export class DrizzleCourseRepository implements CourseRepository {
         longitude: params.longitude ?? null,
       })
       .returning();
-
-    return course;
+    console.log('[DrizzleCourseRepository][create] created:', course);
+    // ownerId nunca debe ser null
+    return { ...course, ownerId: course.ownerId ?? '' };
   }
 
   async findById(id: string): Promise<Course | null> {
     const coverFile = alias(files, 'cover_file');
-
     const rows = await this.db
       .select({
         id: courses.id,
         schoolId: courses.schoolId,
-
+        ownerId: courses.ownerId,
         name: courses.name,
         description: courses.description,
-
-        // 👇 URL real que viene de files
         coverImageUrl: coverFile.url,
-
         price: courses.price,
         capacity: courses.capacity,
-
         startDate: courses.startDate,
         endDate: courses.endDate,
-
         modality: courses.modality,
-
         averageRating: courses.averageRating,
         enrollmentsCount: courses.enrollmentsCount,
-
         status: courses.status,
         isActive: courses.isActive,
-
         createdAt: courses.createdAt,
         updatedAt: courses.updatedAt,
       })
@@ -88,13 +81,14 @@ export class DrizzleCourseRepository implements CourseRepository {
       .leftJoin(coverFile, eq(coverFile.id, courses.coverImageUrl))
       .where(eq(courses.id, id))
       .limit(1);
-
-    return rows[0] ?? null;
+    if (!rows.length) return null;
+    // ownerId nunca debe ser null
+    return { ...rows[0], ownerId: rows[0].ownerId ?? '' };
   }
 
   async findByOwner(ownerId: string): Promise<Course[]> {
     const coverFile = alias(files, 'cover_file');
-
+    console.log('[DrizzleCourseRepository][findByOwner] ownerId:', ownerId);
     const rows = await this.db
       .select({
         id: courses.id,
@@ -123,17 +117,17 @@ export class DrizzleCourseRepository implements CourseRepository {
       .from(courses)
       .leftJoin(coverFile, eq(coverFile.id, courses.coverImageUrl))
       .where(eq(courses.ownerId, ownerId));
-
-    return rows;
+    console.log('[DrizzleCourseRepository][findByOwner] found:', rows);
+    return rows.map(r => ({ ...r, ownerId: r.ownerId ?? '' }));
   }
 
   async findPublicBySchoolId(schoolId: string): Promise<Course[]> {
     const coverFile = alias(files, 'cover_file');
-
     const rows = await this.db
       .select({
         id: courses.id,
         schoolId: courses.schoolId,
+        ownerId: courses.ownerId,
         name: courses.name,
         description: courses.description,
         coverImageUrl: coverFile.url,
@@ -142,11 +136,11 @@ export class DrizzleCourseRepository implements CourseRepository {
         startDate: courses.startDate,
         endDate: courses.endDate,
         modality: courses.modality,
-          address: courses.address,
-          city: courses.city,
-          state: courses.state,
-          latitude: courses.latitude,
-          longitude: courses.longitude,
+        address: courses.address,
+        city: courses.city,
+        state: courses.state,
+        latitude: courses.latitude,
+        longitude: courses.longitude,
         averageRating: courses.averageRating,
         enrollmentsCount: courses.enrollmentsCount,
         status: courses.status,
@@ -157,8 +151,8 @@ export class DrizzleCourseRepository implements CourseRepository {
       .from(courses)
       .leftJoin(coverFile, eq(coverFile.id, courses.coverImageUrl))
       .where(and(eq(courses.schoolId, schoolId), eq(courses.isActive, true)));
-
-    return rows;
+    // ownerId nunca debe ser null
+    return rows.map(r => ({ ...r, ownerId: r.ownerId ?? '' }));
   }
 
   async findAllPublic(): Promise<Course[]> {
@@ -167,6 +161,7 @@ export class DrizzleCourseRepository implements CourseRepository {
       .select({
         id: courses.id,
         schoolId: courses.schoolId,
+        ownerId: courses.ownerId,
         name: courses.name,
         description: courses.description,
         coverImageUrl: coverFile.url,
@@ -185,7 +180,8 @@ export class DrizzleCourseRepository implements CourseRepository {
       .from(courses)
       .leftJoin(coverFile, eq(coverFile.id, courses.coverImageUrl))
       .where(eq(courses.isActive, true));
-    return rows;
+    // ownerId nunca debe ser null
+    return rows.map(r => ({ ...r, ownerId: r.ownerId ?? '' }));
   }
 
   async update(params: { courseId: string; data: Partial<Course> }) {
@@ -197,8 +193,9 @@ export class DrizzleCourseRepository implements CourseRepository {
       })
       .where(eq(courses.id, params.courseId))
       .returning();
-
-    return updated;
+    // ownerId nunca debe ser null
+    if (!updated) throw new Error('Course not found');
+    return { ...updated, ownerId: updated.ownerId ?? '' };
   }
 
   async softDelete(courseId: string): Promise<void> {
