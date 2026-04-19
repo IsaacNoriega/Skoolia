@@ -1,5 +1,22 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
+
+// Sanitiza y valida URLs externas (solo http(s) y dominio válido)
+function sanitizeExternalUrl(url?: string): string | undefined {
+  if (!url || typeof url !== "string") return undefined;
+  try {
+    const u = new URL(url);
+    if (!/^https?:$/.test(u.protocol)) return undefined;
+    // Opcional: puedes filtrar dominios sospechosos aquí
+    if (!u.hostname.includes(".")) return undefined;
+    // Evita enlaces a localhost, 127.0.0.1, etc.
+    if (/^(localhost|127\.|0\.)/.test(u.hostname)) return undefined;
+    return u.toString();
+  } catch {
+    return undefined;
+  }
+}
+
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import CatalogCard from "@/components/layout/CatalogCard";
@@ -8,6 +25,7 @@ import SearchToolbar from "@/components/search/SearchToolbar";
 import { schoolsFeedService } from "@/lib/services/services/school-feeed.service";
 import { schoolsService } from "@/lib/services/services/schools.service";
 import { coursesService } from "@/lib/services/services/courses.service";
+import { useRef } from "react";
 import { favoritesService } from "@/lib/services/services/favorites.service";
 import { recordSchoolVisit } from "@/lib/history/school-history";
 import { useAuth } from "@/contexts/AuthContext";
@@ -30,6 +48,8 @@ type CatalogItem = {
   enrollmentOpen?: boolean;
   enrollmentYear?: number;
   monthlyPrice?: number;
+  source?: "db" | "web";
+  url?: string;
 };
 
 export default function SearchPage() {
@@ -61,9 +81,11 @@ export default function SearchPage() {
   const tab = (sp.get("tab") ?? "escuelas").toLowerCase();
 
   const [items, setItems] = useState<CatalogItem[]>([]);
+  const [webItems, setWebItems] = useState<CatalogItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+  const lastQueryRef = useRef<string>("");
 
   // Cargar favoritos del usuario
   useEffect(() => {
@@ -138,9 +160,45 @@ export default function SearchPage() {
             enrollmentOpen: undefined,
             enrollmentYear: undefined,
             monthlyPrice: node.monthlyPrice ?? undefined,
+            source: "db",
           };
         });
         setItems(mapped);
+
+        // Llamar a la API de chat para obtener resultados de IA solo si la query cambió
+        if (q && lastQueryRef.current !== q) {
+          lastQueryRef.current = q;
+          try {
+            const res = await fetch("/api/chat", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ message: q }),
+            });
+            if (res.ok) {
+              const data = await res.json();
+              // webSchools: [{ name, city, description, level, url }]
+              const webSchools: CatalogItem[] = (data.webSchools || []).map((s: any, idx: number) => ({
+                id: `webschool-${idx}-${s.name}`,
+                imageSrc: "", // No hay imagen
+                tags: ["WEB", s.city, s.level].filter(Boolean),
+                typeLabel: "ESCUELA",
+                title: s.name,
+                location: s.city || "Internet",
+                price: "-",
+                description: s.description,
+                source: "web",
+                url: s.url,
+              }));
+              setWebItems(webSchools);
+            } else {
+              setWebItems([]);
+            }
+          } catch {
+            setWebItems([]);
+          }
+        } else if (!q) {
+          setWebItems([]);
+        }
       } catch (err) {
         console.error(err);
         if (active) setError("No se pudieron cargar las escuelas.");
@@ -198,8 +256,44 @@ export default function SearchPage() {
           enrollmentOpen: undefined,
           enrollmentYear: undefined,
           monthlyPrice: undefined,
+          source: "db",
         }));
         setItems(mapped);
+
+        // Llamar a la API de chat para obtener resultados de IA solo si la query cambió
+        if (q && lastQueryRef.current !== q) {
+          lastQueryRef.current = q;
+          try {
+            const res = await fetch("/api/chat", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ message: q }),
+            });
+            if (res.ok) {
+              const data = await res.json();
+              // webCourses: [{ name, school, city, description, modality, price, url }]
+              const webCourses: CatalogItem[] = (data.webCourses || []).map((c: any, idx: number) => ({
+                id: `webcourse-${idx}-${c.name}`,
+                imageSrc: "", // No hay imagen
+                tags: ["WEB", c.modality, c.city].filter(Boolean),
+                typeLabel: "CURSO",
+                title: c.name,
+                location: c.school || c.city || "Internet",
+                price: c.price ?? "-",
+                description: c.description,
+                source: "web",
+                url: c.url,
+              }));
+              setWebItems(webCourses);
+            } else {
+              setWebItems([]);
+            }
+          } catch {
+            setWebItems([]);
+          }
+        } else if (!q) {
+          setWebItems([]);
+        }
       } catch (err) {
         console.error(err);
         if (active) setError("No se pudieron cargar los cursos.");
@@ -358,6 +452,7 @@ export default function SearchPage() {
 
       {/* Grid */}
       <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-3">
+        {/* Primero los resultados de la base de datos */}
         {items.map((it) => (
           <CatalogCard
             priceFormatted={""}
@@ -375,6 +470,33 @@ export default function SearchPage() {
             </div>
           </CatalogCard>
         ))}
+        {/* Luego los resultados de IA/web */}
+        {webItems.map((it) => {
+          const safeUrl = sanitizeExternalUrl(it.url);
+          return (
+            <CatalogCard
+              priceFormatted={""}
+              key={it.id}
+              {...it}
+              isFavorite={false}
+              onFavoriteToggle={undefined}
+              onCardClick={() => {
+                if (safeUrl) window.open(safeUrl, "_blank");
+              }}
+              onAction={() => {
+                if (safeUrl) window.open(safeUrl, "_blank");
+              }}
+              // Mismo formato visual, solo badge IA
+            >
+              <div className="absolute top-4 left-4 z-10 flex gap-2">
+                <span className="px-3 py-1 rounded-full text-xs font-bold shadow-md bg-blue-100 text-blue-700">IA</span>
+                <span className={`px-3 py-1 rounded-full text-xs font-bold shadow-md ${it.typeLabel === "CURSO" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
+                  {it.typeLabel === "CURSO" ? "CURSO" : "ESCUELA"}
+                </span>
+              </div>
+            </CatalogCard>
+          );
+        })}
       </div>
 
       {tab === "escuelas" && (

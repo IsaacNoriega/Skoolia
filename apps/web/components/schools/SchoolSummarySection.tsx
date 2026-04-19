@@ -6,6 +6,7 @@ import { ArrowUpRight, ChevronRight, Star, Users, Layers3 } from "lucide-react";
 import { coursesService, type Course } from "@/lib/services/services/courses.service";
 import { messagesService, type SchoolThread } from "@/lib/services/services/messages.service";
 import { schoolsService, type School } from "@/lib/services/services/schools.service";
+import { useLeadTracking } from "@/lib/hooks/useLeadTracking";
 
 function formatRelativeDate(isoDate: string) {
 	const date = new Date(isoDate);
@@ -33,6 +34,7 @@ export default function SchoolSummarySection() {
 	const [courses, setCourses] = useState<Course[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const { trackLead } = useLeadTracking({ userId: school?.id || "" });
 
 	useEffect(() => {
 		let mounted = true;
@@ -238,6 +240,12 @@ export default function SchoolSummarySection() {
 							<div
 								key={thread.publicUserId}
 								className="flex items-center justify-between px-5 py-4 hover:bg-slate-50 sm:px-6 sm:py-5"
+								onClick={() => trackLead({
+									targetId: school?.id || "",
+									originType: "SCHOOL",
+									trigger: "VIEW",
+									status: "INTERESADO"
+								})}
 							>
 								<div className="flex items-center gap-3 sm:gap-4">
 									<div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-xs font-extrabold text-slate-700">

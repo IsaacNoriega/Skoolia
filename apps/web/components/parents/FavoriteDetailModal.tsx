@@ -6,6 +6,7 @@ import { JSX, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { messagesService } from '@/lib/services/services/messages.service';
+import { courseMessagesService } from '@/lib/services/services/course-messages.service';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { sanitizeImageSrc } from '@/lib/utils';
@@ -101,9 +102,18 @@ export default function FavoriteDetailModal({
 
     try {
       setSending(true);
-      await messagesService.sendParentMessage(item.id, 'Hola, me interesa conocer mas informacion de su escuela.');
-      onClose();
-      router.push(`/parents/messages/${item.id}`);
+      // Detectar si es curso o escuela por la presencia de alguna propiedad o convención
+      const isCourse = item.level === 'CURSO' || item.level === 'CURSOS' || item.level === 'CURSO ACADÉMICO' || item.level === 'ACADEMICO' || item.level === 'ACADÉMICO';
+      if (isCourse) {
+        if (!user) throw new Error('Usuario no autenticado');
+        await courseMessagesService.sendCourseMessage(item.id, 'Hola, me interesa conocer más información de este curso.', { id: user.id, role: user.role });
+        onClose();
+        router.push(`/parents/messages/courses/${item.id}`);
+      } else {
+        await messagesService.sendParentMessage(item.id, 'Hola, me interesa conocer mas informacion de su escuela.');
+        onClose();
+        router.push(`/parents/messages/${item.id}`);
+      }
     } finally {
       setSending(false);
     }

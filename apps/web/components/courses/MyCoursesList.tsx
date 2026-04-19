@@ -2,11 +2,13 @@
 import { useEffect, useState } from "react";
 import { coursesService, Course } from "@/lib/services/services/courses.service";
 import { useRouter } from "next/navigation";
+import { useLeadTracking } from "@/lib/hooks/useLeadTracking";
 
 export default function MyCoursesList() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const { trackLead } = useLeadTracking({ userId: "" }); // Reemplaza por el userId real
 
   useEffect(() => {
 coursesService.listMine().then((courses) => {
@@ -24,7 +26,15 @@ coursesService.listMine().then((courses) => {
         <div
           key={course.id}
           className="surface rounded-2xl bg-white p-5 shadow hover:shadow-lg cursor-pointer transition"
-          onClick={() => router.push(`/courses/${course.id}`)}
+          onClick={() => {
+            trackLead({
+              targetId: course.id,
+              originType: "COURSE",
+              trigger: "VIEW",
+              status: "INTERESADO"
+            });
+            router.push(`/courses/${course.id}`);
+          }}
         >
           <div className="font-bold text-lg mb-1">{course.name}</div>
           <div className="text-slate-500 text-sm mb-2 line-clamp-2">{course.description}</div>

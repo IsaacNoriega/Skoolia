@@ -7,8 +7,12 @@ import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { coursesService, type Course } from "@/lib/services/services/courses.service";
 import { useToast } from "@/components/ui/toast";
 import CourseEditorModal from "./CourseEditorModal";
+import { useAuth } from "@/contexts/AuthContext";
+import { useOnboarding } from "@/contexts/OnBoardingContext";
 
 export default function SchoolCoursesSection() {
+	const { user } = useAuth();
+	const { state: onboarding } = useOnboarding();
 	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
@@ -166,14 +170,16 @@ export default function SchoolCoursesSection() {
 						Administra tus programas, modalidades y cupos publicados.
 					</p>
 				</div>
-				<button
-					type="button"
-					onClick={openCreateModal}
-					className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2 text-xs sm:text-sm font-bold text-white shadow hover:bg-indigo-700"
-				>
-					<span className="text-base leading-none">+</span>
-					<span>Agregar programa</span>
-				</button>
+				{onboarding?.data?.tipoRegistro !== "escuela" && (
+					<button
+						type="button"
+						onClick={openCreateModal}
+						className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2 text-xs sm:text-sm font-bold text-white shadow hover:bg-indigo-700"
+					>
+						<span className="text-base leading-none">+</span>
+						<span>Agregar programa</span>
+					</button>
+				)}
 			</header>
 
 			<div className="divide-y divide-slate-100/70">

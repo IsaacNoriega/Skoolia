@@ -247,16 +247,25 @@ function buildSystemInstruction(
 		city: string | null;
 		educationalLevel: string | null;
 	}>,
+	coursesData?: Array<{
+		name: string | null;
+		price: number | null;
+		modality: string | null;
+		city: string | null;
+		schoolName: string | null;
+	}>
 ) {
 	return [
 		"Eres el Asistente de Skoolia.",
-		"Primero debes usar Google Search para verificar informacion publica relevante cuando la consulta lo amerite y luego combinarla con la base de datos.",
-		"No inventes datos. Si algo no aparece en la base de datos o no se puede verificar en la web, dilo explicitamente.",
-		"Si la pregunta es sobre escuelas, usa la base de datos de Skoolia como fuente principal y la web como apoyo para validar o complementar.",
-		"Responde en espanol de forma clara y breve.",
-		"Cuando menciones escuelas de la base de datos, incluye siempre el nombre completo exacto.",
+		"Primero debes usar Google Search para verificar información pública relevante cuando la consulta lo amerite y luego combinarla con la base de datos.",
+		"No inventes datos. Si algo no aparece en la base de datos o no se puede verificar en la web, dilo explícitamente.",
+		"Si la pregunta es sobre escuelas o cursos, usa la base de datos de Skoolia como fuente principal y la web como apoyo para validar o complementar.",
+		"Responde en español de forma clara y breve.",
+		"Cuando menciones escuelas o cursos de la base de datos, incluye siempre el nombre completo exacto.",
 		"",
-		"AL FINAL DE TU RESPUESTA, si encontraste escuelas/cursos en internet, añade un bloque JSON en este formato:",
+		"IMPORTANTE: Si devuelves escuelas o cursos encontrados en internet, SOLO incluye URLs oficiales de la plataforma de la escuela o curso (el sitio web institucional de la escuela o la página oficial del curso). NO incluyas enlaces a periódicos, blogs, directorios, Wikipedia, ni páginas informativas externas. Si no encuentras la URL oficial, deja el campo url vacío o no incluyas ese resultado.",
+		"",
+		"AL FINAL DE TU RESPUESTA, si encontraste escuelas en internet, añade un bloque JSON así:",
 		"[WEB_SCHOOLS_JSON]",
 		"{",
 		'  "schools": [',
@@ -266,11 +275,63 @@ function buildSystemInstruction(
 		"}",
 		"[/WEB_SCHOOLS_JSON]",
 		"",
-		"NO incluyas este JSON si no hay escuelas en internet encontradas.",
+		"Si encontraste cursos en internet, añade un bloque JSON así:",
+		"[WEB_COURSES_JSON]",
+		"{",
+		'  "courses": [',
+		'    { "name": "Nombre Curso", "school": "Escuela", "city": "Ciudad", "description": "Breve desc", "modality": "presencial/online/híbrido", "price": "Precio", "url": "https://..."  },',
+		'    { ... }',
+		"  ]",
+		"}",
+		"[/WEB_COURSES_JSON]",
+		"",
+		"NO incluyas estos JSON si no hay resultados encontrados en internet.",
 		"",
 		"Datos de escuelas (Postgres):",
 		JSON.stringify(schoolsData),
+		coursesData ? ["", "Datos de cursos (Postgres):", JSON.stringify(coursesData)].join("\n") : ""
 	].join("\n");
+}
+// Extraer cursos web de la respuesta IA
+function extractWebCourses(reply: string): Array<{
+	source: "web";
+	name: string;
+	school?: string;
+	city?: string;
+	description?: string;
+	modality?: string;
+	price?: string;
+	url?: string;
+}> {
+	try {
+		const match = reply.match(/\[WEB_COURSES_JSON\]([\s\S]*?)\[\/WEB_COURSES_JSON\]/);
+		if (!match) return [];
+		const jsonStr = match[1];
+		const parsed = JSON.parse(jsonStr) as {
+			courses?: Array<{
+				name: string;
+				school?: string;
+				city?: string;
+				description?: string;
+				modality?: string;
+				price?: string;
+				url?: string;
+			}>;
+		};
+		if (!parsed.courses || !Array.isArray(parsed.courses)) return [];
+		return parsed.courses.map((c) => ({
+			source: "web" as const,
+			name: c.name,
+			school: c.school,
+			city: c.city,
+			description: c.description,
+			modality: c.modality,
+			price: c.price,
+			url: normalizeExternalUrl(c.url),
+		}));
+	} catch {
+		return [];
+	}
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -552,6 +613,7 @@ async function generateWithModelFallback({
 //   6. Handle 429 errors with database fallback
 //   7. Return structured response to frontend
 
+
 export async function POST(request: Request) {
 	const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 	const databaseUrl = process.env.DATABASE_URL;
@@ -572,7 +634,6 @@ export async function POST(request: Request) {
 	}
 
 	let body: ChatBody;
-
 	try {
 		body = (await request.json()) as ChatBody;
 	} catch {
@@ -594,7 +655,7 @@ export async function POST(request: Request) {
 	const db = drizzle(client);
 
 	try {
-		// Obtener TODAS las escuelas con todos los datos
+		// Obtener escuelas y cursos
 		const allSchools = await db
 			.select({
 				id: schools.id,
@@ -612,7 +673,30 @@ export async function POST(request: Request) {
 			.from(schools)
 			.limit(200);
 
-		// Para el sistema prompt, mandar solo nombre, city, nivel educacional, precio
+		// Cargar cursos si existe tabla courses
+		let allCourses: Array<any> = [];
+		try {
+			// @ts-ignore
+				const { courses } = await import("drizzle/schemas/courses");
+			allCourses = await db
+				.select({
+					id: courses.id,
+					name: courses.name,
+					price: courses.price,
+					modality: courses.modality,
+					city: courses.city,
+					schoolId: courses.schoolId,
+				})
+				.from(courses)
+				.limit(200);
+			// Mapear nombre de escuela
+			allCourses = allCourses.map((c) => ({
+				...c,
+				schoolName: allSchools.find((s) => s.id === c.schoolId)?.name ?? null,
+			}));
+		} catch {}
+
+		// Para el sistema prompt, mandar escuelas y cursos
 		const schoolsForPrompt = allSchools.map((s) => ({
 			name: s.name,
 			monthlyPrice: s.monthlyPrice,
@@ -620,8 +704,15 @@ export async function POST(request: Request) {
 			city: s.city,
 			educationalLevel: s.educationalLevel,
 		}));
+		const coursesForPrompt = allCourses.map((c) => ({
+			name: c.name,
+			price: c.price,
+			modality: c.modality,
+			city: c.city,
+			schoolName: c.schoolName,
+		}));
 
-		const systemInstruction = buildSystemInstruction(schoolsForPrompt);
+		const systemInstruction = buildSystemInstruction(schoolsForPrompt, coursesForPrompt);
 		const { reply, modelUsed, sources } = await generateWithModelFallback({
 			apiKey,
 			systemInstruction,
@@ -629,9 +720,11 @@ export async function POST(request: Request) {
 			preferredModel,
 		});
 
-		// Extraer escuelas de web y limpiar el texto de respuesta
+		// Extraer escuelas y cursos web y limpiar el texto de respuesta
 		const webSchools = extractWebSchools(reply);
-		const cleanReply = stripWebSchoolsJson(reply);
+		const webCourses = extractWebCourses(reply);
+		let cleanReply = stripWebSchoolsJson(reply);
+		cleanReply = cleanReply.replace(/\s*\[WEB_COURSES_JSON\][\s\S]*?\[\/WEB_COURSES_JSON\]\s*/g, "").trim();
 
 		// Identificar qué escuelas menciona la IA
 		const mentionedSchoolIds = findMentionedSchools(
@@ -656,24 +749,44 @@ export async function POST(request: Request) {
 			})
 			.filter((s) => s !== null);
 
-		const requestedCity = extractRequestedCity(userMessage, allSchools);
+		// Identificar cursos mencionados por IA (por nombre)
+		const mentionedCourseNames = allCourses.length
+			? allCourses
+					.filter((c) => cleanReply.toLowerCase().includes((c.name ?? "").toLowerCase()))
+					.map((c) => c.id)
+			: [];
+		const recommendedCourses = mentionedCourseNames
+			.slice(0, 10)
+			.map((id) => {
+				const course = allCourses.find((c) => c.id === id);
+				if (!course) return null;
+				return {
+					id: course.id,
+					name: course.name,
+					price: course.price,
+					modality: course.modality,
+					city: course.city,
+					schoolName: course.schoolName,
+				};
+			})
+			.filter((c) => c !== null);
 
+		const requestedCity = extractRequestedCity(userMessage, allSchools);
 		const cityFilteredRecommended = requestedCity
 			? recommendedSchools.filter((school) => cityMatches(school.city, requestedCity))
 			: recommendedSchools;
-
 		const finalRecommendedSchools = cityFilteredRecommended.length
 			? cityFilteredRecommended
 			: (recommendedSchools.length
 				? recommendedSchools
 				: pickSchoolsByQuery(userMessage, allSchools).map((school) => ({
-					id: school.id,
-					name: school.name,
-					coverImageUrl: school.coverImageUrl?.toString() ?? null,
-					city: school.city,
-					monthlyPrice: school.monthlyPrice,
-					averageRating: school.averageRating,
-				}))
+						id: school.id,
+						name: school.name,
+						coverImageUrl: school.coverImageUrl?.toString() ?? null,
+						city: school.city,
+						monthlyPrice: school.monthlyPrice,
+						averageRating: school.averageRating,
+					}))
 			);
 
 		const normalizedSources = sources.length ? sources : extractUrlsFromText(cleanReply);
@@ -685,6 +798,8 @@ export async function POST(request: Request) {
 			sources: normalizedSources,
 			recommendedSchools: finalRecommendedSchools,
 			webSchools,
+			recommendedCourses,
+			webCourses,
 		});
 	} catch (error) {
 		if (isQuotaError(error)) {
@@ -721,6 +836,8 @@ export async function POST(request: Request) {
 				sources: [],
 				recommendedSchools: fallbackRecommendedSchools,
 				webSchools: [],
+				recommendedCourses: [],
+				webCourses: [],
 				fallback: "database-only",
 				warning:
 					"Gemini esta temporalmente sin cuota (429). Se respondio solo con datos de Postgres.",

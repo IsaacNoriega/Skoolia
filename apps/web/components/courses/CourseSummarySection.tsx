@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { User, Eye } from "lucide-react";
+import { useLeadTracking } from "@/lib/hooks/useLeadTracking";
 
 // Servicios e Interfaces
 import { coursesService, Course } from "@/lib/services/services/courses.service";
@@ -15,6 +16,7 @@ export default function CoursesDashboard() {
   const [error, setError] = useState<string | null>(null);
 
   const router = useRouter();
+  const { trackLead } = useLeadTracking({ userId: user?.id || "" });
 
   useEffect(() => {
     let mounted = true;
@@ -105,13 +107,33 @@ export default function CoursesDashboard() {
                     {course.description || "Sin descripción"}
                   </p>
                 </div>
-
-                <button
-                  className="flex items-center gap-1 text-xs bg-slate-100 px-3 py-1 rounded-lg hover:bg-slate-200"
-                    onClick={() => router.push(`/courses/${course.id}`)}
-                >
-                  <Eye size={14} /> Ver detalles
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    className="flex items-center gap-1 text-xs bg-slate-100 px-3 py-1 rounded-lg hover:bg-slate-200"
+                    onClick={() => {
+                      trackLead({
+                        targetId: course.id,
+                        originType: "COURSE",
+                        trigger: "VIEW",
+                        status: "INTERESADO",
+                      });
+                      router.push(`/courses/${course.id}`);
+                    }}
+                  >
+                    <Eye size={14} /> Ver detalles
+                  </button>
+                  <button
+                    className="flex items-center gap-1 text-xs bg-blue-100 px-3 py-1 rounded-lg hover:bg-blue-200"
+                    onClick={() => trackLead({
+                      targetId: course.id,
+                      originType: "COURSE",
+                      trigger: "FAVORITE",
+                      status: "INTERESADO",
+                    })}
+                  >
+                    ⭐ Favorito
+                  </button>
+                </div>
               </div>
             ))
           )}
