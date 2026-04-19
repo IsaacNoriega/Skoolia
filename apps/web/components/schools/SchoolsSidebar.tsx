@@ -15,8 +15,8 @@ import {
 } from "lucide-react";
 import { JSX } from "react";
 import { messagesService, type SchoolThread } from "@/lib/services/services/messages.service";
-import { SCHOOL_THREADS_UPDATED_EVENT } from "@/lib/school-thread-events";
 import { useAuth } from "@/contexts/AuthContext";
+import { SCHOOL_THREADS_UPDATED_EVENT } from "@/lib/school-thread-events";
 
 type ActiveSection =
 	| "summary"
@@ -32,6 +32,7 @@ type Props = { active?: ActiveSection };
 
 export default function SchoolsSidebar({ active = "summary" }: Props) {
 	const { logout } = useAuth();
+	const { user } = useAuth();
 	const [threads, setThreads] = useState<SchoolThread[]>([]);
 
 	useEffect(() => {
@@ -39,7 +40,8 @@ export default function SchoolsSidebar({ active = "summary" }: Props) {
 
 		const loadThreads = async () => {
 			try {
-				const data = await messagesService.listSchoolThreads();
+				if (!user) return;
+				const data = await messagesService.listSchoolThreads(user.id);
 				if (mounted) setThreads(data);
 			} catch {
 				if (mounted) setThreads([]);
