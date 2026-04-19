@@ -1,4 +1,5 @@
-import { useState } from "react";
+"use client";
+import { use, useState } from "react";
 import { api } from "@/lib/services/api";
 
 export function useLeadMetadata(leadId: string, initialMetadata: any) {

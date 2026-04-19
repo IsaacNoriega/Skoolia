@@ -1,3 +1,4 @@
+"use client";
 import { useEffect, useState } from "react";
 import { LeadsDashboard } from "@/components/leads/LeadsDashboard";
 import { api } from "@/lib/services/api";
