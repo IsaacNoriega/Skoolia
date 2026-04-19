@@ -7,6 +7,7 @@ import { schoolMessages } from '../../../../drizzle/schemas/messages/school-mess
 import { courseMessages } from '../../../../drizzle/schemas/messages/course-messages';
 import { eq, and } from 'drizzle-orm';
 import { schools } from '../../../../drizzle/schemas/schools/school';
+import { publicUsers } from '../../../../drizzle/schemas/users/public-users';
 import { courses } from '../../../../drizzle/schemas/courses/courses';
 
 @Injectable()
@@ -20,6 +21,7 @@ export class DrizzleMessageRepository implements MessageRepository {
     message: Omit<Message, 'id' | 'createdAt'>,
   ): Promise<Message> {
     if (message.receiverType === 'school') {
+      // Mensaje de padre a escuela
       const [created] = await this.db
         .insert(schoolMessages)
         .values({
@@ -37,6 +39,27 @@ export class DrizzleMessageRepository implements MessageRepository {
         senderType: created.senderRole === 'public' ? 'parent' : 'school',
         receiverId: created.schoolId,
         receiverType: 'school',
+        threadId: `${created.schoolId}_${created.publicUserId}`,
+      };
+    } else if (message.receiverType === 'parent') {
+      // Mensaje de escuela a padre
+      const [created] = await this.db
+        .insert(schoolMessages)
+        .values({
+          schoolId: message.senderId,
+          publicUserId: message.receiverId,
+          senderRole: 'private', // siempre escuela
+          content: message.content,
+        })
+        .returning();
+      return {
+        id: created.id,
+        content: created.content,
+        createdAt: created.createdAt,
+        senderId: created.schoolId,
+        senderType: 'school',
+        receiverId: created.publicUserId,
+        receiverType: 'parent',
         threadId: `${created.schoolId}_${created.publicUserId}`,
       };
     } else if (message.receiverType === 'course') {
@@ -90,16 +113,19 @@ export class DrizzleMessageRepository implements MessageRepository {
       )
       .orderBy(schoolMessages.createdAt);
     if (schoolRows.length > 0) {
-      return schoolRows.map((msg) => ({
-        id: msg.id,
-        content: msg.content,
-        createdAt: msg.createdAt,
-        senderId: msg.senderRole === 'public' ? msg.publicUserId : msg.schoolId,
-        senderType: msg.senderRole === 'public' ? 'parent' : 'school',
-        receiverId: msg.senderRole === 'public' ? msg.schoolId : msg.publicUserId,
-        receiverType: 'school',
-        threadId,
-      }));
+      return schoolRows.map((msg) => {
+        const isParent = msg.senderRole === 'public';
+        return {
+          id: msg.id,
+          content: msg.content,
+          createdAt: msg.createdAt,
+          senderId: isParent ? msg.publicUserId : msg.schoolId,
+          senderType: isParent ? 'parent' as const : 'school' as const,
+          receiverId: isParent ? msg.schoolId : msg.publicUserId,
+          receiverType: isParent ? 'school' as const : 'parent' as const,
+          threadId,
+        };
+      });
     }
     const courseRows = await this.db
       .select()
@@ -135,6 +161,9 @@ export class DrizzleMessageRepository implements MessageRepository {
     // course: threads donde courseId = participantId
     // Usar imports directos arriba del archivo
 
+      if (!participantId || participantId === 'undefined') {
+        throw new Error('El parámetro participantId es requerido y no puede ser undefined.');
+      }
     let threads: any[] = [];
     if (participantType === 'parent') {
       // School threads
@@ -184,22 +213,91 @@ export class DrizzleMessageRepository implements MessageRepository {
         })),
       );
     } else if (participantType === 'school') {
-      // Similar para escuelas si es necesario
+          // Para escuelas: obtener todos los mensajes donde schoolId = participantId
+          // Agrupar por publicUserId y obtener el último mensaje de cada conversación, incluyendo el nombre del usuario
+          const schoolRows = await this.db
+            .select({
+              schoolId: schoolMessages.schoolId,
+              schoolName: schools.name,
+              publicUserId: schoolMessages.publicUserId,
+              lastMessage: schoolMessages.content,
+              lastMessageAt: schoolMessages.createdAt,
+              lastSenderRole: schoolMessages.senderRole,
+              publicUserName: publicUsers.name,
+            })
+            .from(schoolMessages)
+            .leftJoin(schools, eq(schoolMessages.schoolId, schools.id))
+            .leftJoin(publicUsers, eq(schoolMessages.publicUserId, publicUsers.id))
+            .where(eq(schoolMessages.schoolId, participantId));
+
+          // Agrupar por publicUserId y quedarnos con el mensaje más reciente de cada conversación
+          const threadMap = new Map<string, any>();
+          for (const row of schoolRows) {
+            const key = row.publicUserId;
+            if (!threadMap.has(key) || threadMap.get(key).lastMessageAt < row.lastMessageAt) {
+              threadMap.set(key, {
+                publicUserId: row.publicUserId,
+                publicUserName: row.publicUserName || '',
+                lastMessage: row.lastMessage,
+                lastMessageAt: row.lastMessageAt,
+                lastSenderRole: row.lastSenderRole,
+                threadHasUnread: false,
+                unreadCount: 0,
+              });
+            }
+          }
+          threads = Array.from(threadMap.values());
     } else if (participantType === 'course') {
-      // Similar para cursos si es necesario
-    }
-    // Agrupar por id para evitar duplicados y tomar el último mensaje
-    // Para escuelas: agrupar por schoolId, para cursos: agrupar por courseId
-    const threadMap = new Map<string, any>();
-    for (const t of threads) {
-      const id = t.schoolId || t.courseId;
-      if (
-        !threadMap.has(id) ||
-        threadMap.get(id).lastMessageAt < t.lastMessageAt
-      ) {
-        threadMap.set(id, t);
+      // Buscar todos los cursos donde ownerId = participantId
+      // y obtener los threads (conversaciones) con cada publicUserId
+      const courseOwnerRows = await this.db
+        .select({
+          courseId: courseMessages.courseId,
+          courseName: courses.name,
+          publicUserId: courseMessages.publicUserId,
+          lastMessage: courseMessages.content,
+          lastMessageAt: courseMessages.createdAt,
+          lastSenderRole: courseMessages.senderRole,
+        })
+        .from(courseMessages)
+        .leftJoin(courses, eq(courseMessages.courseId, courses.id))
+        .where(eq(courses.ownerId, participantId));
+
+      // Agrupar por courseId + publicUserId para obtener el último mensaje de cada conversación
+      const threadMap = new Map<string, any>();
+      for (const row of courseOwnerRows) {
+        const key = `${row.courseId}_${row.publicUserId}`;
+        if (!threadMap.has(key) || threadMap.get(key).lastMessageAt < row.lastMessageAt) {
+          threadMap.set(key, {
+            courseId: row.courseId,
+            courseName: row.courseName,
+            publicUserId: row.publicUserId,
+            publicUserName: '', // Puedes poblarlo si tienes acceso al nombre del usuario
+            lastMessage: row.lastMessage,
+            lastMessageAt: row.lastMessageAt,
+            lastSenderRole: row.lastSenderRole,
+            threadHasUnread: false,
+            unreadCount: 0,
+          });
+        }
       }
+      threads = threads.concat(Array.from(threadMap.values()));
     }
-    return Array.from(threadMap.values());
+         // Solo agrupar para cursos y padres, no para escuelas (ya está agrupado arriba)
+         if (participantType === 'parent' || participantType === 'course') {
+           const threadMap = new Map<string, any>();
+           for (const t of threads) {
+             const id = t.schoolId || t.courseId;
+             if (
+               !threadMap.has(id) ||
+               threadMap.get(id).lastMessageAt < t.lastMessageAt
+             ) {
+               threadMap.set(id, t);
+             }
+           }
+           return Array.from(threadMap.values());
+         }
+         // Para escuelas, threads ya está agrupado correctamente
+         return threads;
   }
 }
