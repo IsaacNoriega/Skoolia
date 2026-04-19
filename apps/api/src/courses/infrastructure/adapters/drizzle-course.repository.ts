@@ -7,7 +7,6 @@ import { DATABASE } from 'src/db/db.module';
 import * as dbTypes from 'src/db/db.types';
 import { files, schools } from 'drizzle/schemas';
 import { alias } from 'drizzle-orm/pg-core';
-
 @Injectable()
 export class DrizzleCourseRepository implements CourseRepository {
   constructor(@Inject(DATABASE) private readonly db: dbTypes.Database) {}

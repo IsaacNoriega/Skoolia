@@ -56,7 +56,6 @@ export class CoursesController {
     private readonly getCourseById: GetCourseByIdUseCase,
   ) {}
 
-
   @Get('me')
   @UseGuards(AuthGuard, RolesGuard)
   @Roles('private')

@@ -18,28 +18,22 @@ import { DrizzleCourseRepository } from './infrastructure/adapters/drizzle-cours
 import { COURSE_REPOSITORY } from './core/ports/tokens';
 
 @Module({
-  imports: [
-    DbModule,
-    SchoolsModule, // porque CreateCourseUseCase usa SCHOOL_REPOSITORY
-    AuthModule,
-    FilesModule,
-  ],
+  imports: [DbModule, SchoolsModule, AuthModule, FilesModule],
   controllers: [CoursesController],
   providers: [
     CreateCourseUseCase,
-    DrizzleCourseRepository,
     UpdateCourseUseCase,
     DeleteCourseUseCase,
     UpdateCourseImageUseCase,
     ListMyCoursesUseCase,
     ListPublicCoursesBySchoolUseCase,
     ListPublicCoursesUseCase,
+    GetCourseByIdUseCase,
     {
       provide: COURSE_REPOSITORY,
       useClass: DrizzleCourseRepository,
     },
-    GetCourseByIdUseCase,
   ],
-  exports: [COURSE_REPOSITORY, DrizzleCourseRepository],
+  exports: [COURSE_REPOSITORY],
 })
 export class CoursesModule {}

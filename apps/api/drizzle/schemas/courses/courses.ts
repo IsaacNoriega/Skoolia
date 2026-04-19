@@ -27,10 +27,9 @@ export const courses = pgTable(
   {
     id: uuid('id').defaultRandom().primaryKey(),
 
-    schoolId: uuid('school_id')
-      .references(() => schools.id, {
-        onDelete: 'cascade',
-      }),
+    schoolId: uuid('school_id').references(() => schools.id, {
+      onDelete: 'cascade',
+    }),
 
     // Nuevo: ownerId (nullable para migración)
     ownerId: uuid('owner_id'),
