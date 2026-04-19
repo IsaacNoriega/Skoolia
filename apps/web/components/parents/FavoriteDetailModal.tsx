@@ -110,7 +110,8 @@ export default function FavoriteDetailModal({
         onClose();
         router.push(`/parents/messages/courses/${item.id}`);
       } else {
-        await messagesService.sendParentMessage(item.id, 'Hola, me interesa conocer mas informacion de su escuela.');
+        if (!user) throw new Error('Usuario no autenticado');
+        await messagesService.sendParentMessage(item.id, 'Hola, me interesa conocer mas informacion de su escuela.', user.id);
         onClose();
         router.push(`/parents/messages/${item.id}`);
       }
