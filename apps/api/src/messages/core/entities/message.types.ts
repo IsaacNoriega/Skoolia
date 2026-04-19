@@ -5,7 +5,7 @@ export class Message {
   senderId: string;
   senderType: 'parent' | 'school';
   receiverId: string;
-  receiverType: 'school' | 'course';
+  receiverType: 'school' | 'course' | 'parent';
   threadId: string;
 }
 

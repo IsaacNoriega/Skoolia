@@ -13,8 +13,8 @@ export class CreateMessageDto {
   @IsString()
   receiverId: string;
 
-  @IsIn(['school', 'course'])
-  receiverType: 'school' | 'course';
+  @IsIn(['school', 'course', 'parent'])
+  receiverType: 'school' | 'course' | 'parent';
 
   @IsString()
   threadId: string;
