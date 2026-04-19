@@ -20,6 +20,7 @@ import { UsersModule } from './users/users.module';
 import { CategoriesModule } from './categories/categories.module';
 import { MessagesModule } from './messages/messages.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
+import { LeadModule } from './leads/lead.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { SubscriptionsModule } from './subscriptions/subscriptions.module';
     CategoriesModule,
     MessagesModule,
     SubscriptionsModule,
+    LeadModule,
   ],
   controllers: [AppController],
   providers: [AppService, AppResolver],
