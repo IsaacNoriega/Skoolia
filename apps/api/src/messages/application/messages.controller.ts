@@ -1,4 +1,5 @@
 
+
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import {
   CreateMessageUseCase,
@@ -52,7 +53,23 @@ export class MessagesController {
     // participantType debe ser 'parent' para usuarios públicos
     return this.listThreadsByParticipantUseCase.execute(userId, 'parent');
   }
+  // Obtener threads de cursos para el dueño del curso (escuela)
+  @Get('courses/me/threads')
+  async getCourseThreadsByOwner(@Query('ownerId') ownerId: string) {
+    // participantType debe ser 'course' para el dueño
+    return this.listThreadsByParticipantUseCase.execute(ownerId, 'course');
+  }
 
+  // Obtener mensajes de un curso para el dueño del curso (escuela)
+  @Get('courses/me/:courseId/:publicUserId/messages')
+  async getCourseThreadMessagesByOwner(
+    @Param('courseId') courseId: string,
+    @Param('publicUserId') publicUserId: string
+  ) {
+    // El threadId es courseId_publicUserId
+    const threadId = `${courseId}_${publicUserId}`;
+    return this.listMessagesByThreadUseCase.execute(threadId);
+  }
     // Obtener threads de cursos para el usuario autenticado (parent)
   @Get('courses/threads')
   async getCourseThreads(@Query('userId') userId: string) {
