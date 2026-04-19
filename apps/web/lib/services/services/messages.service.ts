@@ -44,8 +44,8 @@ export const messagesService = {
     });
   },
 
-  async listParentThreads() {
-    return api<ParentThread[]>('/messages/parents');
+  async listParentThreads(userId: string) {
+    return api<ParentThread[]>(`/messages/parents?userId=${userId}`);
   },
 
   async listParentThreadMessages(schoolId: string) {
