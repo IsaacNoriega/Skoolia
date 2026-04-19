@@ -37,10 +37,18 @@ export interface SchoolMessage {
 }
 
 export const messagesService = {
-  async sendParentMessage(schoolId: string, content: string) {
-    return api<ParentMessage>(`/messages/schools/${schoolId}`, {
+  async sendParentMessage(schoolId: string, content: string, userId: string) {
+    // Usa el endpoint /messages (POST) con el body esperado por el backend
+    return api<ParentMessage>(`/messages`, {
       method: 'POST',
-      body: { content },
+      body: {
+        content,
+        senderId: userId,
+        senderType: 'parent',
+        receiverId: schoolId,
+        receiverType: 'school',
+        threadId: `${schoolId}_${userId}`,
+      },
     });
   },
 
@@ -48,22 +56,36 @@ export const messagesService = {
     return api<ParentThread[]>(`/messages/parents?userId=${userId}`);
   },
 
-  async listParentThreadMessages(schoolId: string) {
-    return api<ParentMessage[]>(`/messages/parents/${schoolId}`);
+  async listParentThreadMessages(schoolId: string, userId: string) {
+    // El threadId es schoolId_userId
+    const threadId = `${schoolId}_${userId}`;
+    return api<ParentMessage[]>(`/messages/thread/${threadId}`);
   },
 
-  async listSchoolThreads() {
-    return api<SchoolThread[]>('/messages/schools/me');
+  async listSchoolThreads(ownerId: string) {
+    // Usa el endpoint existente de threads con participantType=school
+    return api<SchoolThread[]>(`/messages/threads?participantId=${ownerId}&participantType=school`);
   },
 
-  async listSchoolThreadMessages(publicUserId: string) {
-    return api<SchoolMessage[]>(`/messages/schools/me/${publicUserId}`);
+  async listSchoolThreadMessages(publicUserId: string, ownerId: string) {
+    // El threadId es ownerId_publicUserId
+    const threadId = `${ownerId}_${publicUserId}`;
+    return api<SchoolMessage[]>(`/messages/thread/${threadId}`);
   },
 
-  async sendSchoolMessage(publicUserId: string, content: string) {
-    return api<SchoolMessage>(`/messages/schools/me/${publicUserId}`, {
+  async sendSchoolMessage(publicUserId: string, content: string, schoolId: string) {
+    // El threadId es schoolId_publicUserId
+    const threadId = `${schoolId}_${publicUserId}`;
+    return api<SchoolMessage>(`/messages`, {
       method: 'POST',
-      body: { content },
+      body: {
+        content,
+        senderId: schoolId,
+        senderType: 'school',
+        receiverId: publicUserId,
+        receiverType: 'parent',
+        threadId,
+      },
     });
   },
 };
