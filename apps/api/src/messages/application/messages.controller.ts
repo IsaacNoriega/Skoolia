@@ -1,111 +1,82 @@
+
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import {
-  Body,
-  Controller,
-  Get,
-  Inject,
-  Param,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
-
-import { AuthGuard } from 'src/auth/application/guards/auth.guard';
-import { RolesGuard } from 'src/auth/application/guards/roles.guard';
-import { Roles } from 'src/auth/application/decorators/roles.decorator';
-import { CurrentUser } from 'src/auth/application/decorators/current-user.decorator';
-import type { JwtPayload } from 'src/auth/core/types/jwt-payload';
-
+  CreateMessageUseCase,
+  ListMessagesByThreadUseCase,
+  ListThreadsByParticipantUseCase,
+} from '../core/use-cases/message.use-cases';
 import { CreateMessageDto } from './dto/create-message.dto';
-
-import { CreateParentMessageUseCase } from '../core/use-cases/create-parent-message.use-case';
-import { ListParentThreadsUseCase } from '../core/use-cases/list-parent-threads.use-case';
-import { ListParentThreadMessagesUseCase } from '../core/use-cases/list-parent-thread-messages.use-case';
-import { ListSchoolThreadsUseCase } from '../core/use-cases/list-school-threads.use-case';
-import { ListSchoolThreadMessagesUseCase } from '../core/use-cases/list-school-thread-messages.use-case';
-import { CreateSchoolMessageUseCase } from '../core/use-cases/create-school-message.use-case';
 
 @Controller('messages')
 export class MessagesController {
   constructor(
-    @Inject(CreateParentMessageUseCase)
-    private readonly createParentMessage: CreateParentMessageUseCase,
-
-    @Inject(ListParentThreadsUseCase)
-    private readonly listParentThreads: ListParentThreadsUseCase,
-
-    @Inject(ListParentThreadMessagesUseCase)
-    private readonly listParentThreadMessages: ListParentThreadMessagesUseCase,
-
-    @Inject(ListSchoolThreadsUseCase)
-    private readonly listSchoolThreads: ListSchoolThreadsUseCase,
-
-    @Inject(ListSchoolThreadMessagesUseCase)
-    private readonly listSchoolThreadMessages: ListSchoolThreadMessagesUseCase,
-
-    @Inject(CreateSchoolMessageUseCase)
-    private readonly createSchoolMessage: CreateSchoolMessageUseCase,
+    private readonly createMessageUseCase: CreateMessageUseCase,
+    private readonly listMessagesByThreadUseCase: ListMessagesByThreadUseCase,
+    private readonly listThreadsByParticipantUseCase: ListThreadsByParticipantUseCase,
   ) {}
 
-  @Post('schools/:schoolId')
-  @UseGuards(AuthGuard, RolesGuard)
-  @Roles('public')
-  async sendParentMessage(
-    @CurrentUser() user: JwtPayload,
-    @Param('schoolId') schoolId: string,
-    @Body() dto: CreateMessageDto,
-  ) {
-    return this.createParentMessage.execute({
-      user,
-      schoolId,
-      content: dto.content,
-    });
+  @Post()
+  async create(@Body() dto: CreateMessageDto) {
+    return this.createMessageUseCase.execute(dto);
   }
 
+  @Get('thread/:threadId')
+  async getMessages(@Param('threadId') threadId: string) {
+    return this.listMessagesByThreadUseCase.execute(threadId);
+  }
+
+  @Get('threads')
+  async getThreads(
+    @Query('participantId') participantId: string,
+    @Query('participantType') participantType: 'parent' | 'school' | 'course',
+  ) {
+    return this.listThreadsByParticipantUseCase.execute(
+      participantId,
+      participantType,
+    );
+  }
+    // Obtener mensajes de un curso para el usuario autenticado
+  @Get('courses/:courseId/messages')
+  async getCourseMessages(
+    @Param('courseId') courseId: string,
+    @Query('userId') userId: string
+  ) {
+    // El threadId es courseId_userId
+      console.log('[getCourseMessages] Params:', { courseId, userId });
+      const threadId = `${courseId}_${userId}`;
+    return this.listMessagesByThreadUseCase.execute(threadId);
+  }
+  // Obtener threads de padres para el usuario autenticado
   @Get('parents')
-  @UseGuards(AuthGuard, RolesGuard)
-  @Roles('public')
-  async getParentThreads(@CurrentUser() user: JwtPayload) {
-    return this.listParentThreads.execute(user);
+  async getParentThreads(@Query('userId') userId: string) {
+    // participantType debe ser 'parent' para usuarios públicos
+    return this.listThreadsByParticipantUseCase.execute(userId, 'parent');
   }
 
-  @Get('parents/:schoolId')
-  @UseGuards(AuthGuard, RolesGuard)
-  @Roles('public')
-  async getParentThread(
-    @CurrentUser() user: JwtPayload,
-    @Param('schoolId') schoolId: string,
+    // Obtener threads de cursos para el usuario autenticado (parent)
+  @Get('courses/threads')
+  async getCourseThreads(@Query('userId') userId: string) {
+    // participantType debe ser 'parent' para usuarios públicos
+    return this.listThreadsByParticipantUseCase.execute(userId, 'parent');
+  }
+  // Nuevo endpoint para mensajes de curso
+  @Post('courses/:courseId')
+  async createCourseMessage(
+    @Param('courseId') courseId: string,
+    @Body() body: { content: string; senderId: string; senderType: 'parent' | 'school' }
   ) {
-    return this.listParentThreadMessages.execute({ user, schoolId });
-  }
-
-  @Get('schools/me')
-  @UseGuards(AuthGuard, RolesGuard)
-  @Roles('private')
-  async getSchoolThreads(@CurrentUser() user: JwtPayload) {
-    return this.listSchoolThreads.execute(user);
-  }
-
-  @Get('schools/me/:publicUserId')
-  @UseGuards(AuthGuard, RolesGuard)
-  @Roles('private')
-  async getSchoolThread(
-    @CurrentUser() user: JwtPayload,
-    @Param('publicUserId') publicUserId: string,
-  ) {
-    return this.listSchoolThreadMessages.execute({ user, publicUserId });
-  }
-
-  @Post('schools/me/:publicUserId')
-  @UseGuards(AuthGuard, RolesGuard)
-  @Roles('private')
-  async sendSchoolMessage(
-    @CurrentUser() user: JwtPayload,
-    @Param('publicUserId') publicUserId: string,
-    @Body() dto: CreateMessageDto,
-  ) {
-    return this.createSchoolMessage.execute({
-      user,
-      publicUserId,
-      content: dto.content,
-    });
+    // El threadId será courseId_senderId
+    const threadId = `${courseId}_${body.senderId}`;
+    // receiverType es 'course', receiverId es courseId
+    const messageDto = {
+      content: body.content,
+      senderId: body.senderId,
+      senderType: body.senderType,
+      receiverId: courseId,
+      receiverType: 'course' as 'course',
+      threadId,
+    };
+    // Esto creará el thread si no existe (por la lógica actual)
+    return this.createMessageUseCase.execute(messageDto);
   }
 }

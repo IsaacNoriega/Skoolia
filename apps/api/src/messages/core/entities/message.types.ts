@@ -1,3 +1,51 @@
+export class Message {
+  id: string;
+  content: string;
+  createdAt: Date;
+  senderId: string;
+  senderType: 'parent' | 'school';
+  receiverId: string;
+  receiverType: 'school' | 'course';
+  threadId: string;
+}
+
+export type MessageThread = {
+  id: string;
+  participants: Array<{ id: string; type: 'parent' | 'school' | 'course' }>;
+  lastMessageAt: Date;
+};
+// Mensajes de curso
+export interface CourseMessage {
+  id: string;
+  courseId: string;
+  publicUserId: string;
+  senderRole: 'public' | 'private';
+  content: string;
+  readAt?: string;
+  createdAt: string;
+}
+
+export interface CourseThreadSummary {
+  courseId: string;
+  courseName: string;
+  lastMessage: string;
+  lastMessageAt: string;
+  lastSenderRole: 'public' | 'private';
+  unreadCount: number;
+  threadHasUnread: boolean;
+}
+
+export interface CourseThreadSummaryForOwner {
+  courseId: string;
+  courseName: string;
+  publicUserId: string;
+  publicUserName: string;
+  lastMessage: string;
+  lastMessageAt: string;
+  lastSenderRole: 'public' | 'private';
+  unreadCount: number;
+  threadHasUnread: boolean;
+}
 export type SenderRole = 'public' | 'private';
 
 export interface SchoolMessage {
