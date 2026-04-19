@@ -1,5 +1,6 @@
 "use client";
 import { courseMessagesService, CourseThreadForOwner, CourseMessage } from "@/lib/services/services/course-messages.service";
+import { useAuth } from "@/contexts/AuthContext";
 import React from "react";
 
 interface SelectedThread {
@@ -50,6 +51,7 @@ function CourseMessageConversationOwner({ courseId, publicUserId, publicUserName
 }
 
 export default function CourseMessagesSection() {
+  const { user } = useAuth();
   const [threads, setThreads] = React.useState<CourseThreadForOwner[]>([]);
   const [selected, setSelected] = React.useState<SelectedThread | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -61,7 +63,8 @@ export default function CourseMessagesSection() {
       setLoading(true);
       setError(null);
       try {
-        const data = await courseMessagesService.listCourseThreadsByOwner();
+        if (!user) return;
+        const data = await courseMessagesService.listCourseThreadsByOwner(user.id);
         if (mounted) setThreads(data);
       } catch (err: any) {
         setError(err?.data?.error || err?.message || 'Error desconocido');
@@ -71,7 +74,7 @@ export default function CourseMessagesSection() {
       }
     })();
     return () => { mounted = false; };
-  }, []);
+  }, [user]);
 
   if (loading) return <div>Cargando...</div>;
   if (error) return <div className="text-red-500 font-bold">Error: {error}</div>;

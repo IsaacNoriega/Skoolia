@@ -41,8 +41,8 @@ export const courseMessagesService = {
   },
   
   // ----------- PRIVADO (dueño del curso) -----------
-  async listCourseThreadsByOwner() {
-    return api<CourseThreadForOwner[]>(`/messages/courses/me/threads`);
+  async listCourseThreadsByOwner(ownerId: string) {
+    return api<CourseThreadForOwner[]>(`/messages/courses/me/threads?ownerId=${ownerId}`);
   },
   
   async listCourseThreadMessagesByOwner(courseId: string, publicUserId: string) {
