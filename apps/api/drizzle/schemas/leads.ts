@@ -14,12 +14,11 @@ export const leadOriginTypeEnum = pgEnum('lead_origin_type', [
 ]);
 
 export const leadTriggerEnum = pgEnum('lead_trigger', [
-  'WEB',
-  'WHATSAPP',
-  'CALL',
-  'EMAIL',
-  'MANUAL',
   'FAVORITE',
+  'VIEW_MORE',
+  'SCHEDULE_VISIT',
+  'INFO_REQUEST',
+  'CONTACT',
 ]);
 
 export const leads = pgTable('leads', {

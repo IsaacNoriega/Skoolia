@@ -1,3 +1,3 @@
 export type LeadStatus = 'NUEVO' | 'INTERESADO' | 'VISITA' | 'INSCRITO';
 export type LeadOriginType = 'SCHOOL' | 'COURSE' | 'OTHER';
-export type LeadTrigger = 'WEB' | 'WHATSAPP' | 'CALL' | 'EMAIL' | 'MANUAL';
+export type LeadTrigger = 'FAVORITE' | 'VIEW_MORE' | 'SCHEDULE_VISIT' | 'INFO_REQUEST' | 'CONTACT';
