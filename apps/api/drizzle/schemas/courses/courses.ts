@@ -62,7 +62,10 @@ export const courses = pgTable(
     latitude: doublePrecision('latitude'),
     longitude: doublePrecision('longitude'),
 
+
     averageRating: doublePrecision('average_rating').default(0).notNull(),
+
+    favoritesCount: integer('favorites_count').default(0).notNull(),
 
     enrollmentsCount: integer('enrollments_count').default(0).notNull(),
 

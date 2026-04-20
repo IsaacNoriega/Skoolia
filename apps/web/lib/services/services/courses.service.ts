@@ -60,4 +60,14 @@ export const coursesService = {
   async getById(courseId: string) {
     return api<Course>(`/courses/${courseId}`);
   },
+  async toggleFavorite(courseId: string) {
+    return api<{ isFavorite: boolean }>(
+      `/courses/${courseId}/favorite`,
+      { method: 'POST' }
+    );
+  },
+  async listFavoritesForMe() {
+    // Si implementas endpoint para listar favoritos de cursos
+    return api<Course[]>(`/courses/favorites/me`);
+  },
 };
