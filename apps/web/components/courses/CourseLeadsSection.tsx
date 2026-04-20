@@ -24,18 +24,28 @@ export default function CourseLeadsSection() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      console.log("[Leads] No user", { userId: user?.id });
+      return;
+    }
     setLoading(true);
     setError(null);
-    api(`/leads/school?originType=COURSE`, { method: "GET" })
-      .then((data) => setLeads(data as Lead[]))
-      .catch(() => setError("No se pudieron cargar los leads de cursos."))
+    console.log(`[Leads] Fetching all leads for user`);
+    api(`/leads/courses`, { method: "GET" })
+      .then((data) => {
+        console.log("[Leads] Datos recibidos:", data);
+        setLeads(data as Lead[]);
+      })
+      .catch((err) => {
+        console.error("[Leads] Error cargando leads:", err);
+        setError("No se pudieron cargar los leads de cursos.");
+      })
       .finally(() => setLoading(false));
   }, [user?.id]);
 
   return (
     <section>
-      <h2 className="text-xl font-bold mb-4">Prospectos de cursos</h2>
+      <h2 className="text-xl font-bold mb-4">Prospectos de todos tus cursos</h2>
       <div className="bg-white rounded-lg shadow p-6">
         {loading ? (
           <p className="text-slate-500">Cargando leads...</p>

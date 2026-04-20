@@ -19,6 +19,7 @@ export const leadTriggerEnum = pgEnum('lead_trigger', [
   'SCHEDULE_VISIT',
   'INFO_REQUEST',
   'CONTACT',
+  'INSCRIBIRME',
 ]);
 
 export const leads = pgTable('leads', {
