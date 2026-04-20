@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import CatalogCard from "../layout/CatalogCard";
+import { useAuth } from "@/contexts/AuthContext";
+import { useLeadTracking } from "@/lib/hooks/useLeadTracking";
 import FavoritesEmptyState from "./FavoritesEmptyState";
 import FavoriteDetailModal from "./FavoriteDetailModal";
 import { favoritesService } from "@/lib/services/services/favorites.service";
@@ -24,6 +26,8 @@ type FavoriteItem = {
 };
 
 export default function FavoritesGrid() {
+    const { user } = useAuth();
+    const { trackLead } = useLeadTracking({ userId: user?.id || "" });
   const [open, setOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [items, setItems] = useState<FavoriteItem[]>([]);
@@ -225,12 +229,33 @@ export default function FavoritesGrid() {
                 location={item.location}
                 priceLabel="MENSUALIDAD"
                 price={item.price}
-                onCardClick={() => openModal(item)}
+                onCardClick={async () => {
+                  openModal(item);
+                  if (user?.id) {
+                    await trackLead({
+                      targetId: item.id,
+                      originType: "SCHOOL",
+                      trigger: "VIEW_MORE",
+                      status: "INTERESADO",
+                    });
+                  }
+                }}
                 onAction={() => openModal(item)}
                 isFavorite={true}
                 className={isComparing ? "ring-2 ring-indigo-500" : ""}
                 onFavoriteToggle={async () => {
                   await favoritesService.toggle(item.id);
+                  if (user?.id) {
+                    const leadPayload = {
+                      targetId: item.id,
+                      originType: "SCHOOL",
+                      trigger: "FAVORITE",
+                      status: "INTERESADO",
+                    };
+                    console.log("[Favoritos] Enviando a trackLead:", { userId: user.id, ...leadPayload });
+                    const leadResult = await trackLead({ ...leadPayload });
+                    console.log("[Favoritos] Respuesta de trackLead:", leadResult);
+                  }
                   // optimistically remove from list
                   setItems((prev) => prev.filter((x) => x.id !== item.id));
                   setCompareIds((prev) => prev.filter((id) => id !== item.id));

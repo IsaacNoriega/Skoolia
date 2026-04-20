@@ -9,6 +9,7 @@ import { messagesService } from '@/lib/services/services/messages.service';
 import { courseMessagesService } from '@/lib/services/services/course-messages.service';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLeadTracking } from '@/lib/hooks/useLeadTracking';
 import { sanitizeImageSrc } from '@/lib/utils';
 
 type Item = {
@@ -43,6 +44,7 @@ export default function FavoriteDetailModal({
 }): JSX.Element | null {
   const router = useRouter();
   const { user } = useAuth();
+  const { trackLead } = useLeadTracking({ userId: user?.id || "" });
   const { showToast } = useToast();
   const [sending, setSending] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -107,11 +109,23 @@ export default function FavoriteDetailModal({
       if (isCourse) {
         if (!user) throw new Error('Usuario no autenticado');
         await courseMessagesService.sendCourseMessage(item.id, 'Hola, me interesa conocer más información de este curso.', { id: user.id, role: user.role });
+        await trackLead({
+          targetId: item.id,
+          originType: "COURSE",
+          trigger: "INFO_REQUEST",
+          status: "INTERESADO",
+        });
         onClose();
         router.push(`/parents/messages/courses/${item.id}`);
       } else {
         if (!user) throw new Error('Usuario no autenticado');
         await messagesService.sendParentMessage(item.id, 'Hola, me interesa conocer mas informacion de su escuela.', user.id);
+        await trackLead({
+          targetId: item.id,
+          originType: "SCHOOL",
+          trigger: "INFO_REQUEST",
+          status: "INTERESADO",
+        });
         onClose();
         router.push(`/parents/messages/${item.id}`);
       }
@@ -296,8 +310,16 @@ export default function FavoriteDetailModal({
                 </button>
                 <button
                   className="group flex-1 sm:flex-initial w-full sm:w-auto rounded-full border border-slate-200 bg-gradient-to-b from-white to-slate-50 px-6 py-2 text-sm font-bold text-slate-700 shadow-sm transition-all hover:-translate-y-[1px] hover:border-slate-300 hover:from-slate-50 hover:to-slate-100 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 disabled:opacity-60 disabled:cursor-not-allowed"
-                  onClick={() => {
+                  onClick={async () => {
                     if (!item.id) return;
+                    if (user?.id) {
+                      await trackLead({
+                        targetId: item.id,
+                        originType: item.level && item.level.toLowerCase().includes("curso") ? "COURSE" : "SCHOOL",
+                        trigger: "VIEW_MORE",
+                        status: "INTERESADO",
+                      });
+                    }
                     onClose();
                     if (item.level && item.level.toLowerCase().includes("curso")) {
                       router.push(`/search/course/${item.id}`);
