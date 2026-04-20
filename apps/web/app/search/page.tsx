@@ -383,20 +383,22 @@ export default function SearchPage() {
     })();
   };
 
-  const handleFavoriteToggle = async (schoolId: string, e?: React.MouseEvent) => {
+  const handleFavoriteToggle = async (id: string, e?: React.MouseEvent, typeLabel?: string) => {
     // Evitar que el click se propague al card
     e?.stopPropagation();
-    
     try {
-      const result = await favoritesService.toggle(schoolId);
-      
-      // Actualizar el estado local optimistamente
+      let result;
+      if (typeLabel === "CURSO") {
+        result = await coursesService.toggleFavorite(id);
+      } else {
+        result = await favoritesService.toggle(id);
+      }
       setFavoriteIds(prev => {
         const newSet = new Set(prev);
         if (result.isFavorite) {
-          newSet.add(schoolId);
+          newSet.add(id);
         } else {
-          newSet.delete(schoolId);
+          newSet.delete(id);
         }
         return newSet;
       });
@@ -459,7 +461,7 @@ export default function SearchPage() {
             key={it.id}
             {...it}
             isFavorite={favoriteIds.has(it.id)}
-            onFavoriteToggle={(e) => handleFavoriteToggle(it.id, e)}
+            onFavoriteToggle={(e) => handleFavoriteToggle(it.id, e, it.typeLabel)}
             onCardClick={() => openModal(it)}
             onAction={() => openModal(it)}
           >
