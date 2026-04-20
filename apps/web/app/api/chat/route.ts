@@ -676,8 +676,8 @@ export async function POST(request: Request) {
 		// Cargar cursos si existe tabla courses
 		let allCourses: Array<any> = [];
 		try {
-			// @ts-ignore
-				const { courses } = await import("drizzle/schemas/courses");
+			       // @ts-ignore
+				       const { courses } = await import("../../../../api/drizzle/schemas/courses");
 			allCourses = await db
 				.select({
 					id: courses.id,
