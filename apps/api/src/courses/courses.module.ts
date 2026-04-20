@@ -1,3 +1,6 @@
+import { ToggleCourseFavoriteUseCase } from './core/use-cases/toggle-course-favorite.use-case';
+import { COURSE_FAVORITES_REPOSITORY } from './core/ports/course-favorites.tokens';
+import { DrizzleCourseFavoritesRepository } from './infrastructure/adapters/drizzle-course-favorites.repository';
 import { Module } from '@nestjs/common';
 import { DbModule } from 'src/db/db.module';
 import { SchoolsModule } from 'src/schools/schools.module';
@@ -29,11 +32,16 @@ import { COURSE_REPOSITORY } from './core/ports/tokens';
     ListPublicCoursesBySchoolUseCase,
     ListPublicCoursesUseCase,
     GetCourseByIdUseCase,
+    ToggleCourseFavoriteUseCase,
     {
       provide: COURSE_REPOSITORY,
       useClass: DrizzleCourseRepository,
     },
+    {
+      provide: COURSE_FAVORITES_REPOSITORY,
+      useClass: DrizzleCourseFavoritesRepository,
+    },
   ],
-  exports: [COURSE_REPOSITORY],
+  exports: [COURSE_REPOSITORY, COURSE_FAVORITES_REPOSITORY],
 })
 export class CoursesModule {}

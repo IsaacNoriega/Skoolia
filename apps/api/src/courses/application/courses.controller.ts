@@ -1,3 +1,5 @@
+
+import { ToggleCourseFavoriteUseCase } from '../core/use-cases/toggle-course-favorite.use-case';
 import {
   Body,
   Controller,
@@ -54,7 +56,19 @@ export class CoursesController {
     private readonly listPublicCourses: ListPublicCoursesUseCase,
     @Inject(GetCourseByIdUseCase)
     private readonly getCourseById: GetCourseByIdUseCase,
+    @Inject(ToggleCourseFavoriteUseCase)
+    private readonly toggleCourseFavorite: ToggleCourseFavoriteUseCase,
   ) {}
+
+  /**
+   * ❤️ Toggle favorite for course
+   * POST /courses/:id/favorite
+   */
+  @Post(':id/favorite')
+  @UseGuards(AuthGuard)
+  async toggleFavorite(@Param('id') courseId: string, @CurrentUser() user: JwtPayload) {
+    return this.toggleCourseFavorite.execute(user, courseId);
+  }
 
   @Get('me')
   @UseGuards(AuthGuard, RolesGuard)

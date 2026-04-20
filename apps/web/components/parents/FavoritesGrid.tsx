@@ -65,13 +65,41 @@ export default function FavoritesGrid() {
       try {
         const data = await favoritesService.listForMe();
         if (!mounted) return;
-        const mapped: FavoriteItem[] = data.map((s) => ({
-          id: s.id,
-          imageUrl: resolveSchoolCardImage(s.id, s.coverImageUrl),
-          title: s.name,
-          location: s.city ?? "",
-          price: s.monthlyPrice ?? "N/A",
-        }));
+        const mapped: FavoriteItem[] = data.map((fav) => {
+          if (fav.type === "SCHOOL") {
+            return {
+              id: fav.id,
+              imageUrl: resolveSchoolCardImage(fav.id, fav.coverImageUrl),
+              title: fav.name,
+              location: fav.city ?? "",
+              price: fav.monthlyPrice ?? "N/A",
+              description: fav.description,
+              rating: fav.averageRating,
+              schedule: fav.schedule,
+              languages: fav.languages,
+              studentsPerClass: fav.maxStudentsPerClass,
+              enrollmentOpen: fav.enrollmentOpen,
+              enrollmentYear: fav.enrollmentYear,
+              monthlyPrice: fav.monthlyPrice,
+            };
+          } else {
+            // COURSE
+            return {
+              id: fav.id,
+              imageUrl: fav.coverImageUrl,
+              title: fav.name,
+              location: fav.city ?? "",
+              price: fav.price ?? "N/A",
+              description: fav.description,
+              schedule: fav.startDate ? `Inicio: ${fav.startDate}` : undefined,
+              languages: fav.languages,
+              studentsPerClass: fav.capacity,
+              enrollmentOpen: undefined,
+              enrollmentYear: undefined,
+              monthlyPrice: undefined,
+            };
+          }
+        });
         setItems(mapped);
       } finally {
         setLoading(false);
