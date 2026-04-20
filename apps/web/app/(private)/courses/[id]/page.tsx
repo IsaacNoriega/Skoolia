@@ -2,10 +2,13 @@
 import { useEffect, useState } from "react";
 import { coursesService, Course } from "@/lib/services/services/courses.service";
 import { useParams, useRouter } from "next/navigation";
+import { useLeadTracking } from "@/lib/hooks/useLeadTracking";
+import { useAuth } from "@/contexts/AuthContext";
 
-export default function CourseDetailsPage() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
+  const { trackLead } = useLeadTracking({ userId: user?.id || "" });
   const [course, setCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +44,15 @@ export default function CourseDetailsPage() {
           isActive: data.isActive,
           status: data.status || "draft",
         });
+        // Registrar lead cuando un padre ve la página de detalles
+        if (user?.id && data.id) {
+          trackLead({
+            targetId: data.id,
+            originType: "COURSE",
+            trigger: "VIEW",
+            status: "INTERESADO",
+          });
+        }
       } catch (e) {
         setError("No se pudo cargar el curso");
         setCourse(null);
@@ -49,7 +61,8 @@ export default function CourseDetailsPage() {
       }
     };
     fetchCourse();
-  }, [params.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.id, user?.id]);
 
   const handleEdit = () => setEditMode(true);
   const handleCancel = () => {

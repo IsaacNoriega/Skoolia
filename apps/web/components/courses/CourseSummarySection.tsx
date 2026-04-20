@@ -114,7 +114,7 @@ export default function CoursesDashboard() {
                       trackLead({
                         targetId: course.id,
                         originType: "COURSE",
-                        trigger: "VIEW",
+                        trigger: "VIEW_MORE",
                         status: "INTERESADO",
                       });
                       router.push(`/courses/${course.id}`);
@@ -124,12 +124,15 @@ export default function CoursesDashboard() {
                   </button>
                   <button
                     className="flex items-center gap-1 text-xs bg-blue-100 px-3 py-1 rounded-lg hover:bg-blue-200"
-                    onClick={() => trackLead({
-                      targetId: course.id,
-                      originType: "COURSE",
-                      trigger: "FAVORITE",
-                      status: "INTERESADO",
-                    })}
+                    onClick={() => {
+                      trackLead({
+                        targetId: course.id,
+                        originType: "COURSE",
+                        trigger: "FAVORITE",
+                        status: "INTERESADO",
+                      });
+                      // Aquí podrías agregar lógica para marcar como favorito en el backend/local
+                    }}
                   >
                     ⭐ Favorito
                   </button>
