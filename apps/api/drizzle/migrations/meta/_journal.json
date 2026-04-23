@@ -50,6 +50,27 @@
       "when": 1776660633948,
       "tag": "0006_third_rage",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1776811098139,
+      "tag": "0007_handy_hawkeye",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1776904482629,
+      "tag": "0008_absurd_black_bolt",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1776907318103,
+      "tag": "0009_odd_vertigo",
+      "breakpoints": true
     }
   ]
 }
