@@ -45,10 +45,9 @@ export class DrizzleSchoolRepository implements SchoolRepository {
       const [freemiumPlan] = await tx
         .select({
           id: plans.id,
-          interval: plans.interval,
         })
         .from(plans)
-        .where(eq(plans.name, 'Freemium'))
+        .where(eq(plans.name, 'FREEMIUM'))
         .limit(1);
 
       if (!freemiumPlan) {
@@ -66,19 +65,16 @@ export class DrizzleSchoolRepository implements SchoolRepository {
         })
         .returning();
 
-      const currentPeriodEnd = new Date(now);
-      if (freemiumPlan.interval === 'yearly') {
-        currentPeriodEnd.setFullYear(currentPeriodEnd.getFullYear() + 1);
-      } else {
-        currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
-      }
+      const endDate = new Date(now);
+      // Freemium se asigna por 1 año por defecto
+      endDate.setFullYear(endDate.getFullYear() + 1);
 
       await tx.insert(schoolSubscriptions).values({
         schoolId: school.id,
         planId: freemiumPlan.id,
         status: 'active',
-        currentPeriodStart: now,
-        currentPeriodEnd,
+        startDate: now,
+        endDate: endDate,
       });
 
       return school;
@@ -313,24 +309,24 @@ export class DrizzleSchoolRepository implements SchoolRepository {
       whereConditions.push(lt(schools.createdAt, cursorDate));
     }
 
-    // 🔥 Construcción dinámica SIN romper tipos
+    // Priorización por plan: PREMIUM_SUBSCRIPTION primero
     const logoFile = alias(files, 'logo_file');
     const coverFile = alias(files, 'cover_file');
+    const sub = alias(schoolSubscriptions, 'sub');
+    const plan = alias(plans, 'plan');
 
+    // plan_priority: 2 = PREMIUM_SUBSCRIPTION, 1 = otros
     const queryBuilder = this.db.select({
       id: schools.id,
       name: schools.name,
       description: schools.description,
-
       logoUrl: logoFile.url,
       coverImageUrl: coverFile.url,
-
       address: schools.address,
       city: schools.city,
       state: schools.state,
       latitude: schools.latitude,
       longitude: schools.longitude,
-
       educationalLevel: schools.educationalLevel,
       institutionType: schools.institutionType,
       schedule: schools.schedule,
@@ -339,18 +335,17 @@ export class DrizzleSchoolRepository implements SchoolRepository {
       enrollmentYear: schools.enrollmentYear,
       enrollmentOpen: schools.enrollmentOpen,
       monthlyPrice: schools.monthlyPrice,
-
       averageRating: schools.averageRating,
       ratingsCount: schools.ratingsCount,
       favoritesCount: schools.favoritesCount,
       rankingScore: schools.rankingScore,
-
       isFeatured: schools.isFeatured,
       isVerified: schools.isVerified,
-
       ownerId: schools.ownerId,
       createdAt: schools.createdAt,
       updatedAt: schools.updatedAt,
+      planName: plan.name,
+      planPriority: sql`CASE WHEN plan.name = 'PREMIUM_SUBSCRIPTION' THEN 2 ELSE 1 END`,
     });
 
     const fromBuilder = filters.categoryId
@@ -358,6 +353,8 @@ export class DrizzleSchoolRepository implements SchoolRepository {
           .from(schools)
           .leftJoin(logoFile, eq(logoFile.id, schools.logoUrl))
           .leftJoin(coverFile, eq(coverFile.id, schools.coverImageUrl))
+          .innerJoin(sub, eq(sub.schoolId, schools.id))
+          .innerJoin(plan, eq(plan.id, sub.planId))
           .innerJoin(
             schoolCategories,
             eq(schoolCategories.schoolId, schools.id),
@@ -365,19 +362,25 @@ export class DrizzleSchoolRepository implements SchoolRepository {
       : queryBuilder
           .from(schools)
           .leftJoin(logoFile, eq(logoFile.id, schools.logoUrl))
-          .leftJoin(coverFile, eq(coverFile.id, schools.coverImageUrl));
+          .leftJoin(coverFile, eq(coverFile.id, schools.coverImageUrl))
+          .innerJoin(sub, eq(sub.schoolId, schools.id))
+          .innerJoin(plan, eq(plan.id, sub.planId));
+
+    // Solo suscripción activa
+    whereConditions.push(eq(sub.status, 'active'));
+    whereConditions.push(sql`${sub.startDate} <= now()`);
+    whereConditions.push(sql`${sub.endDate} >= now()`);
 
     const whereBuilder =
       whereConditions.length > 0
         ? fromBuilder.where(and(...whereConditions))
         : fromBuilder;
 
-    const orderedBuilder =
-      filters.sortBy === 'favorites'
-        ? whereBuilder.orderBy(desc(schools.favoritesCount))
-        : filters.sortBy === 'rating'
-          ? whereBuilder.orderBy(desc(schools.averageRating))
-          : whereBuilder.orderBy(desc(schools.createdAt));
+    // Priorización: PREMIUM primero, luego por fecha
+    const orderedBuilder = whereBuilder.orderBy(
+      desc(sql`CASE WHEN plan.name = 'PREMIUM_SUBSCRIPTION' THEN 2 ELSE 1 END`),
+      desc(schools.createdAt)
+    );
 
     const limit = pagination?.first ?? 10;
 

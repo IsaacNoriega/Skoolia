@@ -1,5 +1,19 @@
 export type CourseStatus = 'draft' | 'published' | 'archived';
 
+export interface CourseSubscription {
+  subscriptionId: string;
+  courseId: string;
+  status: 'active' | 'past_due' | 'canceled';
+  currentPeriodStart: Date;
+  currentPeriodEnd: Date;
+  plan: {
+    id: string;
+    name: string;
+    price: number;
+    features: string[];
+  };
+}
+
 export interface Course {
   ownerId: string;
   id: string;
@@ -32,4 +46,6 @@ export interface Course {
 
   createdAt: Date;
   updatedAt: Date;
+
+  subscription?: CourseSubscription | null;
 }

@@ -46,12 +46,13 @@ export class UpdateCourseUseCase {
       throw new ForbiddenException('You cannot update a course you do not own');
     }
 
-    // Si tiene escuela, validar que sea dueño de la escuela (opcional, puedes quitar este bloque si ya no aplica)
-    // if (course.schoolId && course.schoolId !== school.id) {
-    //   throw new ForbiddenException(
-    //     'You cannot update a course from another school',
-    //   );
-    // }
+    // Validar features del plan de suscripción
+    // Si el curso tiene suscripción y el plan no permite editar, lanzar error
+    if (course.subscription && course.subscription.plan && Array.isArray(course.subscription.plan.features)) {
+      if (!course.subscription.plan.features.includes('edit_course')) {
+        throw new ForbiddenException('El plan de suscripción de este curso no permite editarlo.');
+      }
+    }
 
     return this.courseRepository.update({
       courseId: params.courseId,
