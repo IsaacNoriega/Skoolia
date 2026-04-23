@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Heart, ImageIcon, MapPin, ArrowRight, Users } from "lucide-react";
 import React from "react";
 import { sanitizeImageSrc } from "@/lib/utils";
+import { PlanBadge } from "./PlanBadge";
 
 type CatalogCardProps = {
   imageSrc?: string;
@@ -26,6 +27,7 @@ type CatalogCardProps = {
   studentsPerClass?: number | string;
   description?: string;
   institutionType?: string;
+  planName?: string;
 };
 
 export default function CatalogCard({
@@ -48,15 +50,17 @@ export default function CatalogCard({
   studentsPerClass,
   description,
   institutionType,
+  planName,
 }: CatalogCardProps) {
   const safeImageSrc = sanitizeImageSrc(imageSrc);
   // Log para depuración
   console.log("CatalogCard props", { priceFormatted, title, name: title });
 
+  const isPremium = planName === "PREMIUM_SUBSCRIPTION";
   return (
     <article
       onClick={onCardClick}
-      className={`surface group overflow-hidden rounded-4xl bg-white transition-all duration-300 border border-slate-200 ${
+      className={`surface group overflow-hidden rounded-4xl bg-white transition-all duration-300 border ${isPremium ? 'border-4 border-yellow-400 shadow-xl scale-[1.03]' : 'border-slate-200'} ${
         onCardClick ? 'cursor-pointer hover:-translate-y-0.5 hover:shadow-lg' : 'hover:-translate-y-0.5 hover:shadow-lg'
       } ${className}`}
     >
@@ -80,9 +84,15 @@ export default function CatalogCard({
           </div>
         )}
 
+        {/* Badge de plan */}
+        {planName && (
+          <div className="absolute left-4 top-4 z-10">
+            <PlanBadge plan={planName} />
+          </div>
+        )}
         {/* Tags */}
         {tags && tags.length > 0 && (
-          <div className="pointer-events-none absolute left-4 top-4 flex flex-wrap gap-2">
+          <div className="pointer-events-none absolute left-4 bottom-4 flex flex-wrap gap-2">
             {tags.map((tag) => (
               <span
                 key={tag}

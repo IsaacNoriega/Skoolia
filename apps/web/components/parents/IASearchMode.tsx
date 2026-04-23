@@ -571,6 +571,7 @@ export function AISearchMode({ onClose }: AISearchModeProps) {
                         });
                       }
                     }}
+                    planName={school.planName}
                   />
                 </div>
               ))}

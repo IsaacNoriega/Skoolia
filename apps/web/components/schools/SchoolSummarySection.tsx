@@ -76,16 +76,23 @@ export default function SchoolSummarySection() {
         const fetchData = async () => {
             try {
                 setLoading(true);
-                const [schoolData, threadData, coursesData] = await Promise.all([
+                // Obtenemos la escuela y los cursos en paralelo
+                const [schoolData, coursesData] = await Promise.all([
                     schoolsService.getMySchool(),
-                    messagesService.listSchoolThreads(),
                     coursesService.listMine(),
                 ]);
 
                 if (mounted) {
                     setSchool(schoolData);
-                    setThreads(threadData);
                     setCourses(coursesData);
+                }
+
+                // Obtenemos los threads usando el ID de la escuela
+                if (schoolData?.id) {
+                    const threadData = await messagesService.listSchoolThreads(schoolData.id);
+                    if (mounted) {
+                        setThreads(threadData);
+                    }
                 }
             } catch (err) {
                 if (mounted) setError("No se pudo cargar el resumen de tu escuela.");

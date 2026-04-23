@@ -295,6 +295,7 @@ export default function FavoritesGrid() {
                   });
                 }}
                 priceFormatted={""}
+                planName={item.planName}
               />
             </div>
           );
