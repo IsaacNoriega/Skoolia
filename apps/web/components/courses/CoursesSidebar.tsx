@@ -17,11 +17,11 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const sections = [
 	{ icon: <Activity size={18} />, label: "Vista general", href: "/courses", key: "summary" },
-	{ icon: <Layers3 size={18} />, label: "Oferta académica", href: "/courses/offer", key: "courses" },
+	{ icon: <Layers3 size={18} />, label: "Oferta académica", href: "/courses/academic", key: "courses" },
 	{ icon: <Users size={18} />, label: "Prospectos", href: "/courses/leads", key: "leads" },
 	{ icon: <MessageCircle size={18} />, label: "Mensajería", href: "/courses/messages", key: "messages" },
 	{ icon: <Inbox size={18} />, label: "Envíos Masivos", href: "/courses/broadcasts", key: "broadcasts" },
-	{ icon: <Megaphone size={18} />, label: "Ofertas & Promos", href: "/courses/offers", key: "offers" },
+	{ icon: <Megaphone size={18} />, label: "Ofertas & Promos", href: "/courses/offer", key: "offers" },
 	{ icon: <CreditCard size={18} />, label: "Planes & Pagos", href: "/courses/plans", key: "plans" },
 	{ icon: <Settings size={18} />, label: "Configuración", href: "/courses/settings", key: "settings" },
 ];
@@ -50,9 +50,10 @@ export default function CoursesSidebar({ active = "summary" }: Props) {
 		<aside className="flex w-full max-w-72 flex-col gap-3 sm:gap-4">
 			<div className="surface rounded-3xl bg-white p-4 shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
 				<div className="flex flex-col gap-2">
-					{sections.map((section) => (
-						<Item key={section.key} {...section} isActive={active === section.key} />
-					))}
+					{sections.map((section) => {
+						const { key, ...rest } = section;
+						return <Item key={key} {...rest} isActive={active === key} />;
+					})}
 				</div>
 				<div className="mt-4 border-t border-slate-100 pt-3">
 					<button

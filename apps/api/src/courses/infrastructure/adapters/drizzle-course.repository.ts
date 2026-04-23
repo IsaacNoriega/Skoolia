@@ -1,5 +1,7 @@
+import { courseSubscriptions } from 'drizzle/schemas/courses';
+import { plans } from 'drizzle/schemas/schools/plans';
 import { Inject, Injectable } from '@nestjs/common';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, gte } from 'drizzle-orm';
 import { courses } from 'drizzle/schemas/courses/courses';
 import { CourseRepository } from 'src/courses/core/ports/course.repository';
 import { Course } from 'src/courses/core/entities/course.types';
@@ -12,8 +14,52 @@ import { alias } from 'drizzle-orm/pg-core';
 export class DrizzleCourseRepository implements CourseRepository {
   constructor(@Inject(DATABASE) private readonly db: dbTypes.Database) {}
 
+  async getActiveSubscription(courseId: string) {
+    const now = new Date();
+
+    const [row] = await this.db
+      .select({
+        subscriptionId: courseSubscriptions.id,
+        courseId: courseSubscriptions.courseId,
+        status: courseSubscriptions.status,
+        currentPeriodStart: courseSubscriptions.currentPeriodStart,
+        currentPeriodEnd: courseSubscriptions.currentPeriodEnd,
+        planId: plans.id,
+        planName: plans.name,
+        planPrice: plans.price,
+        planFeatures: plans.features,
+      })
+      .from(courseSubscriptions)
+      .innerJoin(plans, eq(plans.id, courseSubscriptions.planId))
+      .where(
+        and(
+          eq(courseSubscriptions.courseId, courseId),
+          eq(courseSubscriptions.status, 'active'),
+          gte(courseSubscriptions.currentPeriodEnd, now),
+        ),
+      )
+      .limit(1);
+
+    if (!row) return null;
+
+    return {
+      subscriptionId: row.subscriptionId,
+      courseId: row.courseId,
+      status: row.status,
+      currentPeriodStart: row.currentPeriodStart,
+      currentPeriodEnd: row.currentPeriodEnd,
+      plan: {
+        id: row.planId,
+        name: row.planName,
+        price: row.planPrice,
+        features: row.planFeatures,
+      },
+    };
+  }
+
   async create(params: {
     schoolId?: string | null;
+    ownerId: string;
     name: string;
     description?: string;
     coverImageUrl?: string;
@@ -22,11 +68,17 @@ export class DrizzleCourseRepository implements CourseRepository {
     startDate?: Date;
     endDate?: Date;
     modality?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    latitude?: number;
+    longitude?: number;
   }): Promise<Course> {
     const [course] = await this.db
       .insert(courses)
       .values({
         schoolId: params.schoolId ?? null,
+        ownerId: params.ownerId,
         name: params.name,
         description: params.description ?? null,
         coverImageUrl: params.coverImageUrl ?? null,
@@ -35,10 +87,15 @@ export class DrizzleCourseRepository implements CourseRepository {
         startDate: params.startDate ?? null,
         endDate: params.endDate ?? null,
         modality: params.modality ?? null,
+        address: params.address ?? null,
+        city: params.city ?? null,
+        state: params.state ?? null,
+        latitude: params.latitude ?? null,
+        longitude: params.longitude ?? null,
       })
       .returning();
 
-    return course;
+    return { ...course, ownerId: course.ownerId ?? '' };
   }
 
   async findById(id: string): Promise<Course | null> {
@@ -48,27 +105,19 @@ export class DrizzleCourseRepository implements CourseRepository {
       .select({
         id: courses.id,
         schoolId: courses.schoolId,
-
+        ownerId: courses.ownerId,
         name: courses.name,
         description: courses.description,
-
-        // 👇 URL real que viene de files
         coverImageUrl: coverFile.url,
-
         price: courses.price,
         capacity: courses.capacity,
-
         startDate: courses.startDate,
         endDate: courses.endDate,
-
         modality: courses.modality,
-
         averageRating: courses.averageRating,
         enrollmentsCount: courses.enrollmentsCount,
-
         status: courses.status,
         isActive: courses.isActive,
-
         createdAt: courses.createdAt,
         updatedAt: courses.updatedAt,
       })
@@ -77,7 +126,12 @@ export class DrizzleCourseRepository implements CourseRepository {
       .where(eq(courses.id, id))
       .limit(1);
 
-    return rows[0] ?? null;
+    if (!rows.length) return null;
+
+    const course = { ...rows[0], ownerId: rows[0].ownerId ?? '' };
+    const subscription = await this.getActiveSubscription(id);
+
+    return { ...course, subscription };
   }
 
   async findByOwner(ownerId: string): Promise<Course[]> {
@@ -87,6 +141,7 @@ export class DrizzleCourseRepository implements CourseRepository {
       .select({
         id: courses.id,
         schoolId: courses.schoolId,
+        ownerId: courses.ownerId,
         name: courses.name,
         description: courses.description,
         coverImageUrl: coverFile.url,
@@ -95,6 +150,11 @@ export class DrizzleCourseRepository implements CourseRepository {
         startDate: courses.startDate,
         endDate: courses.endDate,
         modality: courses.modality,
+        address: courses.address,
+        city: courses.city,
+        state: courses.state,
+        latitude: courses.latitude,
+        longitude: courses.longitude,
         averageRating: courses.averageRating,
         enrollmentsCount: courses.enrollmentsCount,
         status: courses.status,
@@ -103,11 +163,10 @@ export class DrizzleCourseRepository implements CourseRepository {
         updatedAt: courses.updatedAt,
       })
       .from(courses)
-      .innerJoin(schools, eq(schools.id, courses.schoolId))
       .leftJoin(coverFile, eq(coverFile.id, courses.coverImageUrl))
-      .where(eq(schools.ownerId, ownerId));
+      .where(eq(courses.ownerId, ownerId));
 
-    return rows;
+    return rows.map(r => ({ ...r, ownerId: r.ownerId ?? '' }));
   }
 
   async findPublicBySchoolId(schoolId: string): Promise<Course[]> {
@@ -117,6 +176,7 @@ export class DrizzleCourseRepository implements CourseRepository {
       .select({
         id: courses.id,
         schoolId: courses.schoolId,
+        ownerId: courses.ownerId,
         name: courses.name,
         description: courses.description,
         coverImageUrl: coverFile.url,
@@ -125,6 +185,11 @@ export class DrizzleCourseRepository implements CourseRepository {
         startDate: courses.startDate,
         endDate: courses.endDate,
         modality: courses.modality,
+        address: courses.address,
+        city: courses.city,
+        state: courses.state,
+        latitude: courses.latitude,
+        longitude: courses.longitude,
         averageRating: courses.averageRating,
         enrollmentsCount: courses.enrollmentsCount,
         status: courses.status,
@@ -136,15 +201,17 @@ export class DrizzleCourseRepository implements CourseRepository {
       .leftJoin(coverFile, eq(coverFile.id, courses.coverImageUrl))
       .where(and(eq(courses.schoolId, schoolId), eq(courses.isActive, true)));
 
-    return rows;
+    return rows.map(r => ({ ...r, ownerId: r.ownerId ?? '' }));
   }
 
   async findAllPublic(): Promise<Course[]> {
     const coverFile = alias(files, 'cover_file');
+
     const rows = await this.db
       .select({
         id: courses.id,
         schoolId: courses.schoolId,
+        ownerId: courses.ownerId,
         name: courses.name,
         description: courses.description,
         coverImageUrl: coverFile.url,
@@ -163,7 +230,8 @@ export class DrizzleCourseRepository implements CourseRepository {
       .from(courses)
       .leftJoin(coverFile, eq(coverFile.id, courses.coverImageUrl))
       .where(eq(courses.isActive, true));
-    return rows;
+
+    return rows.map(r => ({ ...r, ownerId: r.ownerId ?? '' }));
   }
 
   async update(params: { courseId: string; data: Partial<Course> }) {
@@ -171,12 +239,14 @@ export class DrizzleCourseRepository implements CourseRepository {
       .update(courses)
       .set({
         ...params.data,
-        updatedAt: new Date(), // 🔥 backend controla esto
+        updatedAt: new Date(),
       })
       .where(eq(courses.id, params.courseId))
       .returning();
 
-    return updated;
+    if (!updated) throw new Error('Course not found');
+
+    return { ...updated, ownerId: updated.ownerId ?? '' };
   }
 
   async softDelete(courseId: string): Promise<void> {
@@ -190,11 +260,7 @@ export class DrizzleCourseRepository implements CourseRepository {
       .where(eq(courses.id, courseId));
   }
 
-  async findRawById(courseId: string): Promise<{
-    id: string;
-    schoolId: string | null;
-    coverImageFileId: string | null;
-  } | null> {
+  async findRawById(courseId: string) {
     const rows = await this.db
       .select({
         id: courses.id,
@@ -212,11 +278,8 @@ export class DrizzleCourseRepository implements CourseRepository {
     courseId: string;
     ownerId: string;
     newFileId: string;
-  }): Promise<{
-    oldFileId: string | null;
-  }> {
+  }) {
     return this.db.transaction(async (tx) => {
-      // 1️⃣ Obtener curso con validación de owner
       const rows = await tx
         .select({
           coverImageFileId: courses.coverImageUrl,
@@ -237,7 +300,6 @@ export class DrizzleCourseRepository implements CourseRepository {
 
       const oldFileId = rows[0].coverImageFileId;
 
-      // 2️⃣ Update FK
       await tx
         .update(courses)
         .set({

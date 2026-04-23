@@ -6,6 +6,7 @@ import {
   messagesService,
   type ParentMessage,
 } from '@/lib/services/services/messages.service';
+import { useAuth } from '@/contexts/AuthContext';
 
 function formatTime(isoDate: string) {
   const date = new Date(isoDate);
@@ -18,22 +19,25 @@ function formatTime(isoDate: string) {
 }
 
 export default function MessageConversation({ schoolId }: { schoolId: string }) {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<ParentMessage[]>([]);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
 
   const loadThread = useCallback(async () => {
-    const thread = await messagesService.listParentThreadMessages(schoolId);
+    if (!user) return;
+    const thread = await messagesService.listParentThreadMessages(schoolId, user.id);
     setMessages(thread);
-  }, [schoolId]);
+  }, [schoolId, user]);
 
   useEffect(() => {
     let mounted = true;
 
     (async () => {
+      if (!user) return;
       try {
-        const thread = await messagesService.listParentThreadMessages(schoolId);
+        const thread = await messagesService.listParentThreadMessages(schoolId, user.id);
         if (mounted) {
           setMessages(thread);
         }
@@ -45,7 +49,7 @@ export default function MessageConversation({ schoolId }: { schoolId: string }) 
     return () => {
       mounted = false;
     };
-  }, [schoolId]);
+  }, [schoolId, user]);
 
   useEffect(() => {
     if (loading) return;
@@ -65,11 +69,11 @@ export default function MessageConversation({ schoolId }: { schoolId: string }) 
 
   const sendMessage = async () => {
     const content = text.trim();
-    if (!content || sending) return;
+    if (!content || sending || !user) return;
 
     try {
       setSending(true);
-      await messagesService.sendParentMessage(schoolId, content);
+      await messagesService.sendParentMessage(schoolId, content, user.id);
       await loadThread();
       setText('');
     } finally {
@@ -103,20 +107,23 @@ export default function MessageConversation({ schoolId }: { schoolId: string }) 
           <p className="text-sm text-slate-500">Aun no hay mensajes. Escribe el primero para contactar a la escuela.</p>
         ) : null}
 
-        {messages.map((m) => (
-          <div key={m.id} className={`flex ${m.senderRole === 'public' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-170 rounded-2xl px-4 py-3 text-sm sm:text-base shadow-sm ${
-              m.senderRole === 'public'
-                ? 'bg-violet-600 text-white rounded-tl-2xl rounded-tr-2xl rounded-bl-2xl'
-                : 'bg-slate-50 text-slate-800 ring-1 ring-slate-200 rounded-tl-2xl rounded-tr-2xl rounded-br-2xl'
-            }`}>
-              {m.content}
-              <div className={`mt-2 text-[10px] ${m.senderRole === 'public' ? 'text-violet-100' : 'text-slate-400'}`}>
-                {formatTime(m.createdAt)}
+        {messages.map((m) => {
+          const isMine = m.senderId === user?.id;
+          return (
+            <div key={m.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-170 rounded-2xl px-4 py-3 text-sm sm:text-base shadow-sm ${
+                isMine
+                  ? 'bg-violet-600 text-white rounded-tl-2xl rounded-tr-2xl rounded-bl-2xl'
+                  : 'bg-slate-50 text-slate-800 ring-1 ring-slate-200 rounded-tl-2xl rounded-tr-2xl rounded-br-2xl'
+              }`}>
+                {m.content}
+                <div className={`mt-2 text-[10px] ${isMine ? 'text-violet-100' : 'text-slate-400'}`}>
+                  {formatTime(m.createdAt)}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Composer */}

@@ -8,6 +8,7 @@ import { DrizzleFavoritesRepository } from './infrastructure/adapters/drizzle-fa
 import { FAVORITES_REPOSITORY } from './core/ports/tokens';
 import { Module } from '@nestjs/common';
 import { SchoolsModule } from './schools.module';
+import { DrizzleCourseFavoritesRepository } from 'src/courses/infrastructure/adapters/drizzle-course-favorites.repository';
 
 @Module({
   imports: [DbModule, AuthModule, SchoolsModule],
@@ -17,12 +18,12 @@ import { SchoolsModule } from './schools.module';
     ToggleFavoriteUseCase,
     ListFavoritesUseCase,
     DrizzleFavoritesRepository,
-    ListFavoritesUseCase,
+    DrizzleCourseFavoritesRepository,
     {
       provide: FAVORITES_REPOSITORY,
       useClass: DrizzleFavoritesRepository,
     },
   ],
-  exports: [FAVORITES_REPOSITORY, ListFavoritesUseCase],
+  exports: [FAVORITES_REPOSITORY, ListFavoritesUseCase, DrizzleCourseFavoritesRepository],
 })
 export class FavoritesModule {}

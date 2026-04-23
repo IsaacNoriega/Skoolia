@@ -24,6 +24,7 @@ export class RolesGuard implements CanActivate {
     const user = request.user;
 
     if (!requiredRoles.includes(user.role)) {
+      console.log('[RolesGuard] Usuario sin rol requerido:', user, 'Requiere:', requiredRoles);
       throw new ForbiddenException();
     }
 

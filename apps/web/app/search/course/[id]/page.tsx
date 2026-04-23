@@ -2,17 +2,23 @@
 
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, type ReactNode } from "react"; // Agregado ReactNode
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useLeadTracking } from "@/lib/hooks/useLeadTracking";
+import { useAuth } from "@/contexts/AuthContext";
 import { coursesService, type Course } from "@/lib/services/services/courses.service";
 import { ArrowLeft, BookOpen, Calendar, Users, ClipboardCheck } from "lucide-react";
 
-export default function CourseDetailsPage() { // Falta esta línea
+export default function CourseDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
+  const { user } = useAuth();
+  const { trackLead } = useLeadTracking({ userId: user?.id || "" });
   const [course, setCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [sending, setSending] = useState(false);
+  const [leadError, setLeadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -102,9 +108,30 @@ export default function CourseDetailsPage() { // Falta esta línea
                 <p className="text-4xl font-black text-slate-900 mt-1">${course.price} MXN</p>
               </div>
 
-              <button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl transition shadow-lg shadow-indigo-200">
-                Inscribirme ahora
+              <button
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl transition shadow-lg shadow-indigo-200"
+                onClick={async () => {
+                  if (!user?.id || !course?.id) return;
+                  setSending(true);
+                  setLeadError(null);
+                  try {
+                    await trackLead({
+                      targetId: course.id,
+                      originType: "COURSE",
+                      trigger: "INSCRIBIRME",
+                      status: "INTERESADO",
+                    });
+                  } catch (e) {
+                    setLeadError("No se pudo registrar el interés. Intenta de nuevo.");
+                  } finally {
+                    setSending(false);
+                  }
+                }}
+                disabled={sending}
+              >
+                {sending ? "Enviando..." : "Inscribirme ahora"}
               </button>
+              {leadError && <div className="text-red-500 text-sm mt-2">{leadError}</div>}
             </div>
           </aside>
         </div>

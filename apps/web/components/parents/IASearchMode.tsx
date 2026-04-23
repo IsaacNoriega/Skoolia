@@ -44,6 +44,8 @@ import { useState, useEffect, useRef, type RefObject } from "react";
 import { motion } from "framer-motion";
 import { ArrowUp, X, MapPin, Star, Heart, ChevronLeft, ChevronRight } from "lucide-react";
 import CatalogCard from "../layout/CatalogCard";
+import { useAuth } from "@/contexts/AuthContext";
+import { useLeadTracking } from "@/lib/hooks/useLeadTracking";
 import { schoolsService } from "@/lib/services/services/schools.service";
 import { favoritesService } from "@/lib/services/services/favorites.service";
 import { useRouter } from "next/navigation";
@@ -95,6 +97,8 @@ interface AISearchModeProps {
 // ─────────────────────────────────────────────────────────────────────────
 
 export function AISearchMode({ onClose }: AISearchModeProps) {
+    const { user } = useAuth();
+    const { trackLead } = useLeadTracking({ userId: user?.id || "" });
   const router = useRouter();
   const { showToast } = useToast();
   
@@ -544,13 +548,30 @@ export function AISearchMode({ onClose }: AISearchModeProps) {
                         : "N/A"
                     }
                     isFavorite={schoolFavorites.has(school.id)}
-                    onFavoriteToggle={(e) => {
+                    onFavoriteToggle={async (e) => {
                       e?.stopPropagation();
-                      void toggleFavorite(school.id);
+                      await toggleFavorite(school.id);
+                      if (user?.id) {
+                        await trackLead({
+                          targetId: school.id,
+                          originType: "SCHOOL",
+                          trigger: "FAVORITE",
+                          status: "INTERESADO",
+                        });
+                      }
                     }}
-                    onCardClick={() => {
-                      void openSchoolModal(school);
+                    onCardClick={async () => {
+                      await openSchoolModal(school);
+                      if (user?.id) {
+                        await trackLead({
+                          targetId: school.id,
+                          originType: "SCHOOL",
+                          trigger: "VIEW_MORE",
+                          status: "INTERESADO",
+                        });
+                      }
                     }}
+                    planName={school.planName}
                   />
                 </div>
               ))}
@@ -829,14 +850,34 @@ export function AISearchMode({ onClose }: AISearchModeProps) {
                   <div className="flex items-center gap-3">
                     <button
                       className="flex-1 sm:flex-initial w-full sm:w-auto rounded-full bg-indigo-600 px-6 py-2 text-sm font-bold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed"
-                      onClick={() => void handleContact()}
+                      onClick={async () => {
+                        await handleContact();
+                        if (user?.id && selectedSchool?.id) {
+                          await trackLead({
+                            targetId: selectedSchool.id,
+                            originType: "SCHOOL",
+                            trigger: "INFO_REQUEST",
+                            status: "INTERESADO",
+                          });
+                        }
+                      }}
                       disabled={contactingSending || loadingSchoolDetail}
                     >
                       {contactingSending ? "Enviando..." : "Contactar"}
                     </button>
                     <button
                       className="flex-1 sm:flex-initial w-full sm:w-auto rounded-full border border-slate-300 bg-white px-6 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                      onClick={() => void toggleFavorite(selectedSchool.id)}
+                      onClick={async () => {
+                        await toggleFavorite(selectedSchool.id);
+                        if (user?.id && selectedSchool?.id) {
+                          await trackLead({
+                            targetId: selectedSchool.id,
+                            originType: "SCHOOL",
+                            trigger: "FAVORITE",
+                            status: "INTERESADO",
+                          });
+                        }
+                      }}
                     >
                       <Heart
                         className={`h-4 w-4 ${

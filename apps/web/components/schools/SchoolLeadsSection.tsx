@@ -152,6 +152,7 @@ function createDefaultLead(thread: SchoolThread): LeadRecord {
 
 export default function SchoolLeadsSection() {
 	const [toast, setToast] = useState("");
+	const [reminderToast, setReminderToast] = useState<string>("");
 	const { user } = useAuth();
 	const [threads, setThreads] = useState<SchoolThread[]>([]);
 	const [filter, setFilter] = useState<LeadsFilter>("week");
@@ -162,6 +163,8 @@ export default function SchoolLeadsSection() {
 	const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const [search, setSearch] = useState("");
+	const [tagFilter, setTagFilter] = useState("");
 
 	useEffect(() => {
 		setLeads(readLeads(user?.id));
@@ -305,20 +308,23 @@ export default function SchoolLeadsSection() {
 	const filteredThreads = useMemo(() => {
 		const now = Date.now();
 		const threshold = filter === "today" ? 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
-
 		return threads.filter((thread) => {
 			const date = new Date(thread.lastMessageAt);
 			if (Number.isNaN(date.getTime())) return false;
-
 			const timeMatch = now - date.getTime() <= threshold;
 			if (!timeMatch) return false;
-
-			if (stageFilter === "all") return true;
-
-			const stage = leads[thread.publicUserId]?.stage ?? inferDefaultStage(thread);
-			return stage === stageFilter;
+			if (stageFilter !== "all") {
+				const stage = leads[thread.publicUserId]?.stage ?? inferDefaultStage(thread);
+				if (stage !== stageFilter) return false;
+			}
+			if (search && !thread.publicUserName.toLowerCase().includes(search.toLowerCase())) return false;
+			if (tagFilter) {
+				const tags = leads[thread.publicUserId]?.tags || [];
+				if (!tags.some((t) => t.toLowerCase().includes(tagFilter.toLowerCase()))) return false;
+			}
+			return true;
 		});
-	}, [filter, leads, stageFilter, threads]);
+	}, [filter, leads, stageFilter, threads, search, tagFilter]);
 
 	const activeThread = useMemo(
 		() => filteredThreads.find((thread) => thread.publicUserId === activeLeadId) ?? null,
@@ -356,6 +362,20 @@ export default function SchoolLeadsSection() {
 		.filter(Boolean)
 		.slice(0, 8);
 
+	// Notificación automática para recordatorios próximos/pasados
+	useEffect(() => {
+		const now = Date.now();
+		const soon = Object.entries(leads)
+			.filter(([, lead]) => lead.reminderAt && new Date(lead.reminderAt).getTime() <= now + 10 * 60 * 1000 && new Date(lead.reminderAt).getTime() > now - 60 * 60 * 1000)
+			.map(([id, lead]) => ({ id, ...lead }));
+		if (soon.length) {
+			const msg = soon
+				.map(l => `⏰ Recordatorio: ${l.tags?.length ? `#${l.tags.join(", ")} - ` : ""}${l.notes?.slice(0, 40) || "Lead"} (${l.reminderAt && new Date(l.reminderAt).toLocaleString("es-MX")})`)
+				.join("\n");
+			setReminderToast(msg);
+		}
+	}, [leads]);
+
 	return (
 		<section className="space-y-5 sm:space-y-6">
 			<div className="surface rounded-4xl bg-white p-4 shadow-sm ring-1 ring-black/5 sm:p-6">
@@ -366,25 +386,41 @@ export default function SchoolLeadsSection() {
 							Pipeline operativo diario: nuevo contacto, interesado, visita e inscrito.
 						</p>
 					</div>
-					<div className="inline-flex rounded-2xl bg-slate-100 p-1">
-						<button
-							type="button"
-							onClick={() => setFilter("today")}
-							className={`rounded-xl px-3 py-1.5 text-xs font-bold ${
-								filter === "today" ? "bg-white text-slate-700 shadow" : "text-slate-500"
-							}`}
-						>
-							Hoy
-						</button>
-						<button
-							type="button"
-							onClick={() => setFilter("week")}
-							className={`rounded-xl px-3 py-1.5 text-xs font-bold ${
-								filter === "week" ? "bg-white text-slate-700 shadow" : "text-slate-500"
-							}`}
-						>
-							7 días
-						</button>
+					<div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+						<input
+							type="text"
+							placeholder="Buscar por nombre..."
+							value={search}
+							onChange={e => setSearch(e.target.value)}
+							className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs sm:text-sm"
+						/>
+						<input
+							type="text"
+							placeholder="Filtrar por etiqueta..."
+							value={tagFilter}
+							onChange={e => setTagFilter(e.target.value)}
+							className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs sm:text-sm"
+						/>
+						<div className="inline-flex rounded-2xl bg-slate-100 p-1">
+							<button
+								type="button"
+								onClick={() => setFilter("today")}
+								className={`rounded-xl px-3 py-1.5 text-xs font-bold ${
+									filter === "today" ? "bg-white text-slate-700 shadow" : "text-slate-500"
+								}`}
+							>
+								Hoy
+							</button>
+							<button
+								type="button"
+								onClick={() => setFilter("week")}
+								className={`rounded-xl px-3 py-1.5 text-xs font-bold ${
+									filter === "week" ? "bg-white text-slate-700 shadow" : "text-slate-500"
+								}`}
+							>
+								7 días
+							</button>
+						</div>
 					</div>
 				</div>
 
@@ -658,6 +694,13 @@ export default function SchoolLeadsSection() {
 				</div>
 			</div>
 		<Toast message={toast} onClose={() => setToast("")} />
+		{reminderToast && (
+			<div className="fixed top-6 left-1/2 z-50 -translate-x-1/2 flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-white shadow-lg animate-fade-in">
+				<CalendarClock size={18} />
+				<span className="whitespace-pre-line">{reminderToast}</span>
+				<button className="ml-3 text-white/80 hover:text-white" onClick={() => setReminderToast("")}>&times;</button>
+			</div>
+		)}
 		</section>
 	);
 }

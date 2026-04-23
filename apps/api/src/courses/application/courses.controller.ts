@@ -1,3 +1,5 @@
+
+import { ToggleCourseFavoriteUseCase } from '../core/use-cases/toggle-course-favorite.use-case';
 import {
   Body,
   Controller,
@@ -27,6 +29,7 @@ import { UpdateCourseImageUseCase } from '../core/use-cases/update-image.use-cas
 import { ListMyCoursesUseCase } from '../core/use-cases/list-my-courses.use-case';
 import { ListPublicCoursesBySchoolUseCase } from '../core/use-cases/list-public-courses-by-school.use-case';
 import { ListPublicCoursesUseCase } from '../core/use-cases/list-public-courses.use-case';
+import { GetCourseByIdUseCase } from '../core/use-cases/get-course-by-id.use-case';
 
 @Controller('courses')
 export class CoursesController {
@@ -51,7 +54,36 @@ export class CoursesController {
 
     @Inject(ListPublicCoursesUseCase)
     private readonly listPublicCourses: ListPublicCoursesUseCase,
+    @Inject(GetCourseByIdUseCase)
+    private readonly getCourseById: GetCourseByIdUseCase,
+    @Inject(ToggleCourseFavoriteUseCase)
+    private readonly toggleCourseFavorite: ToggleCourseFavoriteUseCase,
   ) {}
+
+  /**
+   * ❤️ Toggle favorite for course
+   * POST /courses/:id/favorite
+   */
+  @Post(':id/favorite')
+  @UseGuards(AuthGuard)
+  async toggleFavorite(@Param('id') courseId: string, @CurrentUser() user: JwtPayload) {
+    return this.toggleCourseFavorite.execute(user, courseId);
+  }
+
+  @Get('me')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles('private')
+  async listMine(@CurrentUser() user: JwtPayload) {
+    return this.listMyCourses.execute(user);
+  }
+
+  @Get(':id')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles('private')
+  async getById(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    // Si quieres filtrar por ownerId, pásalo aquí
+    return this.getCourseById.execute(id);
+  }
 
   /**
    * Crear curso (requiere autenticación)
@@ -71,13 +103,6 @@ export class CoursesController {
       endDate: dto.endDate,
       modality: dto.modality,
     });
-  }
-
-  @Get('me')
-  @UseGuards(AuthGuard, RolesGuard)
-  @Roles('private')
-  async listMine(@CurrentUser() user: JwtPayload) {
-    return this.listMyCourses.execute(user);
   }
 
   @Get('schools/:schoolId')

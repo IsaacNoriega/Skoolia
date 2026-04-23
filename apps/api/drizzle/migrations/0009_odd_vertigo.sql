@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "lead_events_user_school_type_idx" ON "lead_events" USING btree ("user_id","school_id","type");

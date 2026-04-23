@@ -39,6 +39,29 @@ export class UpdateCourseDto {
   @IsString()
   modality?: string;
 
+  // Ubicación (opcional)
+  @IsOptional()
+  @IsString()
+  address?: string;
+
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @IsOptional()
+  @IsString()
+  state?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  latitude?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  longitude?: number;
+
   @IsOptional()
   @IsIn(['draft', 'published', 'archived'])
   status?: 'draft' | 'published' | 'archived';

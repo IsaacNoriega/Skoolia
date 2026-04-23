@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem(AUTH_USER_ID_KEY, data.id);
       }
     } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
+      if (err instanceof ApiError && (err.status === 401 || err.status === 404)) {
         setUser(null);
         if (typeof window !== "undefined") {
           localStorage.removeItem(AUTH_USER_ID_KEY);

@@ -13,8 +13,8 @@ import { schools } from './school';
 
 export const subscriptionStatusEnum = pgEnum('subscription_status', [
   'active',
-  'past_due',
   'canceled',
+  'pending',
 ]);
 
 export const schoolSubscriptions = pgTable(
@@ -36,8 +36,8 @@ export const schoolSubscriptions = pgTable(
 
     status: subscriptionStatusEnum('status').notNull().default('active'),
 
-    currentPeriodStart: timestamp('current_period_start').notNull(),
-    currentPeriodEnd: timestamp('current_period_end').notNull(),
+    startDate: timestamp('start_date').notNull(),
+    endDate: timestamp('end_date').notNull(),
 
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),

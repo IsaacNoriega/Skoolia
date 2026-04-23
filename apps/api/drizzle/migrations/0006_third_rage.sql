@@ -1,0 +1,1 @@
+ALTER TABLE "courses" ADD COLUMN "favorites_count" integer DEFAULT 0 NOT NULL;

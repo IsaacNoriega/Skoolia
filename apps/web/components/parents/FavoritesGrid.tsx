@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import CatalogCard from "../layout/CatalogCard";
+import { useAuth } from "@/contexts/AuthContext";
+import { useLeadTracking } from "@/lib/hooks/useLeadTracking";
 import FavoritesEmptyState from "./FavoritesEmptyState";
 import FavoriteDetailModal from "./FavoriteDetailModal";
 import { favoritesService } from "@/lib/services/services/favorites.service";
@@ -24,6 +26,8 @@ type FavoriteItem = {
 };
 
 export default function FavoritesGrid() {
+    const { user } = useAuth();
+    const { trackLead } = useLeadTracking({ userId: user?.id || "" });
   const [open, setOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [items, setItems] = useState<FavoriteItem[]>([]);
@@ -61,13 +65,41 @@ export default function FavoritesGrid() {
       try {
         const data = await favoritesService.listForMe();
         if (!mounted) return;
-        const mapped: FavoriteItem[] = data.map((s) => ({
-          id: s.id,
-          imageUrl: resolveSchoolCardImage(s.id, s.coverImageUrl),
-          title: s.name,
-          location: s.city ?? "",
-          price: s.monthlyPrice ?? "N/A",
-        }));
+        const mapped: FavoriteItem[] = data.map((fav) => {
+          if (fav.type === "SCHOOL") {
+            return {
+              id: fav.id,
+              imageUrl: resolveSchoolCardImage(fav.id, fav.coverImageUrl),
+              title: fav.name,
+              location: fav.city ?? "",
+              price: fav.monthlyPrice ?? "N/A",
+              description: fav.description,
+              rating: fav.averageRating,
+              schedule: fav.schedule,
+              languages: fav.languages,
+              studentsPerClass: fav.maxStudentsPerClass,
+              enrollmentOpen: fav.enrollmentOpen,
+              enrollmentYear: fav.enrollmentYear,
+              monthlyPrice: fav.monthlyPrice,
+            };
+          } else {
+            // COURSE
+            return {
+              id: fav.id,
+              imageUrl: fav.coverImageUrl,
+              title: fav.name,
+              location: fav.city ?? "",
+              price: fav.price ?? "N/A",
+              description: fav.description,
+              schedule: fav.startDate ? `Inicio: ${fav.startDate}` : undefined,
+              languages: fav.languages,
+              studentsPerClass: fav.capacity,
+              enrollmentOpen: undefined,
+              enrollmentYear: undefined,
+              monthlyPrice: undefined,
+            };
+          }
+        });
         setItems(mapped);
       } finally {
         setLoading(false);
@@ -225,12 +257,33 @@ export default function FavoritesGrid() {
                 location={item.location}
                 priceLabel="MENSUALIDAD"
                 price={item.price}
-                onCardClick={() => openModal(item)}
+                onCardClick={async () => {
+                  openModal(item);
+                  if (user?.id) {
+                    await trackLead({
+                      targetId: item.id,
+                      originType: "SCHOOL",
+                      trigger: "VIEW_MORE",
+                      status: "INTERESADO",
+                    });
+                  }
+                }}
                 onAction={() => openModal(item)}
                 isFavorite={true}
                 className={isComparing ? "ring-2 ring-indigo-500" : ""}
                 onFavoriteToggle={async () => {
                   await favoritesService.toggle(item.id);
+                  if (user?.id) {
+                    const leadPayload = {
+                      targetId: item.id,
+                      originType: "SCHOOL",
+                      trigger: "FAVORITE",
+                      status: "INTERESADO",
+                    };
+                    console.log("[Favoritos] Enviando a trackLead:", { userId: user.id, ...leadPayload });
+                    const leadResult = await trackLead({ ...leadPayload });
+                    console.log("[Favoritos] Respuesta de trackLead:", leadResult);
+                  }
                   // optimistically remove from list
                   setItems((prev) => prev.filter((x) => x.id !== item.id));
                   setCompareIds((prev) => prev.filter((id) => id !== item.id));
@@ -242,6 +295,7 @@ export default function FavoritesGrid() {
                   });
                 }}
                 priceFormatted={""}
+                planName={item.planName}
               />
             </div>
           );

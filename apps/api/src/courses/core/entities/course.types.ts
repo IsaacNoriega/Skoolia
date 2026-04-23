@@ -1,6 +1,21 @@
 export type CourseStatus = 'draft' | 'published' | 'archived';
 
+export interface CourseSubscription {
+  subscriptionId: string;
+  courseId: string;
+  status: 'active' | 'past_due' | 'canceled';
+  currentPeriodStart: Date;
+  currentPeriodEnd: Date;
+  plan: {
+    id: string;
+    name: string;
+    price: number;
+    features: string[];
+  };
+}
+
 export interface Course {
+  ownerId: string;
   id: string;
   schoolId?: string | null;
 
@@ -16,6 +31,13 @@ export interface Course {
 
   modality: string | null;
 
+  // Ubicación (solo si modality es presencial o híbrido)
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+
   averageRating: number;
   enrollmentsCount: number;
 
@@ -24,4 +46,6 @@ export interface Course {
 
   createdAt: Date;
   updatedAt: Date;
+
+  subscription?: CourseSubscription | null;
 }

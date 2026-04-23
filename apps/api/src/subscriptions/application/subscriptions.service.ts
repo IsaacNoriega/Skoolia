@@ -9,13 +9,12 @@ export interface SchoolActivePlan {
   subscriptionId: string;
   schoolId: string;
   status: 'active' | 'past_due' | 'canceled';
-  currentPeriodStart: Date;
-  currentPeriodEnd: Date;
+  startDate: Date;
+  endDate: Date;
   plan: {
     id: string;
     name: string;
     price: number;
-    interval: 'monthly' | 'yearly';
     features: string[];
   };
 }
@@ -39,12 +38,11 @@ export class SubscriptionsService {
         subscriptionId: schoolSubscriptions.id,
         schoolId: schoolSubscriptions.schoolId,
         status: schoolSubscriptions.status,
-        currentPeriodStart: schoolSubscriptions.currentPeriodStart,
-        currentPeriodEnd: schoolSubscriptions.currentPeriodEnd,
+        startDate: schoolSubscriptions.startDate,
+        endDate: schoolSubscriptions.endDate,
         planId: plans.id,
         planName: plans.name,
         planPrice: plans.price,
-        planInterval: plans.interval,
         planFeatures: plans.features,
       })
       .from(schoolSubscriptions)
@@ -53,7 +51,7 @@ export class SubscriptionsService {
         and(
           eq(schoolSubscriptions.schoolId, schoolId),
           eq(schoolSubscriptions.status, 'active'),
-          gte(schoolSubscriptions.currentPeriodEnd, now),
+          gte(schoolSubscriptions.endDate, now),
         ),
       )
       .limit(1);
@@ -67,14 +65,13 @@ export class SubscriptionsService {
     return {
       subscriptionId: row.subscriptionId,
       schoolId: row.schoolId,
-      status: row.status,
-      currentPeriodStart: row.currentPeriodStart,
-      currentPeriodEnd: row.currentPeriodEnd,
+      status: row.status as any,
+      startDate: row.startDate,
+      endDate: row.endDate,
       plan: {
         id: row.planId,
         name: row.planName,
         price: row.planPrice,
-        interval: row.planInterval,
         features: row.planFeatures,
       },
     };
@@ -95,24 +92,18 @@ export class SubscriptionsService {
       const [premiumPlan] = await tx
         .select({
           id: plans.id,
-          interval: plans.interval,
         })
         .from(plans)
-        .where(eq(plans.name, 'Premium'))
+        .where(eq(plans.name, 'PREMIUM_SUBSCRIPTION'))
         .limit(1);
 
       if (!premiumPlan) {
         throw new NotFoundException('Premium plan not found');
       }
 
-      const currentPeriodStart = new Date();
-      const currentPeriodEnd = new Date(currentPeriodStart);
-
-      if (premiumPlan.interval === 'yearly') {
-        currentPeriodEnd.setFullYear(currentPeriodEnd.getFullYear() + 1);
-      } else {
-        currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
-      }
+      const startDate = new Date();
+      const endDate = new Date(startDate);
+      endDate.setMonth(endDate.getMonth() + 1); // Asumimos un mes
 
       const [existingSubscription] = await tx
         .select({ id: schoolSubscriptions.id })
@@ -126,8 +117,8 @@ export class SubscriptionsService {
           .set({
             planId: premiumPlan.id,
             status: 'active',
-            currentPeriodStart,
-            currentPeriodEnd,
+            startDate,
+            endDate,
             updatedAt: new Date(),
           })
           .where(eq(schoolSubscriptions.id, existingSubscription.id));
@@ -136,8 +127,8 @@ export class SubscriptionsService {
           schoolId: school.id,
           planId: premiumPlan.id,
           status: 'active',
-          currentPeriodStart,
-          currentPeriodEnd,
+          startDate,
+          endDate,
         });
       }
 

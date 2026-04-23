@@ -12,8 +12,10 @@ import { UpdateUserAvatarUseCase } from './core/use-cases/update-user-image.use-
 import { FilesModule } from 'src/files/files.module';
 import { SchoolsModule } from 'src/schools/schools.module';
 
+import { CoursesModule } from 'src/courses/courses.module';
+
 @Module({
-  imports: [AuthModule, FilesModule, SchoolsModule],
+  imports: [AuthModule, FilesModule, SchoolsModule, CoursesModule],
   controllers: [UsersController],
   providers: [
     GetMyProfileUseCase,

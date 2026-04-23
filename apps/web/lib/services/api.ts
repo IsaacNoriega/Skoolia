@@ -69,13 +69,16 @@ export async function api<T = unknown>(
   }
 
   const doFetch = async (): Promise<Response> => {
-    return fetch(url, {
+    console.log('[API] Fetch:', { url, method, opts });
+    const res = await fetch(url, {
       ...opts,
       method,
       headers,
-      credentials: 'include', // ✅ cookies para httponly
+      credentials: 'include', //  cookies para httponly
       body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
     });
+    console.log('[API] Response:', res.status, res.statusText);
+    return res;
   };
 
   // 1er intento

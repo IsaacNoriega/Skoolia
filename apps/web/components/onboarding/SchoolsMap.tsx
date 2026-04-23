@@ -40,7 +40,7 @@ export default function SchoolsMap({ schools, userLocation, height = 400 }: Scho
   // 3. Solución para los iconos de Leaflet (Fix para Next.js)
   useEffect(() => {
     setIsMounted(true);
-    
+
     if (leafletInitialized.current) return;
     leafletInitialized.current = true;
 
@@ -62,8 +62,8 @@ export default function SchoolsMap({ schools, userLocation, height = 400 }: Scho
   const center: [number, number] = userLocation
     ? [userLocation.lat, userLocation.lng]
     : schools.length > 0
-    ? [schools[0].lat, schools[0].lng]
-    : [20.607, -103.391]; // Default ITESO/Tlaquepaque para tu demo
+      ? [schools[0].lat, schools[0].lng]
+      : [20.607, -103.391]; // Default ITESO/Tlaquepaque para tu demo
 
   // Evitar errores de hidratación
   if (!isMounted) return <div style={{ height, background: '#f1f5f9' }} className="rounded-2xl animate-pulse" />;
@@ -83,7 +83,7 @@ export default function SchoolsMap({ schools, userLocation, height = 400 }: Scho
           attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
           url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
         />
-        
+
         {schools.map((school) => (
           <Marker key={school.id} position={[school.lat, school.lng]}>
             <Popup>

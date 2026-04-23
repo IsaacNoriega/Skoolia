@@ -14,10 +14,12 @@ import { SchoolsFeedResolver } from './application/graphql/school-feed.resolver'
 import { ListSchoolsFeedUseCase } from './core/use-cases/list-schools.use-case';
 import { UpdateSchoolImageUseCase } from './core/use-cases/UpdateSchooImage.use-case';
 import { FilesModule } from 'src/files/files.module';
+import { LeadEventsController } from './application/lead-events.controller';
+import { LeadEventsService } from './services/lead-events.service';
 
 @Module({
   imports: [DbModule, AuthModule, FilesModule],
-  controllers: [SchoolsController],
+  controllers: [SchoolsController, LeadEventsController],
   providers: [
     CreateSchoolUseCase,
     GetMySchoolUseCase,
@@ -29,11 +31,12 @@ import { FilesModule } from 'src/files/files.module';
     ListSchoolsFeedUseCase,
     UpdateSchoolImageUseCase,
     FindNearbySchoolsUseCase,
+    LeadEventsService,
     {
       provide: SCHOOL_REPOSITORY,
       useClass: DrizzleSchoolRepository,
     },
   ],
-  exports: [SCHOOL_REPOSITORY, FindNearbySchoolsUseCase],
+  exports: [SCHOOL_REPOSITORY, FindNearbySchoolsUseCase, LeadEventsService],
 })
 export class SchoolsModule {}

@@ -67,6 +67,11 @@ export default function OnboardingLayout() {
         name: state.data.schoolName.trim(),
         description: state.data.description?.trim() || undefined,
       });
+        console.log("[ONBOARDING] Escuela enviada:", {
+          name: state.data.schoolName.trim(),
+          description: state.data.description?.trim() || undefined,
+        });
+        console.log("[ONBOARDING] Escuela guardada:", school);
       setField("schoolId", school.id);
       const categoryIds = state.data.categories.map((c) => c.id);
       if (categoryIds.length > 0) {
@@ -80,6 +85,14 @@ export default function OnboardingLayout() {
         latitude: state.data.lat ?? undefined,
         longitude: state.data.lng ?? undefined,
       });
+        console.log("[ONBOARDING] Escuela actualización:", {
+          educationalLevel: state.data.educationalLevel || undefined,
+          institutionType: state.data.institutionType || undefined,
+          city: state.data.city || undefined,
+          address: state.data.address || undefined,
+          latitude: state.data.lat ?? undefined,
+          longitude: state.data.lng ?? undefined,
+        });
     } else if (state.data.tipoRegistro === "curso") {
       // Guardar curso usando el servicio real (solo campos básicos)
       const curso = await coursesService.create({
@@ -88,6 +101,17 @@ export default function OnboardingLayout() {
         modality: state.data.cursoModalidad || undefined,
         // Solo los campos básicos, sin price ni capacity
       });
+        console.log("[ONBOARDING] Curso enviado:", {
+          name: state.data.cursoNombre.trim(),
+          description: state.data.cursoDescripcion?.trim() || undefined,
+          modality: state.data.cursoModalidad || undefined,
+          address: state.data.address || undefined,
+          city: state.data.city || undefined,
+          state: state.data.state || undefined,
+          latitude: state.data.lat ?? undefined,
+          longitude: state.data.lng ?? undefined,
+        });
+        console.log("[ONBOARDING] Curso guardado:", curso);
       setField("schoolId", curso.id); // O usa otro campo si es necesario
     }
   }

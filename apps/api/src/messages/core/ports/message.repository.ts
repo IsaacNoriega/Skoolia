@@ -1,35 +1,12 @@
-import {
-  ParentThreadMessage,
-  ParentThreadSummary,
-  SchoolMessage,
-  SchoolThreadMessage,
-  SchoolThreadSummary,
-  SenderRole,
-} from '../entities/message.types';
+import type { Message, MessageThread } from '../entities/message.types';
 
-export interface MessageRepository {
-  schoolExists(schoolId: string): Promise<boolean>;
-
-  findSchoolIdByOwner(ownerId: string): Promise<string | null>;
-
-  createMessage(params: {
-    schoolId: string;
-    publicUserId: string;
-    senderRole: SenderRole;
-    content: string;
-  }): Promise<SchoolMessage>;
-
-  listParentThreads(publicUserId: string): Promise<ParentThreadSummary[]>;
-
-  listSchoolThreadsByOwner(ownerId: string): Promise<SchoolThreadSummary[]>;
-
-  listParentThreadMessages(params: {
-    publicUserId: string;
-    schoolId: string;
-  }): Promise<ParentThreadMessage[]>;
-
-  listSchoolThreadMessagesByOwner(params: {
-    ownerId: string;
-    publicUserId: string;
-  }): Promise<SchoolThreadMessage[]>;
+export abstract class MessageRepository {
+  abstract createMessage(
+    message: Omit<Message, 'id' | 'createdAt'>,
+  ): Promise<Message>;
+  abstract getMessagesByThread(threadId: string): Promise<Message[]>;
+  abstract getThreadsByParticipant(
+    participantId: string,
+    participantType: 'parent' | 'school' | 'course',
+  ): Promise<MessageThread[]>;
 }

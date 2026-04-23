@@ -27,10 +27,12 @@ export const courses = pgTable(
   {
     id: uuid('id').defaultRandom().primaryKey(),
 
-    schoolId: uuid('school_id')
-      .references(() => schools.id, {
-        onDelete: 'cascade',
-      }),
+    schoolId: uuid('school_id').references(() => schools.id, {
+      onDelete: 'cascade',
+    }),
+
+    // Nuevo: ownerId (nullable para migración)
+    ownerId: uuid('owner_id'),
 
     name: text('name').notNull(),
 
@@ -49,11 +51,21 @@ export const courses = pgTable(
     // 📅 scheduling
     startDate: timestamp('start_date'),
     endDate: timestamp('end_date'),
-        // schoolId definido arriba
+    // schoolId definido arriba
     // 🌐 modalidad
     modality: text('modality'), // presencial | online | híbrido
 
+    // Ubicación (opcional, solo si modality es presencial o híbrido)
+    address: text('address'),
+    city: text('city'),
+    state: text('state'),
+    latitude: doublePrecision('latitude'),
+    longitude: doublePrecision('longitude'),
+
+
     averageRating: doublePrecision('average_rating').default(0).notNull(),
+
+    favoritesCount: integer('favorites_count').default(0).notNull(),
 
     enrollmentsCount: integer('enrollments_count').default(0).notNull(),
 
@@ -67,6 +79,7 @@ export const courses = pgTable(
   },
   (table) => ({
     schoolIdx: index('courses_school_idx').on(table.schoolId),
+    ownerIdx: index('courses_owner_idx').on(table.ownerId),
     statusIdx: index('courses_status_idx').on(table.status),
     activeIdx: index('courses_active_idx').on(table.isActive),
     ratingIdx: index('courses_rating_idx').on(table.averageRating),

@@ -3,13 +3,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Send } from "lucide-react";
+	import { useAuth } from "@/contexts/AuthContext";
 
 import { useToast } from "@/components/ui/toast";
 import {
-	messagesService,
-	type SchoolMessage,
-	type SchoolThread,
+  messagesService,
+  type SchoolMessage,
+  type SchoolThread,
 } from "@/lib/services/services/messages.service";
+import { schoolsService } from "@/lib/services/services/schools.service";
 import {
 	notifySchoolThreadsUpdated,
 	SCHOOL_THREADS_UPDATED_EVENT,
@@ -29,59 +31,75 @@ export default function SchoolMessagesSection() {
 	const searchParams = useSearchParams();
 	const { showToast } = useToast();
 	const requestedThreadId = searchParams.get("thread");
-	const [threads, setThreads] = useState<SchoolThread[]>([]);
-	const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
-	const [messages, setMessages] = useState<SchoolMessage[]>([]);
-	const [draft, setDraft] = useState("");
-	const [loadingThreads, setLoadingThreads] = useState(true);
-	const [loadingMessages, setLoadingMessages] = useState(false);
-	const [sending, setSending] = useState(false);
+		const [threads, setThreads] = useState<SchoolThread[]>([]);
+		const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+		const [messages, setMessages] = useState<SchoolMessage[]>([]);
+		const [draft, setDraft] = useState("");
+		const [loadingThreads, setLoadingThreads] = useState(true);
+		const [loadingMessages, setLoadingMessages] = useState(false);
+		const [sending, setSending] = useState(false);
+		const [schoolId, setSchoolId] = useState<string | null>(null);
 
-	const loadThreads = useCallback(async () => {
-		const data = await messagesService.listSchoolThreads();
-		setThreads(data);
-		setActiveThreadId((current) => {
-			if (current && data.some((thread) => thread.publicUserId === current)) {
-				return current;
+	// ...existing code...
+
+		const { user } = useAuth();
+
+	// Depuración: mostrar el valor de user y user.id
+	console.log('[SchoolMessagesSection] user:', user);
+	if (user && !user.id) {
+		console.warn('[SchoolMessagesSection] El objeto user no tiene campo id:', user);
+	}
+
+		const loadThreads = useCallback(async () => {
+			if (!schoolId) return;
+			const data = await messagesService.listSchoolThreads(schoolId);
+			setThreads(data);
+			setActiveThreadId((current) => {
+				if (current && data.some((thread) => thread.publicUserId === current)) {
+					return current;
+				}
+				return data[0]?.publicUserId ?? null;
+			});
+		}, [schoolId]);
+
+		const loadMessages = useCallback(async (threadId: string, syncThreads = false) => {
+			if (!schoolId) return;
+			const data = await messagesService.listSchoolThreadMessages(threadId, schoolId);
+			setMessages(data);
+
+			if (syncThreads) {
+				const refreshedThreads = await messagesService.listSchoolThreads(schoolId);
+				setThreads(refreshedThreads);
+				notifySchoolThreadsUpdated();
 			}
-			return data[0]?.publicUserId ?? null;
-		});
-	}, []);
+		}, [schoolId]);
 
-	const loadMessages = useCallback(async (threadId: string, syncThreads = false) => {
-		const data = await messagesService.listSchoolThreadMessages(threadId);
-		setMessages(data);
+		// Al montar, obtener schoolId desde /schools/me
+		useEffect(() => {
+			let mounted = true;
+			(async () => {
+				if (!user) return;
+				try {
+					const school = await schoolsService.getMySchool();
+					if (!mounted) return;
+					setSchoolId(school.id);
+				} catch (err) {
+					console.error('[SchoolMessagesSection] Error al obtener schoolId:', err);
+					setSchoolId(null);
+				} finally {
+					if (mounted) setLoadingThreads(false);
+				}
+			})();
+			return () => {
+				mounted = false;
+			};
+		}, [user]);
 
-		if (syncThreads) {
-			const refreshedThreads = await messagesService.listSchoolThreads();
-			setThreads(refreshedThreads);
-			notifySchoolThreadsUpdated();
-		}
-	}, []);
-
-	useEffect(() => {
-		let mounted = true;
-
-		(async () => {
-			try {
-				const data = await messagesService.listSchoolThreads();
-				if (!mounted) return;
-
-				setThreads(data);
-				setActiveThreadId(
-					requestedThreadId && data.some((thread) => thread.publicUserId === requestedThreadId)
-						? requestedThreadId
-						: data[0]?.publicUserId ?? null,
-				);
-			} finally {
-				if (mounted) setLoadingThreads(false);
-			}
-		})();
-
-		return () => {
-			mounted = false;
-		};
-	}, [requestedThreadId]);
+		// Cuando schoolId esté listo, cargar hilos
+		useEffect(() => {
+			if (!schoolId) return;
+			void loadThreads();
+		}, [schoolId, loadThreads, requestedThreadId]);
 
 	useEffect(() => {
 		if (loadingThreads) return;
@@ -127,7 +145,7 @@ export default function SchoolMessagesSection() {
 		return () => {
 			mounted = false;
 		};
-	}, [activeThreadId]);
+	}, [activeThreadId, loadMessages]);
 
 	useEffect(() => {
 		if (!activeThreadId || loadingMessages) return;
@@ -147,11 +165,11 @@ export default function SchoolMessagesSection() {
 
 	const sendMessage = async () => {
 		const content = draft.trim();
-		if (!activeThreadId || !content || sending) return;
+		if (!activeThreadId || !content || sending || !schoolId) return;
 
 		try {
 			setSending(true);
-			await messagesService.sendSchoolMessage(activeThreadId, content);
+			await messagesService.sendSchoolMessage(activeThreadId, content, schoolId);
 
 			await loadMessages(activeThreadId, true);
 			setDraft("");
@@ -255,23 +273,28 @@ export default function SchoolMessagesSection() {
 							<p className="text-sm text-slate-500">No hay mensajes en esta conversacion.</p>
 						) : null}
 
-						{messages.map((message) => (
-							<div
-								key={message.id}
-								className={`flex ${message.senderRole === "private" ? "justify-end" : "justify-start"}`}
-							>
+						{messages.map((message) => {
+							// Log temporal para depuración
+							console.log('[SchoolMessagesSection] message:', message, 'schoolId:', schoolId);
+							const isMine = message.senderType === "school" && message.senderId === schoolId;
+							return (
 								<div
-									className={`max-w-xl rounded-3xl px-4 py-3 text-sm sm:text-base shadow-sm ${
-										message.senderRole === "private"
-											? "bg-violet-600 text-white rounded-br-none"
-											: "bg-white text-slate-800 ring-1 ring-slate-200 rounded-bl-none"
-									}`}
+									key={message.id}
+									className={`flex ${isMine ? "justify-end" : "justify-start"}`}
 								>
-									{message.content}
-									<div className="mt-2 text-[10px] font-semibold opacity-75">{formatDate(message.createdAt)}</div>
+									<div
+										className={`max-w-xl rounded-3xl px-4 py-3 text-sm sm:text-base shadow-sm ${
+											isMine
+												? "bg-violet-600 text-white rounded-br-none"
+												: "bg-white text-slate-800 ring-1 ring-slate-200 rounded-bl-none"
+										}`}
+									>
+										{message.content}
+										<div className="mt-2 text-[10px] font-semibold opacity-75">{formatDate(message.createdAt)}</div>
+									</div>
 								</div>
-							</div>
-						))}
+							);
+						})}
 					</div>
 
 					<footer className="border-t border-slate-100/70 bg-white px-5 py-4 sm:px-6 sm:py-5">

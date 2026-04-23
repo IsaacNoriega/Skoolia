@@ -26,8 +26,42 @@ import { schoolsService, type School } from "@/lib/services/services/schools.ser
 import { coursesService, type Course } from "@/lib/services/services/courses.service";
 import { schoolRatingsService, type SchoolRating } from "@/lib/services/services/rating.service";
 import { favoritesService } from "@/lib/services/services/favorites.service";
+import { useAuth } from "@/contexts/AuthContext";
+import { useLeadTracking } from "@/lib/hooks/useLeadTracking";
+import { messagesService } from "@/lib/services/services/messages.service";
 
 export default function InstitutionDetailsPage() {
+  const { user } = useAuth();
+  const { trackLead } = useLeadTracking({ userId: user?.id || "" });
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+    async function handleInteraction(content: string, trigger: string) {
+      if (!school || !user) {
+        setActionMessage("Debes iniciar sesión para realizar esta acción.");
+        return;
+      }
+      setActionLoading(true);
+      setActionMessage(null);
+      try {
+        const leadPayload = {
+          targetId: school.id,
+          originType: "SCHOOL",
+          trigger,
+          status: "INTERESADO",
+        };
+        console.log("[Lead] Enviando a trackLead:", { userId: user.id, ...leadPayload });
+        const leadResult = await trackLead({ userId: user.id, ...leadPayload });
+        console.log("[Lead] Respuesta de trackLead:", leadResult);
+        const msgResult = await messagesService.sendParentMessage(school.id, content, user.id);
+        console.log("[Mensaje] Respuesta de sendParentMessage:", msgResult);
+        setActionMessage("¡Acción realizada con éxito!");
+      } catch (err) {
+        setActionMessage("Ocurrió un error al registrar la acción.");
+        console.error("Error en la interacción:", err);
+      } finally {
+        setActionLoading(false);
+      }
+    }
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const schoolId = params?.id;
@@ -194,12 +228,25 @@ export default function InstitutionDetailsPage() {
               </div>
 
               <div className="space-y-4">
-                <button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl transition shadow-lg shadow-indigo-200">
-                  Solicitar Información
+                <button
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl transition shadow-lg shadow-indigo-200"
+                  disabled={actionLoading}
+                  onClick={() => handleInteraction("Solicitud de información", "INFO_REQUEST")}
+                >
+                  {actionLoading ? "Enviando..." : "Solicitar Información"}
                 </button>
-                <button className="w-full bg-white border border-neutral-200 text-neutral-700 font-bold py-4 rounded-2xl hover:bg-neutral-50 transition">
-                  Agendar Visita
+                <button
+                  className="w-full bg-white border border-neutral-200 text-neutral-700 font-bold py-4 rounded-2xl hover:bg-neutral-50 transition"
+                  disabled={actionLoading}
+                  onClick={() => handleInteraction("Solicitud de cita", "SCHEDULE_VISIT")}
+                >
+                  {actionLoading ? "Enviando..." : "Agendar Visita"}
                 </button>
+                {actionMessage && (
+                  <div className="w-full mt-2 text-xs font-semibold text-center text-emerald-700">
+                    {actionMessage}
+                  </div>
+                )}
               </div>
 
               <div className="pt-6 border-t border-neutral-50 space-y-4">
