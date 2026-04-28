@@ -1,4 +1,4 @@
-import { Controller, Patch, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
 
 import { CurrentUser } from 'src/auth/application/decorators/current-user.decorator';
 import { Roles } from 'src/auth/application/decorators/roles.decorator';
@@ -14,10 +14,20 @@ export class SubscriptionsController {
     private readonly subscriptionsService: SubscriptionsService,
   ) {}
 
-  @Patch('upgrade')
+  @Get('me')
   @UseGuards(AuthGuard, RolesGuard)
   @Roles('private')
-  async upgradeToPremium(@CurrentUser() user: JwtPayload) {
-    return this.subscriptionsService.upgradeToPremium(user.sub);
+  async getMyActivePlan(@CurrentUser() user: JwtPayload) {
+    return this.subscriptionsService.getSchoolActivePlanByOwner(user.sub);
+  }
+
+  @Patch('change')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles('private')
+  async changePlan(
+    @CurrentUser() user: JwtPayload,
+    @Body('planId') planId: string,
+  ) {
+    return this.subscriptionsService.changePlan(user.sub, planId);
   }
 }
