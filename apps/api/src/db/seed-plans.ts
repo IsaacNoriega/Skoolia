@@ -5,38 +5,66 @@ import { Pool } from 'pg';
 
 import {
   plans,
+  planNameEnum,
+  planTypeEnum,
+  planPricingModelEnum,
   type PlanFeatures,
-  type planIntervalEnum,
 } from 'drizzle/schemas';
 
-type PlanInterval = (typeof planIntervalEnum.enumValues)[number];
-
-type SeedPlan = {
-  name: string;
-  price: number;
-  interval: PlanInterval;
-  features: PlanFeatures;
-};
-
-const BASE_PLANS: SeedPlan[] = [
+const BASE_PLANS = [
   {
-    name: 'Freemium',
+    name: 'FREEMIUM',
+    type: 'subscription',
+    pricingModel: 'recurrent',
     price: 0,
-    interval: 'monthly',
+    isActive: 1,
     features: [
       'Registro gratuito',
-      'Aparicion en directorio',
-      'Gestion de perfil basico',
+      'Sin prioridad en búsquedas',
     ],
   },
   {
-    name: 'Premium',
-    price: 1500,
-    interval: 'monthly',
+    name: 'PREMIUM_SUBSCRIPTION',
+    type: 'subscription',
+    pricingModel: 'recurrent',
+    price: 2000,
+    isActive: 1,
     features: [
-      'Aparicion en busquedas premium',
-      'Panel avanzado de leads',
-      'Soporte prioritario',
+      'Aparece al inicio de las búsquedas',
+      'Destacado visualmente',
+    ],
+  },
+  {
+    name: 'LEAD_INTEREST',
+    type: 'lead',
+    pricingModel: 'per_event',
+    price: 200,
+    isActive: 1,
+    features: [
+      'Pago por contacto calificado',
+      'Cobro cuando un padre muestra interés',
+    ],
+  },
+  {
+    name: 'LEAD_ENROLLMENT',
+    type: 'lead',
+    pricingModel: 'variable',
+    price: 1, // Representa 1% comisión
+    isActive: 1,
+    features: [
+      'Comisión del 1% del valor de inscripción',
+      'Cobro cuando un alumno se inscribe',
+    ],
+  },
+  {
+    name: 'MASS_MESSAGE',
+    type: 'lead',
+    pricingModel: 'per_event',
+    price: 100,
+    isActive: 1,
+    features: [
+      'Envío de mensajes a usuarios por localidad',
+      'Cobro basado en leads generados',
     ],
   },
 ];
@@ -49,34 +77,10 @@ async function seedPlans() {
   const db = drizzle(pool);
 
   try {
-    console.log('Seeding base plans...');
-
-    const existingPlans = await db
-      .select({ name: plans.name })
-      .from(plans)
-      .where(inArray(plans.name, BASE_PLANS.map((plan) => plan.name)));
-
-    const existingPlanNames = new Set(existingPlans.map((plan) => plan.name));
-
-    const missingPlans = BASE_PLANS.filter(
-      (plan) => !existingPlanNames.has(plan.name),
-    );
-
-    if (missingPlans.length === 0) {
-      console.log('Base plans already exist. Nothing to insert.');
-      return;
-    }
-
-    await db.insert(plans).values(
-      missingPlans.map((plan) => ({
-        name: plan.name,
-        price: plan.price,
-        interval: plan.interval,
-        features: plan.features,
-      })),
-    );
-
-    console.log(`Inserted ${missingPlans.length} base plan(s).`);
+    console.log('Eliminando planes existentes...');
+    await db.delete(plans);
+    await db.insert(plans).values(BASE_PLANS as any);
+    console.log('Planes base insertados correctamente.');
   } finally {
     await pool.end();
   }
