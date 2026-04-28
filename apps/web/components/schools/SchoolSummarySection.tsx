@@ -7,6 +7,7 @@ import SchoolsMap from "@/components/onboarding/SchoolsMap";
 import { coursesService, type Course } from "@/lib/services/services/courses.service";
 import { messagesService, type SchoolThread } from "@/lib/services/services/messages.service";
 import { schoolsService, type School } from "@/lib/services/services/schools.service";
+import { subscriptionsService, type SchoolActivePlan } from "@/lib/services/services/subscriptions.service";
 import { useLeadTracking } from "@/lib/hooks/useLeadTracking";
 
 // Helpers fuera del componente para evitar re-declaraciones
@@ -27,6 +28,7 @@ function formatRelativeDate(isoDate: string) {
 
 export default function SchoolSummarySection() {
     const [school, setSchool] = useState<School | null>(null);
+    const [activePlan, setActivePlan] = useState<SchoolActivePlan | null>(null);
     const [threads, setThreads] = useState<SchoolThread[]>([]);
     const [courses, setCourses] = useState<Course[]>([]);
     const [loading, setLoading] = useState(true);
@@ -76,15 +78,17 @@ export default function SchoolSummarySection() {
         const fetchData = async () => {
             try {
                 setLoading(true);
-                // Obtenemos la escuela y los cursos en paralelo
-                const [schoolData, coursesData] = await Promise.all([
+                // Obtenemos la escuela, cursos y plan en paralelo
+                const [schoolData, coursesData, planData] = await Promise.all([
                     schoolsService.getMySchool(),
                     coursesService.listMine(),
+                    subscriptionsService.getActivePlan().catch(() => null), // Evita fallos si no hay plan
                 ]);
 
                 if (mounted) {
                     setSchool(schoolData);
                     setCourses(coursesData);
+                    setActivePlan(planData);
                 }
 
                 // Obtenemos los threads usando el ID de la escuela
@@ -142,6 +146,11 @@ export default function SchoolSummarySection() {
                             <span className="bg-amber-100 px-3 py-1 text-amber-700 rounded-full">
                                 {school?.isVerified ? "Verificada" : "Registrada"}
                             </span>
+                            {activePlan && (
+                                <span className="bg-indigo-100 px-3 py-1 text-indigo-700 rounded-full">
+                                    Plan {activePlan.plan.name.replace("_SUBSCRIPTION", "")}
+                                </span>
+                            )}
                             <span>{school?.city || "Ubicación pendiente"}</span>
                         </div>
                         <h1 className="mt-2 text-3xl font-extrabold text-slate-900 tracking-tight">

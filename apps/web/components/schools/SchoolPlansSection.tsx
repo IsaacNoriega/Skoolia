@@ -1,111 +1,89 @@
 "use client";
 
-import { useState, type JSX } from "react";
+import { useEffect, useState, type JSX } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, CreditCard, ShieldCheck, Zap } from "lucide-react";
+import { ArrowUpRight, CreditCard, ShieldCheck, Zap, Loader2 } from "lucide-react";
 
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { subscriptionsService } from "@/lib/services/services/subscriptions.service";
-
-type Feature = {
-  label: string;
-  highlight?: boolean;
-};
-
-type Plan = {
-  id: string;
-  name: string;
-  tagline: string;
-  price: string;
-  priceSuffix: string;
-  icon: JSX.Element;
-  popular?: boolean;
-  features: Feature[];
-};
-
-const plans: Plan[] = [
-  {
-    id: "freemium",
-    name: "Freemium",
-    tagline: "Registro gratuito para generar trafico constante.",
-    price: "$0",
-    priceSuffix: "/mes",
-    icon: <CreditCard className="h-6 w-6 text-slate-500" />,
-    features: [
-      { label: "Listado basico" },
-      { label: "Panel de leads" },
-      { label: "Mensajeria estandar" },
-      { label: "Soporte via ticket" },
-    ],
-  },
-  {
-    id: "premium",
-    name: "Suscripcion Premium",
-    tagline: "Aparicion garantizada en la primera galeria y busquedas top.",
-    price: "$1,500",
-    priceSuffix: "/mes",
-    icon: <Zap className="h-6 w-6 text-amber-400" />,
-    popular: true,
-    features: [
-      { label: "Posicionamiento Top #1", highlight: true },
-      { label: "Badge verificado oro" },
-      { label: "Analytics en tiempo real" },
-      { label: "Consultor IA ilimitado" },
-      { label: "Soporte 24/7" },
-    ],
-  },
-  {
-    id: "performance",
-    name: "Pago por Resultados",
-    tagline: "Paga solo por lo que conviertes. Ideal para escalar.",
-    price: "Variable",
-    priceSuffix: "/mes",
-    icon: <ArrowUpRight className="h-6 w-6 text-indigo-500" />,
-    features: [
-      { label: "Lead por interes ($)" },
-      { label: "1% comision por inscripcion" },
-      { label: "Acceso a envios masivos" },
-      { label: "Integracion CRM avanzada" },
-    ],
-  },
-];
+import { subscriptionsService, type SchoolActivePlan } from "@/lib/services/services/subscriptions.service";
+import { plansService, type Plan } from "@/lib/services/services/plans.service";
 
 export default function SchoolPlansSection() {
   const router = useRouter();
   const { showToast } = useToast();
   const { refreshUser } = useAuth();
-  const [isUpgrading, setIsUpgrading] = useState(false);
+  const [isUpgrading, setIsUpgrading] = useState<string | null>(null);
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [activePlan, setActivePlan] = useState<SchoolActivePlan | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const handleUpgrade = async () => {
-    setIsUpgrading(true);
+  useEffect(() => {
+    let mounted = true;
+    async function loadData() {
+      try {
+        const [fetchedPlans, fetchedActivePlan] = await Promise.all([
+          plansService.getAll(),
+          subscriptionsService.getActivePlan().catch(() => null),
+        ]);
+        if (mounted) {
+          // Filtramos solo los planes de tipo "subscription" (ej. Freemium y Premium)
+          const subscriptionPlans = fetchedPlans.filter(p => p.type === "subscription");
+          setPlans(subscriptionPlans);
+          setActivePlan(fetchedActivePlan);
+        }
+      } catch (error) {
+        if (mounted) {
+          showToast({ title: "Error", description: "No se pudieron cargar los planes", variant: "error" });
+        }
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+    loadData();
+    return () => { mounted = false; };
+  }, [showToast]);
+
+  const handleUpgrade = async (planId: string) => {
+    setIsUpgrading(planId);
 
     try {
-      const response = await subscriptionsService.upgradeToPremium();
+      const response = await subscriptionsService.changePlan(planId);
 
       await refreshUser();
+      setActivePlan(response.subscription);
       router.refresh();
 
       showToast({
-        title: "Upgrade completado",
-        description:
-          response.message || "Tu escuela ahora cuenta con el plan Premium.",
+        title: "Plan actualizado",
+        description: response.message || "Tu escuela ha cambiado de plan con éxito.",
         variant: "success",
       });
     } catch (error) {
       console.error("No se pudo actualizar la suscripcion", error);
 
       showToast({
-        title: "No pudimos procesar el upgrade",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Intentalo de nuevo en unos minutos.",
+        title: "No pudimos procesar el cambio de plan",
+        description: error instanceof Error ? error.message : "Inténtalo de nuevo en unos minutos.",
         variant: "error",
       });
     } finally {
-      setIsUpgrading(false);
+      setIsUpgrading(null);
     }
+  };
+
+  if (loading) {
+      return (
+          <div className="flex h-64 items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+          </div>
+      );
+  }
+
+  const getIcon = (name: string) => {
+    if (name.includes("PREMIUM")) return <Zap className="h-6 w-6 text-amber-400" />;
+    if (name.includes("FREEMIUM")) return <CreditCard className="h-6 w-6 text-slate-500" />;
+    return <ArrowUpRight className="h-6 w-6 text-indigo-500" />;
   };
 
   return (
@@ -120,19 +98,20 @@ export default function SchoolPlansSection() {
         </p>
       </section>
 
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 justify-center max-w-4xl mx-auto">
         {plans.map((plan) => {
-          const isPremium = plan.id === "premium";
-          const isDisabled = isUpgrading && isPremium;
+          const isCurrentPlan = activePlan?.plan.id === plan.id;
+          const isProcessing = isUpgrading === plan.id;
+          const isPopular = plan.name === "PREMIUM_SUBSCRIPTION";
 
           return (
             <article
               key={plan.id}
               className={`relative flex h-full flex-col rounded-[2rem] border border-slate-200/80 bg-white px-6 py-6 shadow-md transition duration-200 hover:-translate-y-0.5 hover:shadow-lg ${
-                plan.popular ? "md:-mt-4 md:pb-8" : ""
-              }`}
+                isPopular ? "md:-mt-4 md:pb-8 border-amber-200" : ""
+              } ${isCurrentPlan ? "ring-2 ring-indigo-500 bg-indigo-50/10" : ""}`}
             >
-              {plan.popular ? (
+              {isPopular ? (
                 <div className="absolute inset-x-8 -top-4 flex justify-center">
                   <span className="inline-flex rounded-full bg-slate-900 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-md">
                     Mas popular
@@ -142,54 +121,52 @@ export default function SchoolPlansSection() {
 
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 shadow-sm">
-                  {plan.icon}
+                  {getIcon(plan.name)}
                 </div>
                 <div>
                   <h2 className="text-base font-extrabold text-slate-900 sm:text-lg">
-                    {plan.name}
+                    {plan.name.replace("_SUBSCRIPTION", "").replace("_", " ")}
                   </h2>
-                  <p className="mt-1 text-[11px] text-slate-500 sm:text-xs">
-                    {plan.tagline}
-                  </p>
                 </div>
               </div>
 
               <div className="mt-4">
                 <p className="text-3xl font-extrabold text-slate-900 sm:text-4xl">
-                  {plan.price}
+                  ${plan.price}
                   <span className="ml-1 align-middle text-xs font-semibold text-slate-400">
-                    {plan.priceSuffix}
+                    /mes
                   </span>
                 </p>
               </div>
 
               <ul className="mt-4 space-y-2 text-xs text-slate-700 sm:text-sm">
-                {plan.features.map((feature) => (
-                  <li key={feature.label} className="flex items-start gap-2">
-                    <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    <span className={feature.highlight ? "font-bold" : ""}>
-                      {feature.label}
+                {plan.features.map((feature, idx) => (
+                  <li key={idx} className="flex items-start gap-2">
+                    <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
+                    <span>
+                      {feature}
                     </span>
                   </li>
                 ))}
               </ul>
 
-              <div className="mt-6">
-                {isPremium ? (
+              <div className="mt-6 mt-auto pt-6">
+                {isCurrentPlan ? (
                   <button
                     type="button"
-                    onClick={handleUpgrade}
-                    disabled={isDisabled}
-                    className="inline-flex w-full items-center justify-center rounded-full border border-slate-900 bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-md transition hover:bg-indigo-700 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
+                    disabled
+                    className="inline-flex w-full items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 px-4 py-2 text-xs font-bold text-indigo-700 sm:text-sm"
                   >
-                    {isUpgrading ? "Procesando..." : "Actualizar a Premium"}
+                    Tu plan actual
                   </button>
                 ) : (
                   <button
                     type="button"
-                    className="inline-flex w-full items-center justify-center rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-100 hover:shadow-md sm:text-sm"
+                    onClick={() => handleUpgrade(plan.id)}
+                    disabled={isUpgrading !== null}
+                    className="inline-flex w-full items-center justify-center rounded-full border border-slate-900 bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-md transition hover:bg-indigo-700 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
                   >
-                    {plan.id === "freemium" ? "Plan actual base" : "Contactar ventas"}
+                    {isProcessing ? "Procesando..." : "Cambiar a este plan"}
                   </button>
                 )}
               </div>
