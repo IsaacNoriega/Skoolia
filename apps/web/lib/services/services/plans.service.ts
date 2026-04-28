@@ -3,8 +3,10 @@ import { api } from "../api";
 export interface Plan {
   id: string;
   name: string;
+  type: string;
+  pricingModel: string;
   price: number;
-  interval: "monthly" | "yearly";
+  interval?: "monthly" | "yearly";
   features: string[];
 }
 
