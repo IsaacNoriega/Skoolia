@@ -7,6 +7,7 @@ import { COURSE_REPOSITORY } from '../ports/tokens';
 import type { CourseRepository } from '../ports/course.repository';
 import { SCHOOL_REPOSITORY } from 'src/schools/core/ports/tokens';
 import type { SchoolRepository } from 'src/schools/core/ports/school.repository';
+import { SubscriptionsService } from 'src/subscriptions/application/subscriptions.service';
 
 export class CreateCourseUseCase {
   constructor(
@@ -15,6 +16,8 @@ export class CreateCourseUseCase {
 
     @Inject(SCHOOL_REPOSITORY)
     private readonly schoolRepository: SchoolRepository,
+
+    private readonly subscriptionsService: SubscriptionsService,
   ) {}
 
   async execute(params: {
@@ -29,6 +32,17 @@ export class CreateCourseUseCase {
     endDate?: Date;
     modality?: string;
   }) {
+    const activePlan = await this.subscriptionsService.getSchoolActivePlanByOwner(params.ownerId);
+      
+    if (activePlan && activePlan.plan.name.toLowerCase() === 'freemium') {
+      const courses = await this.courseRepository.findByOwner(params.ownerId);
+      const activeCoursesCount = courses.filter(c => c.status !== 'archived').length;
+      
+      if (activeCoursesCount >= 1) {
+        throw new ForbiddenException('Has alcanzado el límite de cursos de tu plan. Necesitas el plan Premium para crear más cursos.');
+      }
+    }
+
     // Ya no se requiere ser "private" ni tener escuela
 
     if (params.startDate && params.endDate) {

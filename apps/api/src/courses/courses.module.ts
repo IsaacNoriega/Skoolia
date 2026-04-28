@@ -19,9 +19,10 @@ import { ListPublicCoursesBySchoolUseCase } from './core/use-cases/list-public-c
 import { ListPublicCoursesUseCase } from './core/use-cases/list-public-courses.use-case';
 import { DrizzleCourseRepository } from './infrastructure/adapters/drizzle-course.repository';
 import { COURSE_REPOSITORY } from './core/ports/tokens';
+import { SubscriptionsModule } from 'src/subscriptions/subscriptions.module';
 
 @Module({
-  imports: [DbModule, SchoolsModule, AuthModule, FilesModule],
+  imports: [DbModule, SchoolsModule, AuthModule, FilesModule, SubscriptionsModule],
   controllers: [CoursesController],
   providers: [
     CreateCourseUseCase,
