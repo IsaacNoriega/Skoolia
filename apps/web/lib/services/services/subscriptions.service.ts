@@ -4,35 +4,40 @@ export interface SubscriptionPlan {
   id: string;
   name: string;
   price: number;
-  interval: "monthly" | "yearly";
   features: string[];
 }
 
-export interface SchoolSubscription {
+export interface SchoolActivePlan {
   subscriptionId: string;
   schoolId: string;
   status: "active" | "past_due" | "canceled";
-  currentPeriodStart: string;
-  currentPeriodEnd: string;
+  startDate: string;
+  endDate: string;
   plan: SubscriptionPlan;
 }
 
-export interface UpgradeToPremiumResponse {
+export interface ChangePlanResponse {
   message: string;
-  subscription: SchoolSubscription;
+  subscription: SchoolActivePlan;
 }
 
 export const subscriptionsService = {
-  async upgradeToPremium(token?: string) {
+  async getActivePlan(token?: string) {
     const headers = token
-      ? {
-          Authorization: `Bearer ${token}`,
-        }
+      ? { Authorization: `Bearer ${token}` }
+      : undefined;
+    return api<SchoolActivePlan | null>("/subscriptions/me", { headers });
+  },
+
+  async changePlan(planId: string, token?: string) {
+    const headers = token
+      ? { Authorization: `Bearer ${token}` }
       : undefined;
 
-    return api<UpgradeToPremiumResponse>("/subscriptions/upgrade", {
+    return api<ChangePlanResponse>("/subscriptions/change", {
       method: "PATCH",
       headers,
+      body: JSON.stringify({ planId }),
     });
   },
 };

@@ -1,27 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-// Utilidad para geocodificar usando Nominatim
-async function geocodeAddress(address: string, city: string): Promise<{ lat: number; lng: number } | null> {
-    const query = encodeURIComponent(`${address}, ${city}, México`);
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${query}`;
-    try {
-        const res = await fetch(url, {
-            headers: { 'Accept-Language': 'es', 'User-Agent': 'Skoolia/1.0 (contacto@skoolia.mx)' },
-        });
-        if (!res.ok) return null;
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-            return {
-                lat: parseFloat(data[0].lat),
-                lng: parseFloat(data[0].lon),
-            };
-        }
-        return null;
-    } catch {
-        return null;
-    }
-}
+import { geocodingService } from "@/lib/services/geocoding.service";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ShieldCheck, Upload, X } from "lucide-react";
@@ -300,19 +280,21 @@ export default function SchoolRegistrationWizard({ isOpen, onClose }: Props) {
                     variant: "info",
                     duration: 2500,
                 });
-                const geo = await geocodeAddress(address, city);
-                if (geo) {
-                    setValue("latitude", geo.lat, { shouldValidate: true });
-                    setValue("longitude", geo.lng, { shouldValidate: true });
+                const geo = await geocodingService.geocodeAddressWithFallback(address, city);
+                if (geo.success && geo.data) {
+                    setValue("latitude", geo.data.lat, { shouldValidate: true });
+                    setValue("longitude", geo.data.lng, { shouldValidate: true });
                     showToast({
-                        title: "Coordenadas encontradas",
-                        description: `Latitud: ${geo.lat.toFixed(6)}, Longitud: ${geo.lng.toFixed(6)}`,
-                        variant: "success",
+                        title: geo.data.type === 'exact' ? "Coordenadas encontradas" : "Ubicación aproximada",
+                        description: geo.data.type === 'exact' 
+                          ? `Latitud: ${geo.data.lat.toFixed(6)}, Longitud: ${geo.data.lng.toFixed(6)}`
+                          : "No encontramos la calle exacta, usamos tu ciudad. Puedes ajustar el mapa después.",
+                        variant: geo.data.type === 'exact' ? "success" : "warning",
                     });
                 } else {
                     showToast({
                         title: "No se pudo geocodificar la dirección",
-                        description: "Verifica que la dirección y el estado sean correctos. Puedes ingresar las coordenadas manualmente en el siguiente paso.",
+                        description: geo.error || "Verifica que la dirección y el estado sean correctos. Puedes ingresar las coordenadas manualmente en el siguiente paso.",
                         variant: "error",
                     });
                 }

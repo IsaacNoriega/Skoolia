@@ -19,7 +19,7 @@ export interface SchoolActivePlan {
   };
 }
 
-export interface UpgradeToPremiumResult {
+export interface ChangePlanResult {
   message: string;
   subscription: SchoolActivePlan;
 }
@@ -77,7 +77,22 @@ export class SubscriptionsService {
     };
   }
 
-  async upgradeToPremium(ownerId: string): Promise<UpgradeToPremiumResult> {
+  async getSchoolActivePlanByOwner(ownerId: string): Promise<SchoolActivePlan | null> {
+    const rows = await this.db
+      .select({ id: schools.id })
+      .from(schools)
+      .where(eq(schools.ownerId, ownerId))
+      .limit(1);
+
+    const school = rows[0];
+    if (!school) {
+      return null;
+    }
+
+    return this.getSchoolActivePlan(school.id);
+  }
+
+  async changePlan(ownerId: string, planId: string): Promise<ChangePlanResult> {
     const subscription = await this.db.transaction(async (tx) => {
       const [school] = await tx
         .select({ id: schools.id })
@@ -89,16 +104,16 @@ export class SubscriptionsService {
         throw new NotFoundException('School not found for this owner');
       }
 
-      const [premiumPlan] = await tx
+      const [targetPlan] = await tx
         .select({
           id: plans.id,
         })
         .from(plans)
-        .where(eq(plans.name, 'PREMIUM_SUBSCRIPTION'))
+        .where(eq(plans.id, planId))
         .limit(1);
 
-      if (!premiumPlan) {
-        throw new NotFoundException('Premium plan not found');
+      if (!targetPlan) {
+        throw new NotFoundException('Plan not found');
       }
 
       const startDate = new Date();
@@ -115,7 +130,7 @@ export class SubscriptionsService {
         await tx
           .update(schoolSubscriptions)
           .set({
-            planId: premiumPlan.id,
+            planId: targetPlan.id,
             status: 'active',
             startDate,
             endDate,
@@ -125,7 +140,7 @@ export class SubscriptionsService {
       } else {
         await tx.insert(schoolSubscriptions).values({
           schoolId: school.id,
-          planId: premiumPlan.id,
+          planId: targetPlan.id,
           status: 'active',
           startDate,
           endDate,
@@ -142,7 +157,7 @@ export class SubscriptionsService {
     }
 
     return {
-      message: 'School upgraded to Premium successfully',
+      message: 'Plan actualizado con éxito',
       subscription: activePlan,
     };
   }

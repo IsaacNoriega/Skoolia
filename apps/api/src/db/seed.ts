@@ -59,21 +59,23 @@ async function seed() {
   // ======================
   const insertedPlans = await db.insert(plans).values([
     {
-      name: 'Freemium',
+      name: 'FREEMIUM' as const,
+      type: 'subscription' as const,
+      pricingModel: 'recurrent' as const,
       price: 0,
-      interval: 'monthly',
       features: ['Registro básico', 'Directorio'],
     },
     {
-      name: 'Premium',
+      name: 'PREMIUM_SUBSCRIPTION' as const,
+      type: 'subscription' as const,
+      pricingModel: 'recurrent' as const,
       price: 1500,
-      interval: 'monthly',
       features: ['Leads avanzados', 'Prioridad', 'Mapa destacado'],
     },
   ]).returning();
 
-  const freemiumPlan = insertedPlans.find(p => p.name === 'Freemium')!;
-  const premiumPlan = insertedPlans.find(p => p.name === 'Premium')!;
+  const freemiumPlan = insertedPlans.find(p => p.name === 'FREEMIUM')!;
+  const premiumPlan = insertedPlans.find(p => p.name === 'PREMIUM_SUBSCRIPTION')!;
 
   // ======================
   // CATEGORÍAS
@@ -195,8 +197,8 @@ async function seed() {
       schoolId: school.id,
       planId: i % 2 === 0 ? premiumPlan.id : freemiumPlan.id,
       status: 'active',
-      currentPeriodStart: new Date(),
-      currentPeriodEnd: new Date(Date.now() + 30 * 86400000),
+      startDate: new Date(),
+      endDate: new Date(Date.now() + 30 * 86400000),
     });
 
     // categoría
