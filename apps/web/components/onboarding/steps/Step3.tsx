@@ -1,40 +1,75 @@
 "use client";
-"use client";
 
-
-import React, { useCallback } from "react";
+import React, { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { useOnboarding } from "@/contexts/OnBoardingContext";
 import { useToast } from "@/components/ui/toast";
 import EducationalLevelSelect from "./EducationalLevelSelect";
 import { cityOptions, institutionTypeOptions } from "./onboarding-options";
 import SchoolsMap from "../SchoolsMap";
+import { geocodingService } from "@/lib/services/geocoding.service";
+import { MapPin, Loader2 } from "lucide-react";
 
 export default function Step3() {
   const { state, setField, next, validate } = useOnboarding();
   const { showToast } = useToast();
+  const [isGeocoding, setIsGeocoding] = useState(false);
 
-  // Geocodificación con Nominatim
-  const geocodeAddress = useCallback(async (address: string, city: string) => {
-    const query = encodeURIComponent(`${address}, ${city}, México`);
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${query}`;
-    try {
-      const res = await fetch(url, {
-        headers: { 'Accept-Language': 'es', 'User-Agent': 'Skoolia/1.0 (contacto@skoolia.mx)' },
+  const handleGeocode = async () => {
+    const address = state.data.address;
+    const city = state.data.city;
+
+    if (!city) {
+      showToast({
+        title: "Falta el estado",
+        description: "Selecciona un estado para poder ubicarte en el mapa.",
+        variant: "error",
       });
-      if (!res.ok) return null;
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        return {
-          lat: parseFloat(data[0].lat),
-          lng: parseFloat(data[0].lon),
-        };
-      }
-      return null;
-    } catch {
-      return null;
+      return;
     }
-  }, []);
+
+    setIsGeocoding(true);
+    showToast({
+      title: "Buscando...",
+      description: "Localizando tu dirección en el mapa.",
+      variant: "info",
+      duration: 2000,
+    });
+
+    const result = await geocodingService.geocodeAddressWithFallback(address || "", city);
+
+    setIsGeocoding(false);
+
+    if (result.success && result.data) {
+      setField("lat", result.data.lat);
+      setField("lng", result.data.lng);
+      
+      if (result.data.type === 'exact') {
+        showToast({
+          title: "Ubicación encontrada",
+          description: "La dirección fue localizada con éxito.",
+          variant: "success",
+        });
+      } else {
+        showToast({
+          title: "Ubicación aproximada",
+          description: "No encontramos la calle exacta. Te mostramos la ciudad. Puedes mover el pin para ajustar.",
+          variant: "warning",
+        });
+      }
+    } else {
+      showToast({
+        title: "Error de ubicación",
+        description: result.error || "No pudimos encontrar la ubicación.",
+        variant: "error",
+      });
+    }
+  };
+
+  const onLocationChange = (lat: number, lng: number) => {
+    setField("lat", lat);
+    setField("lng", lng);
+  };
 
   // Interceptar el botón siguiente de este paso
   return (
@@ -98,22 +133,32 @@ export default function Step3() {
             {/* Dirección */}
             <div className="space-y-3">
               <Label className="text-lg font-semibold">Dirección</Label>
-              <input
-                value={state.data.address}
-                onChange={async (e) => {
-                  setField("address", e.target.value);
-                  // Geocodifica en tiempo real
-                  if (state.data.city && e.target.value) {
-                    const geo = await geocodeAddress(e.target.value, state.data.city);
-                    if (geo) {
-                      setField("lat", geo.lat);
-                      setField("lng", geo.lng);
+              <div className="flex gap-3">
+                <input
+                  value={state.data.address || ""}
+                  onChange={(e) => setField("address", e.target.value)}
+                  onBlur={() => {
+                    if (state.data.address && state.data.city) handleGeocode();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleGeocode();
                     }
-                  }
-                }}
-                placeholder="Calle, número, colonia"
-                className="h-16 w-full rounded-full bg-[#f3f3f3] border-0 text-lg px-8 focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-0"
-              />
+                  }}
+                  placeholder="Calle, número, colonia"
+                  className="h-16 flex-1 rounded-full bg-[#f3f3f3] border-0 text-lg px-8 focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-0"
+                />
+                <button
+                  type="button"
+                  onClick={handleGeocode}
+                  disabled={isGeocoding || !state.data.city}
+                  className="h-16 px-6 bg-slate-900 text-white rounded-full font-bold flex items-center gap-2 hover:bg-slate-800 disabled:opacity-50 transition-all"
+                >
+                  {isGeocoding ? <Loader2 className="animate-spin" size={20} /> : <MapPin size={20} />}
+                  <span className="hidden sm:inline">Buscar</span>
+                </button>
+              </div>
               {state.errors.address && (
                 <p className="text-sm text-red-500 px-2">{state.errors.address}</p>
               )}
@@ -122,17 +167,12 @@ export default function Step3() {
             <div className="space-y-3">
               <Label className="text-lg font-semibold">Estado</Label>
               <select
-                value={state.data.city}
-                onChange={async (e) => {
+                value={state.data.city || ""}
+                onChange={(e) => {
                   setField("city", e.target.value);
-                  // Geocodifica en tiempo real
-                  if (state.data.address && e.target.value) {
-                    const geo = await geocodeAddress(state.data.address, e.target.value);
-                    if (geo) {
-                      setField("lat", geo.lat);
-                      setField("lng", geo.lng);
-                    }
-                  }
+                }}
+                onBlur={() => {
+                   if (state.data.address && state.data.city) handleGeocode();
                 }}
                 className="h-16 w-full rounded-full bg-[#f3f3f3] border-0 text-lg px-8 focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-0"
               >
@@ -154,12 +194,14 @@ export default function Step3() {
                 <SchoolsMap
                   schools={[{
                     id: "preview",
-                    name: state.data.schoolName || state.data.cursoNombre || "Ubicación temporal",
+                    name: state.data.schoolName || "Tu ubicación",
                     lat: state.data.lat,
                     lng: state.data.lng,
                     level: state.data.educationalLevel || undefined,
                   }]}
                   userLocation={{ lat: state.data.lat, lng: state.data.lng }}
+                  draggable={true}
+                  onLocationChange={onLocationChange}
                 />
               </div>
             )}
@@ -196,21 +238,32 @@ export default function Step3() {
               <>
                 <div className="space-y-3">
                   <Label className="text-lg font-semibold">Dirección</Label>
-                  <input
-                    value={state.data.address || ""}
-                    onChange={async (e) => {
-                      setField("address", e.target.value);
-                      if (state.data.city && e.target.value) {
-                        const geo = await geocodeAddress(e.target.value, state.data.city);
-                        if (geo) {
-                          setField("lat", geo.lat);
-                          setField("lng", geo.lng);
+                  <div className="flex gap-3">
+                    <input
+                      value={state.data.address || ""}
+                      onChange={(e) => setField("address", e.target.value)}
+                      onBlur={() => {
+                        if (state.data.address && state.data.city) handleGeocode();
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleGeocode();
                         }
-                      }
-                    }}
-                    placeholder="Calle, número, colonia"
-                    className="h-16 w-full rounded-full bg-[#f3f3f3] border-0 text-lg px-8 focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-0"
-                  />
+                      }}
+                      placeholder="Calle, número, colonia"
+                      className="h-16 flex-1 rounded-full bg-[#f3f3f3] border-0 text-lg px-8 focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-0"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleGeocode}
+                      disabled={isGeocoding || !state.data.city}
+                      className="h-16 px-6 bg-slate-900 text-white rounded-full font-bold flex items-center gap-2 hover:bg-slate-800 disabled:opacity-50 transition-all"
+                    >
+                      {isGeocoding ? <Loader2 className="animate-spin" size={20} /> : <MapPin size={20} />}
+                      <span className="hidden sm:inline">Buscar</span>
+                    </button>
+                  </div>
                   {state.errors.address && (
                     <p className="text-sm text-red-500 px-2">{state.errors.address}</p>
                   )}
@@ -218,16 +271,12 @@ export default function Step3() {
                 <div className="space-y-3">
                   <Label className="text-lg font-semibold">Estado</Label>
                   <select
-                    value={state.data.city}
-                    onChange={async (e) => {
+                    value={state.data.city || ""}
+                    onChange={(e) => {
                       setField("city", e.target.value);
-                      if (state.data.address && e.target.value) {
-                        const geo = await geocodeAddress(state.data.address, e.target.value);
-                        if (geo) {
-                          setField("lat", geo.lat);
-                          setField("lng", geo.lng);
-                        }
-                      }
+                    }}
+                    onBlur={() => {
+                      if (state.data.address && state.data.city) handleGeocode();
                     }}
                     className="h-16 w-full rounded-full bg-[#f3f3f3] border-0 text-lg px-8 focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-0"
                   >
@@ -249,12 +298,13 @@ export default function Step3() {
                     <SchoolsMap
                       schools={[{
                         id: "preview",
-                        name: state.data.schoolName || state.data.cursoNombre || "Ubicación temporal",
+                        name: state.data.cursoNombre || "Tu ubicación",
                         lat: state.data.lat,
                         lng: state.data.lng,
-                        level: state.data.educationalLevel || undefined,
                       }]}
                       userLocation={{ lat: state.data.lat, lng: state.data.lng }}
+                      draggable={true}
+                      onLocationChange={onLocationChange}
                     />
                   </div>
                 )}
