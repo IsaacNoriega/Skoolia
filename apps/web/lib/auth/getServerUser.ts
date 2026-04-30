@@ -5,6 +5,13 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 export async function getServerUser() {
   try {
     const cookieStore = await cookies();
+    const hasAccessToken = cookieStore.has("access_token");
+    const hasRefreshToken = cookieStore.has("refresh_token");
+
+    if (!hasAccessToken && !hasRefreshToken) {
+      return null;
+    }
+
     const cookieString = cookieStore.toString();
 
 

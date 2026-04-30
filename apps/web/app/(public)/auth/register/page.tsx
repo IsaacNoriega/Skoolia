@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import Navbar from "@/components/layout/Navbar";
 import { LineBackground } from "@/lib/icons/LineBackground";
 import { authService } from "@/lib/services/services/auth.service";
+import { ApiError } from "@/lib/services/api";
 import { WaveVector } from "@/lib/icons/WaveVector";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -24,6 +25,11 @@ export default function RegisterPage() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   async function handleRegister() {
+    if (!acceptedTerms) {
+      setError("Debes aceptar los términos y condiciones.");
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -42,9 +48,24 @@ export default function RegisterPage() {
       });
 
       router.push(`${loginPath}?${params.toString()}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setError("No se pudo crear la cuenta. Intenta nuevamente.");
+      if (err instanceof ApiError) {
+        const data = err.data as { message?: string | string[] } | undefined;
+        const message = Array.isArray(data?.message)
+          ? data.message[0]
+          : data?.message;
+
+        if (err.status === 409) {
+          setError("Ese correo ya está registrado. Inicia sesión.");
+        } else if (message) {
+          setError(message);
+        } else {
+          setError(`No se pudo crear la cuenta. Error ${err.status}.`);
+        }
+      } else {
+        setError("No se pudo crear la cuenta. Intenta nuevamente.");
+      }
     } finally {
       setLoading(false);
     }

@@ -31,26 +31,6 @@ const SCHEDULE_OPTIONS = [
   "09:00 - 16:00",
 ] as const;
 
-function normalizeOptionalImageUrl(value: string): string | undefined {
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-
-  if (
-    trimmed.startsWith("http://") ||
-    trimmed.startsWith("https://") ||
-    trimmed.startsWith("/") ||
-    trimmed.startsWith("blob:")
-  ) {
-    return trimmed;
-  }
-
-  try {
-    return new URL(`https://${trimmed}`).toString();
-  } catch {
-    return undefined;
-  }
-}
-
 type FormState = {
   name: string;
   description: string;
@@ -66,8 +46,6 @@ type FormState = {
   enrollmentYear: string;
   enrollmentOpen: boolean;
   monthlyPrice: string;
-  logoUrl: string;
-  coverImageUrl: string;
 };
 
 export default function SchoolSettingsForm() {
@@ -92,16 +70,20 @@ export default function SchoolSettingsForm() {
     enrollmentYear: "",
     enrollmentOpen: false,
     monthlyPrice: "",
-    logoUrl: "",
-    coverImageUrl: "",
   });
 
   // Local-only file previews (upload coming later)
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
 
-  const logoPreview = useMemo(() => (logoFile ? URL.createObjectURL(logoFile) : form.logoUrl || ""), [logoFile, form.logoUrl]);
-  const coverPreview = useMemo(() => (coverFile ? URL.createObjectURL(coverFile) : form.coverImageUrl || ""), [coverFile, form.coverImageUrl]);
+  const logoPreview = useMemo(
+    () => (logoFile ? URL.createObjectURL(logoFile) : school?.logoUrl || ""),
+    [logoFile, school?.logoUrl],
+  );
+  const coverPreview = useMemo(
+    () => (coverFile ? URL.createObjectURL(coverFile) : school?.coverImageUrl || ""),
+    [coverFile, school?.coverImageUrl],
+  );
 
   useEffect(() => {
     let active = true;
@@ -127,8 +109,6 @@ export default function SchoolSettingsForm() {
           enrollmentYear: me.enrollmentYear != null ? String(me.enrollmentYear) : "",
           enrollmentOpen: !!me.enrollmentOpen,
           monthlyPrice: me.monthlyPrice != null ? String(me.monthlyPrice) : "",
-          logoUrl: me.logoUrl ?? "",
-          coverImageUrl: me.coverImageUrl ?? "",
         });
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Error loading school data");
@@ -156,18 +136,6 @@ export default function SchoolSettingsForm() {
       const maxStudentsPerClass = form.maxStudentsPerClass ? Number(form.maxStudentsPerClass) : undefined;
       const enrollmentYear = form.enrollmentYear ? Number(form.enrollmentYear) : undefined;
       const monthlyPrice = form.monthlyPrice ? Number(form.monthlyPrice) : undefined;
-      const logoUrl = normalizeOptionalImageUrl(form.logoUrl);
-      const coverImageUrl = normalizeOptionalImageUrl(form.coverImageUrl);
-
-      if (form.logoUrl.trim() && !logoUrl) {
-        setError("La URL del logo no es válida.");
-        return;
-      }
-
-      if (form.coverImageUrl.trim() && !coverImageUrl) {
-        setError("La URL de portada no es válida.");
-        return;
-      }
 
       if (latitude != null && (!Number.isFinite(latitude) || latitude < -90 || latitude > 90)) {
         setError("La latitud debe ser un número entre -90 y 90.");
@@ -226,14 +194,8 @@ export default function SchoolSettingsForm() {
       }
 
       setSchool(latest);
-      setForm((prev) => ({
-        ...prev,
-        logoUrl: latest.logoUrl ?? "",
-        coverImageUrl: latest.coverImageUrl ?? "",
-      }));
       setSuccess("Configuración guardada");
 
-      // Clear local file selections after save (preview only)
       setLogoFile(null);
       setCoverFile(null);
     } catch (err: unknown) {
@@ -245,7 +207,7 @@ export default function SchoolSettingsForm() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-4xl rounded-3xl bg-white p-8 shadow">
+      <div className="w-full rounded-3xl bg-white p-8 shadow">
         Cargando configuración…
       </div>
     );
@@ -260,7 +222,7 @@ export default function SchoolSettingsForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="mx-auto max-w-4xl rounded-3xl bg-white p-8 shadow">
+    <form onSubmit={onSubmit} className="w-full rounded-3xl bg-white p-8">
       <div className="border-b border-slate-100 pb-6">
         <h1 className="text-lg font-extrabold text-slate-900 sm:text-xl">Configuración de la escuela</h1>
         <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-slate-400">Actualiza datos generales, imágenes y detalles.</p>
@@ -282,7 +244,7 @@ export default function SchoolSettingsForm() {
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Nombre</label>
           <input
-            className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+            className="h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
             value={form.name}
             onChange={(e) => set("name", e.target.value)}
             placeholder="Nombre de la escuela"
@@ -291,7 +253,7 @@ export default function SchoolSettingsForm() {
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Descripción</label>
           <textarea
-            className="w-full rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+            className="w-full rounded-2xl bg-slate-50 px-4 py-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
             rows={4}
             value={form.description}
             onChange={(e) => set("description", e.target.value)}
@@ -315,15 +277,12 @@ export default function SchoolSettingsForm() {
               <input
                 type="file"
                 accept="image/*"
+                className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-full file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:font-medium file:text-white hover:file:bg-[#1973fd]"
                 onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
               />
-              <input
-                className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
-                placeholder="URL del logo"
-                value={form.logoUrl}
-                onChange={(e) => set("logoUrl", e.target.value)}
-              />
-              <p className="text-xs text-slate-500">Subida desde el ordenador próximamente; por ahora usa una URL.</p>
+              <p className="text-xs text-slate-500">
+                {logoFile ? `Archivo seleccionado: ${logoFile.name}` : "Selecciona un archivo para reemplazar el logo actual."}
+              </p>
             </div>
           </div>
         </div>
@@ -340,15 +299,12 @@ export default function SchoolSettingsForm() {
               <input
                 type="file"
                 accept="image/*"
+                className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-full file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:font-medium file:text-white hover:file:bg-[#1973fd]"
                 onChange={(e) => setCoverFile(e.target.files?.[0] ?? null)}
               />
-              <input
-                className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
-                placeholder="URL de portada"
-                value={form.coverImageUrl}
-                onChange={(e) => set("coverImageUrl", e.target.value)}
-              />
-              <p className="text-xs text-slate-500">Subida desde el ordenador próximamente; por ahora usa una URL.</p>
+              <p className="text-xs text-slate-500">
+                {coverFile ? `Archivo seleccionado: ${coverFile.name}` : "Selecciona un archivo para reemplazar la portada actual."}
+              </p>
             </div>
           </div>
         </div>
@@ -359,7 +315,7 @@ export default function SchoolSettingsForm() {
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Dirección</label>
           <input
-            className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+            className="h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
             value={form.address}
             onChange={(e) => set("address", e.target.value)}
           />
@@ -367,7 +323,7 @@ export default function SchoolSettingsForm() {
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Estado</label>
           <select
-            className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+            className="h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
             value={form.city}
             onChange={(e) => set("city", e.target.value)}
           >
@@ -382,7 +338,7 @@ export default function SchoolSettingsForm() {
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Latitud</label>
           <input
-            className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+            className="h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
             type="number"
             min={-90}
             max={90}
@@ -395,7 +351,7 @@ export default function SchoolSettingsForm() {
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Longitud</label>
           <input
-            className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+            className="h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
             type="number"
             min={-180}
             max={180}
@@ -412,7 +368,7 @@ export default function SchoolSettingsForm() {
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Nivel educativo</label>
           <select
-            className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+            className="h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
             value={form.educationalLevel}
             onChange={(e) => set("educationalLevel", e.target.value)}
           >
@@ -425,7 +381,7 @@ export default function SchoolSettingsForm() {
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Tipo de institución</label>
           <select
-            className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+            className="h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
             value={form.institutionType}
             onChange={(e) => set("institutionType", e.target.value)}
           >
@@ -438,7 +394,7 @@ export default function SchoolSettingsForm() {
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Horario</label>
           <select
-            className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+            className="h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
             value={form.schedule}
             onChange={(e) => set("schedule", e.target.value)}
           >
@@ -451,7 +407,7 @@ export default function SchoolSettingsForm() {
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Idiomas</label>
           <select
-            className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+            className="h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
             value={form.languages}
             onChange={(e) => set("languages", e.target.value)}
           >
@@ -464,7 +420,7 @@ export default function SchoolSettingsForm() {
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Máx. alumnos por clase</label>
           <input
-            className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+            className="h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
             type="number"
             min={1}
             step={1}
@@ -476,7 +432,7 @@ export default function SchoolSettingsForm() {
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Año de inscripción</label>
           <input
-            className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+            className="h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
             type="number"
             min={1900}
             max={2100}
@@ -502,7 +458,7 @@ export default function SchoolSettingsForm() {
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Precio mensual</label>
           <input
-            className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+            className="h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
             type="number"
             min={0}
             step={1}
