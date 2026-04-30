@@ -1,6 +1,9 @@
 import { cookies } from "next/headers";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_BASE_URL =
+  process.env.API_SERVER_URL ??
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://localhost:8000";
 
 export async function getServerUser() {
   try {

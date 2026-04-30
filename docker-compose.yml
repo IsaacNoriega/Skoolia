@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -13,6 +11,47 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U skoolia_user -d skoolia"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: skoolia-api
+    restart: unless-stopped
+    env_file:
+      - ./apps/api/.env
+    environment:
+      DATABASE_URL: postgresql://skoolia_user:skoolia_password@postgres:5432/skoolia
+      PORT: 8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    container_name: skoolia-web
+    restart: unless-stopped
+    env_file:
+      - ./apps/web/.env
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      API_SERVER_URL: http://api:8000
+      PORT: 3000
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
 
 volumes:
   postgres_data:

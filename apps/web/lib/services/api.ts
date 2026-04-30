@@ -20,7 +20,11 @@ type RequestOptions = Omit<RequestInit, 'method' | 'body'> & {
 };
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+  typeof window === 'undefined'
+    ? process.env.API_SERVER_URL ??
+      process.env.NEXT_PUBLIC_API_URL ??
+      'http://localhost:8000'
+    : process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
 let refreshPromise: Promise<void> | null = null;
 
