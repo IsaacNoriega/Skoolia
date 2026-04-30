@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function refreshUser() {
     try {
-      const data = await api<AuthUser>("/users/me");
+      const data = await api<AuthUser>("/users/me", { retryOn401: false });
       setUser(data);
       if (typeof window !== "undefined") {
         localStorage.setItem(AUTH_USER_ID_KEY, data.id);

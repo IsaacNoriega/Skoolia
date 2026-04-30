@@ -1,46 +1,18 @@
-/**
- * =============================================================================
- * 📍 COMPONENT: SCHOOL OFFERS/COUPONS MANAGEMENT
- * =============================================================================
- * File: SchoolOffersSection.tsx
- * Type: Client Component
- * 
- * Purpose:
- *   Manage school coupons and promotional offers
- *   Only available to authenticated school admins
- * 
- * Features:
- *   ✓ View active, new, and expired coupons
- *   ✓ Display coupon metrics (usage, discount estimate)
- *   ✓ Create new coupons with code and expiration
- *   ✓ Edit/delete existing coupons
- *   ✓ LocalStorage persistence per user
- *   ✓ Seed data with 3 example coupons
- * 
- * Coupon Status:
- *   - NUEVO: Recently created (highlight green)
- *   - ACTIVO: Currently valid (highlight indigo)
- *   - EXPIRADO: Expired (grayed out)
- * 
- * Auth:
- *   ✓ Uses useAuth() for user identification
- *   ✓ Stores coupons keyed by userId in localStorage
- * 
- * Note: This component is used by school admins to manage offers
- * =============================================================================
- */
-
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Edit2, Percent, TicketPercent, Trash2, TrendingUp } from "lucide-react";
+import { useMemo, useState } from "react";
+import {
+	ArrowUpRight,
+	CalendarDays,
+	ChevronRight,
+	Edit2,
+	Percent,
+	Plus,
+	Trash2,
+} from "lucide-react";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/toast";
-
-// ─────────────────────────────────────────────────────────────────────────
-// SECTION 1: TYPE DEFINITIONS
-// ─────────────────────────────────────────────────────────────────────────
 
 type CouponStatus = "NUEVO" | "ACTIVO" | "EXPIRADO";
 
@@ -53,10 +25,6 @@ type Coupon = {
 	usageUsed: number;
 	usageLimit: number;
 };
-
-// ─────────────────────────────────────────────────────────────────────────
-// SECTION 2: LOCALSTORAGE PERSISTENCE (Coupons keyed by userId)
-// ─────────────────────────────────────────────────────────────────────────
 
 const OFFERS_STORAGE_PREFIX = "skoolia:offers";
 
@@ -81,15 +49,11 @@ function writeCoupons(coupons: Coupon[], userId?: string) {
 	localStorage.setItem(getStorageKey(userId), JSON.stringify(coupons));
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// SECTION 3: SEED DATA & UTILITIES
-// ─────────────────────────────────────────────────────────────────────────
-
 function getSeedCoupons(): Coupon[] {
 	return [
 		{
 			id: 1,
-			name: "Beca 15% Primer Ingreso",
+			name: "Beca 15% primer ingreso",
 			code: "NUEVO2026",
 			status: "NUEVO",
 			expiresAt: "2026-02-15",
@@ -98,7 +62,7 @@ function getSeedCoupons(): Coupon[] {
 		},
 		{
 			id: 2,
-			name: "Inscripción Gratis (Fútbol)",
+			name: "Inscripción gratis fútbol",
 			code: "GOAL100",
 			status: "ACTIVO",
 			expiresAt: "2026-02-10",
@@ -107,7 +71,7 @@ function getSeedCoupons(): Coupon[] {
 		},
 		{
 			id: 3,
-			name: "Pronto Pago Marzo",
+			name: "Pronto pago marzo",
 			code: "EARLY24",
 			status: "ACTIVO",
 			expiresAt: "2026-03-01",
@@ -117,45 +81,59 @@ function getSeedCoupons(): Coupon[] {
 	];
 }
 
-function statusClasses(status: CouponStatus) {
+function statusLabel(status: CouponStatus) {
 	switch (status) {
 		case "NUEVO":
-			return "bg-emerald-50 text-emerald-700";
+			return "Nuevo";
 		case "ACTIVO":
-			return "bg-indigo-50 text-indigo-700";
+			return "Activo";
 		case "EXPIRADO":
 		default:
-			return "bg-slate-100 text-slate-600";
+			return "Expirado";
 	}
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// SECTION 4: MAIN COMPONENT - OFFERS MANAGEMENT
-// ─────────────────────────────────────────────────────────────────────────
+function statusDot(status: CouponStatus) {
+	switch (status) {
+		case "NUEVO":
+			return "bg-[#1973fd]";
+		case "ACTIVO":
+			return "bg-slate-950";
+		case "EXPIRADO":
+		default:
+			return "bg-slate-300";
+	}
+}
+
+function formatExpiry(date: string) {
+	const parsed = new Date(date);
+	if (Number.isNaN(parsed.getTime())) return "Vigencia no definida";
+	return parsed.toLocaleDateString("es-MX", {
+		day: "2-digit",
+		month: "short",
+		year: "numeric",
+	});
+}
 
 export default function SchoolOffersSection() {
 	const { user } = useAuth();
 	const { showToast } = useToast();
 
-	const [coupons, setCoupons] = useState<Coupon[]>([]);
+	const [coupons, setCoupons] = useState<Coupon[]>(() => {
+		const existing = readCoupons(user?.id);
+		const initialCoupons = existing.length ? existing : getSeedCoupons();
+
+		if (!existing.length) {
+			writeCoupons(initialCoupons, user?.id);
+		}
+
+		return initialCoupons;
+	});
 	const [showForm, setShowForm] = useState(false);
 	const [name, setName] = useState("");
 	const [code, setCode] = useState("");
 	const [expiresAt, setExpiresAt] = useState("");
 	const [usageLimit, setUsageLimit] = useState("100");
-
-	useEffect(() => {
-		const existing = readCoupons(user?.id);
-
-		if (existing.length) {
-			setCoupons(existing);
-			return;
-		}
-
-		const seeded = getSeedCoupons();
-		setCoupons(seeded);
-		writeCoupons(seeded, user?.id);
-	}, [user?.id]);
 
 	const metrics = useMemo(() => {
 		const totalUsage = coupons.reduce((sum, coupon) => sum + coupon.usageUsed, 0);
@@ -235,9 +213,8 @@ export default function SchoolOffersSection() {
 	};
 
 	const toggleStatus = (id: number) => {
-		const next: Coupon[] = coupons.map((coupon): Coupon => {
+		const next = coupons.map((coupon) => {
 			if (coupon.id !== id) return coupon;
-
 			if (coupon.status === "EXPIRADO") return coupon;
 
 			return {
@@ -258,185 +235,243 @@ export default function SchoolOffersSection() {
 		});
 	};
 
-	const formatExpiry = (date: string) => {
-		const parsed = new Date(date);
-		if (Number.isNaN(parsed.getTime())) return "Vigencia no definida";
-		return `Vence: ${parsed.toLocaleDateString("es-MX", {
-			day: "2-digit",
-			month: "short",
-			year: "numeric",
-		})}`;
-	};
-
 	return (
-		<div className="space-y-5 sm:space-y-6">
-			{/* Header principal */}
-			<section className="surface flex flex-col justify-between gap-4 rounded-4xl bg-white px-5 py-5 sm:flex-row sm:items-center sm:px-6 sm:py-6 shadow-sm ring-1 ring-black/5">
-				<div className="flex items-start gap-4">
-					<div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-50 text-rose-500">
-						<TicketPercent size={20} />
-					</div>
-					<div>
-						<h2 className="text-lg sm:text-xl font-extrabold text-slate-900">
-							Ofertas & Promociones
-						</h2>
-						<p className="mt-1 text-xs sm:text-sm text-slate-600">
-							Incentiva a los padres con descuentos exclusivos.
-						</p>
-					</div>
-				</div>
-				<button
-					onClick={() => setShowForm((prev) => !prev)}
-					className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2 text-xs sm:text-sm font-bold text-white shadow hover:bg-indigo-700"
-				>
-					<span className="text-base leading-none">+</span>
-					<span>{showForm ? "Cerrar" : "Crear cupón"}</span>
-				</button>
-			</section>
-
-			{showForm ? (
-				<section className="surface rounded-4xl bg-white px-5 py-5 shadow-sm ring-1 ring-black/5 sm:px-6">
-					<h3 className="text-sm font-extrabold text-slate-900 sm:text-base">Nueva promoción</h3>
-					<div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-						<input
-							value={name}
-							onChange={(event) => setName(event.target.value)}
-							placeholder="Nombre del cupón"
-							className="rounded-2xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-300"
-						/>
-						<input
-							value={code}
-							onChange={(event) => setCode(event.target.value)}
-							placeholder="Código (ej. BECA2026)"
-							className="rounded-2xl border border-slate-200 px-3 py-2 text-sm uppercase outline-none focus:border-indigo-300"
-						/>
-						<input
-							type="date"
-							value={expiresAt}
-							onChange={(event) => setExpiresAt(event.target.value)}
-							className="rounded-2xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-300"
-						/>
-						<input
-							type="number"
-							value={usageLimit}
-							onChange={(event) => setUsageLimit(event.target.value)}
-							min={1}
-							placeholder="Cupo máximo"
-							className="rounded-2xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-300"
-						/>
-					</div>
-					<div className="mt-4 flex justify-end">
+		<section className="rounded-[2rem] border border-slate-200 bg-white">
+			<div className="grid gap-0 lg:grid-cols-[minmax(0,1.15fr)_380px]">
+				<div className="border-b border-slate-200 p-6 sm:p-8 lg:border-b-0 lg:border-r">
+					<div className="flex items-start justify-between gap-4">
+						<div>
+							<p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
+								Ofertas
+							</p>
+							<h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
+								Descuentos claros.
+							</h1>
+							<p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
+								Crea promociones sin sobrecargar la operación. Un código, una vigencia y un cupo visible.
+							</p>
+						</div>
 						<button
-							onClick={createCoupon}
-							className="rounded-2xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700"
+							onClick={() => setShowForm((prev) => !prev)}
+							className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 px-4 text-sm font-semibold text-slate-950 transition hover:border-slate-300 hover:bg-slate-50"
 						>
-							Guardar cupón
+							<Plus size={16} />
+							{showForm ? "Cerrar" : "Nuevo"}
 						</button>
 					</div>
-				</section>
-			) : null}
 
-			{/* KPIs */}
-			<section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-				<div className="surface rounded-3xl bg-white px-5 py-4 sm:px-6 sm:py-5 shadow-sm ring-1 ring-black/5">
-					<p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-						Uso de cupones
-					</p>
-					<p className="mt-3 text-2xl font-extrabold text-slate-900">{metrics.totalUsage}</p>
-				</div>
-				<div className="surface flex items-start justify-between rounded-3xl bg-white px-5 py-4 sm:px-6 sm:py-5 shadow-sm ring-1 ring-black/5">
-					<div>
-						<p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-							Ahorro generado
-						</p>
-						<p className="mt-3 text-2xl font-extrabold text-slate-900">
-							${(metrics.totalDiscountEstimate / 1000).toFixed(1)}k
-						</p>
+					<div className="mt-8 grid gap-3 sm:grid-cols-3">
+						<Metric label="Cupones activos" value={`${metrics.activeCount}`} />
+						<Metric label="Usos totales" value={`${metrics.totalUsage}`} accent />
+						<Metric
+							label="Descuento estimado"
+							value={`$${(metrics.totalDiscountEstimate / 1000).toFixed(1)}k`}
+						/>
 					</div>
-					<div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
-						<TrendingUp size={18} />
-					</div>
-				</div>
-				<div className="surface rounded-3xl bg-white px-5 py-4 sm:px-6 sm:py-5 shadow-sm ring-1 ring-black/5">
-					<p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-						Cupones activos
-					</p>
-					<p className="mt-3 text-2xl font-extrabold text-slate-900">{metrics.activeCount}</p>
-				</div>
-			</section>
 
-			{/* Lista de cupones */}
-			<section className="surface rounded-4xl bg-white p-0 shadow-sm ring-1 ring-black/5 overflow-hidden">
-				<header className="px-5 py-4 sm:px-6 sm:py-5 border-b border-slate-100/70">
-					<h3 className="text-sm sm:text-base font-extrabold text-slate-900">
-						Gestionar Cupones
-					</h3>
-				</header>
-				<div className="divide-y divide-slate-100/70">
-					{coupons.map((c) => (
-						<div
-							key={c.id}
-							className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4 hover:bg-slate-50"
-						>
-							<div className="flex items-center gap-3 sm:gap-4">
-								<div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
-									<Percent size={16} />
-								</div>
-								<div>
-									<p className="text-sm sm:text-base font-extrabold text-slate-900">
-										{c.name}
-									</p>
-									<div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] sm:text-[11px] font-bold text-slate-500">
-										<span className={`inline-flex items-center rounded-full px-3 py-1 ${statusClasses(c.status)}`}>
-											{c.status}
-										</span>
-										<span className="inline-flex items-center rounded-full bg-slate-900 px-3 py-1 text-[10px] font-bold text-white">
-											{c.code}
-										</span>
-										<span className="text-slate-400">{formatExpiry(c.expiresAt)}</span>
-									</div>
-								</div>
+					{showForm ? (
+						<div className="mt-8 rounded-[1.5rem] border border-slate-200 p-5">
+							<p className="text-sm font-semibold text-slate-950">
+								Nueva promoción
+							</p>
+							<div className="mt-5 grid gap-3 sm:grid-cols-2">
+								<input
+									value={name}
+									onChange={(event) => setName(event.target.value)}
+									placeholder="Nombre del cupón"
+									className="h-12 rounded-2xl border border-slate-200 px-4 text-sm text-slate-950 outline-none transition focus:border-slate-300"
+								/>
+								<input
+									value={code}
+									onChange={(event) => setCode(event.target.value)}
+									placeholder="Código"
+									className="h-12 rounded-2xl border border-slate-200 px-4 text-sm uppercase text-slate-950 outline-none transition focus:border-slate-300"
+								/>
+								<input
+									type="date"
+									value={expiresAt}
+									onChange={(event) => setExpiresAt(event.target.value)}
+									className="h-12 rounded-2xl border border-slate-200 px-4 text-sm text-slate-950 outline-none transition focus:border-slate-300"
+								/>
+								<input
+									type="number"
+									value={usageLimit}
+									onChange={(event) => setUsageLimit(event.target.value)}
+									min={1}
+									placeholder="Cupo máximo"
+									className="h-12 rounded-2xl border border-slate-200 px-4 text-sm text-slate-950 outline-none transition focus:border-slate-300"
+								/>
 							</div>
-							<div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
-								<div className="w-full max-w-xs">
-									<div className="flex items-center justify-between text-[10px] font-bold text-slate-400">
-										<span>Uso</span>
-										<span>{c.usageUsed}/{c.usageLimit}</span>
-									</div>
-									<div className="mt-1 h-1.5 rounded-full bg-slate-100">
-										<div
-											className="h-1.5 rounded-full bg-violet-600"
-											style={{ width: `${Math.min((c.usageUsed / c.usageLimit) * 100, 100)}%` }}
-										/>
-									</div>
-								</div>
-								<div className="flex items-center gap-2">
-									<button
-										onClick={() => toggleStatus(c.id)}
-										className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
-										aria-label="Activar o pausar cupón"
-									>
-										<Edit2 size={14} />
-									</button>
-									<button
-										onClick={() => removeCoupon(c.id)}
-										className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
-										aria-label="Eliminar cupón"
-									>
-										<Trash2 size={14} />
-									</button>
-								</div>
+							<div className="mt-4 flex justify-end">
+								<button
+									onClick={createCoupon}
+									className="inline-flex h-11 items-center rounded-2xl bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
+								>
+									Guardar cupón
+								</button>
 							</div>
-						</div>
-					))}
-
-					{!coupons.length ? (
-						<div className="px-5 py-8 text-sm text-slate-500 sm:px-6">
-							Aún no tienes promociones. Crea tu primer cupón para activar campañas comerciales.
 						</div>
 					) : null}
+
+					<div className="mt-8">
+						<div className="flex items-center justify-between">
+							<p className="text-sm font-semibold text-slate-950">
+								Cupones
+							</p>
+							<p className="text-sm text-slate-500">{coupons.length} registrados</p>
+						</div>
+
+						<div className="mt-4 space-y-3">
+							{coupons.map((coupon) => (
+								<div
+									key={coupon.id}
+									className="rounded-[1.5rem] border border-slate-200 px-4 py-4 transition hover:border-slate-300"
+								>
+									<div className="flex items-start justify-between gap-4">
+										<div className="min-w-0">
+											<div className="flex items-center gap-2">
+												<span className={`h-2 w-2 rounded-full ${statusDot(coupon.status)}`} />
+												<span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+													{statusLabel(coupon.status)}
+												</span>
+											</div>
+											<p className="mt-3 truncate text-sm font-semibold text-slate-950">
+												{coupon.name}
+											</p>
+											<div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-500">
+												<span className="rounded-full bg-[#1973fd]/8 px-3 py-1 text-[#1973fd]">
+													{coupon.code}
+												</span>
+												<span>Vence {formatExpiry(coupon.expiresAt)}</span>
+											</div>
+										</div>
+
+										<div className="flex items-center gap-2">
+											<button
+												onClick={() => toggleStatus(coupon.id)}
+												className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-950"
+												aria-label="Editar estado"
+											>
+												<Edit2 size={14} />
+											</button>
+											<button
+												onClick={() => removeCoupon(coupon.id)}
+												className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-950"
+												aria-label="Eliminar cupón"
+											>
+												<Trash2 size={14} />
+											</button>
+										</div>
+									</div>
+
+									<div className="mt-4">
+										<div className="flex items-center justify-between text-xs font-medium text-slate-400">
+											<span>Uso</span>
+											<span>
+												{coupon.usageUsed}/{coupon.usageLimit}
+											</span>
+										</div>
+										<div className="mt-2 h-1.5 rounded-full bg-slate-100">
+											<div
+												className="h-1.5 rounded-full bg-[#1973fd]"
+												style={{
+													width: `${Math.min((coupon.usageUsed / coupon.usageLimit) * 100, 100)}%`,
+												}}
+											/>
+										</div>
+									</div>
+								</div>
+							))}
+
+							{!coupons.length ? (
+								<div className="rounded-[1.5rem] border border-dashed border-slate-200 px-4 py-8 text-sm text-slate-500">
+									Aún no tienes promociones creadas.
+								</div>
+							) : null}
+						</div>
+					</div>
 				</div>
-			</section>
+
+				<aside className="p-6 sm:p-8">
+					<div>
+						<p className="text-sm font-semibold text-slate-950">Resumen</p>
+						<p className="mt-1 text-sm text-slate-500">
+							Estado actual de tus promociones.
+						</p>
+					</div>
+
+					<div className="mt-6 rounded-[1.5rem] bg-slate-50 p-5">
+						<div className="flex items-center gap-3">
+							<div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#1973fd]/10 text-[#1973fd]">
+								<Percent size={18} />
+							</div>
+							<div>
+								<p className="text-sm font-semibold text-slate-950">
+									Promoción destacada
+								</p>
+								<p className="text-sm text-slate-500">
+									Mayor uso reciente
+								</p>
+							</div>
+						</div>
+						<p className="mt-5 text-lg font-semibold text-slate-950">
+							{coupons[0]?.name ?? "Sin promociones"}
+						</p>
+						<p className="mt-1 text-sm text-slate-500">
+							{coupons[0]?.code ? `Código ${coupons[0].code}` : "Crea tu primer cupón"}
+						</p>
+					</div>
+
+					<div className="mt-6 space-y-4">
+						<InfoRow icon={CalendarDays} label="Próxima vigencia" value={coupons[0] ? formatExpiry(coupons[0].expiresAt) : "Sin fecha"} />
+						<InfoRow icon={ArrowUpRight} label="Conversión estimada" value="12%" accent />
+						<InfoRow icon={ChevronRight} label="Promociones nuevas" value={`${coupons.filter((coupon) => coupon.status === "NUEVO").length}`} />
+					</div>
+				</aside>
+			</div>
+		</section>
+	);
+}
+
+function Metric({
+	label,
+	value,
+	accent = false,
+}: {
+	label: string;
+	value: string;
+	accent?: boolean;
+}) {
+	return (
+		<div className="rounded-2xl bg-slate-50 px-4 py-4">
+			<p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+				{label}
+			</p>
+			<p className={`mt-3 text-2xl font-semibold ${accent ? "text-[#1973fd]" : "text-slate-950"}`}>
+				{value}
+			</p>
+		</div>
+	);
+}
+
+function InfoRow({
+	icon: Icon,
+	label,
+	value,
+	accent = false,
+}: {
+	icon: typeof CalendarDays;
+	label: string;
+	value: string;
+	accent?: boolean;
+}) {
+	return (
+		<div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-4 last:border-b-0 last:pb-0">
+			<div className="flex items-center gap-3">
+				<Icon size={16} className={accent ? "text-[#1973fd]" : "text-slate-400"} />
+				<span className="text-sm text-slate-500">{label}</span>
+			</div>
+			<span className="text-sm font-semibold text-slate-950">{value}</span>
 		</div>
 	);
 }

@@ -16,10 +16,15 @@ export class ApiError extends Error {
 type RequestOptions = Omit<RequestInit, 'method' | 'body'> & {
   method?: HttpMethod;
   body?: unknown; // JSON
+  retryOn401?: boolean;
 };
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+  typeof window === 'undefined'
+    ? process.env.API_SERVER_URL ??
+      process.env.NEXT_PUBLIC_API_URL ??
+      'http://localhost:8000'
+    : process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
 let refreshPromise: Promise<void> | null = null;
 
@@ -62,6 +67,7 @@ export async function api<T = unknown>(
   const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
 
   const method: HttpMethod = opts.method ?? 'GET';
+  const retryOn401 = opts.retryOn401 ?? !path.startsWith('/auth/');
 
   const headers = new Headers(opts.headers);
   if (!headers.has('Content-Type') && opts.body !== undefined) {
@@ -85,7 +91,7 @@ export async function api<T = unknown>(
   let res = await doFetch();
 
   // si expiró access_token -> refresh -> retry 1 vez
-  if (res.status === 401) {
+  if (retryOn401 && res.status === 401) {
     try {
       await refreshSession();
       res = await doFetch();

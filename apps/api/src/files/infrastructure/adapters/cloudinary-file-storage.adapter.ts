@@ -9,7 +9,14 @@ import type { UploadInput } from '../../core/entities/file.entitiy';
 @Injectable()
 export class CloudinaryFileStorageAdapter implements FileStorage {
   constructor() {
-    cloudinary.config(process.env.CLOUDINARY_URL!);
+    const cloudinaryUrl = process.env.CLOUDINARY_URL;
+
+    if (!cloudinaryUrl) {
+      throw new Error('Missing CLOUDINARY_URL environment variable');
+    }
+
+    process.env.CLOUDINARY_URL = cloudinaryUrl;
+    cloudinary.config(true);
   }
 
   async upload(input: UploadInput): Promise<{

@@ -19,6 +19,15 @@ import {
 import { files } from 'drizzle/schemas';
 import { alias } from 'drizzle-orm/pg-core';
 
+const FREEMIUM_PLAN = {
+  name: 'FREEMIUM' as const,
+  type: 'subscription' as const,
+  pricingModel: 'recurrent' as const,
+  price: 0,
+  isActive: 1,
+  features: ['Registro gratuito', 'Sin prioridad en busquedas'],
+};
+
 function encodeCursor(date: Date): string {
   return Buffer.from(date.toISOString()).toString('base64');
 }
@@ -32,6 +41,29 @@ function decodeCursor(cursor: string): Date {
 export class DrizzleSchoolRepository implements SchoolRepository {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
+  private async getOrCreateFreemiumPlan(tx: Database) {
+    const [existingPlan] = await tx
+      .select({
+        id: plans.id,
+      })
+      .from(plans)
+      .where(eq(plans.name, FREEMIUM_PLAN.name))
+      .limit(1);
+
+    if (existingPlan) {
+      return existingPlan;
+    }
+
+    const [createdPlan] = await tx
+      .insert(plans)
+      .values(FREEMIUM_PLAN)
+      .returning({
+        id: plans.id,
+      });
+
+    return createdPlan;
+  }
+
   async create(params: {
     name: string;
     description?: string;
@@ -41,18 +73,7 @@ export class DrizzleSchoolRepository implements SchoolRepository {
   }) {
     return this.db.transaction(async (tx) => {
       const now = new Date();
-
-      const [freemiumPlan] = await tx
-        .select({
-          id: plans.id,
-        })
-        .from(plans)
-        .where(eq(plans.name, 'FREEMIUM'))
-        .limit(1);
-
-      if (!freemiumPlan) {
-        throw new Error('Freemium plan not found');
-      }
+      const freemiumPlan = await this.getOrCreateFreemiumPlan(tx);
 
       const [school] = await tx
         .insert(schools)

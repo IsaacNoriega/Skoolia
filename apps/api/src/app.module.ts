@@ -27,7 +27,10 @@ import { PlansModule } from './plans/plans.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      envFilePath: [
+        join(process.cwd(), '.env'),
+        join(process.cwd(), 'apps/api/.env'),
+      ],
     }),
 
     GraphQLModule.forRoot<ApolloDriverConfig>({

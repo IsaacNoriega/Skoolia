@@ -1,18 +1,40 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { ArrowUpRight, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { coursesService, type Course } from "@/lib/services/services/courses.service";
 import { useToast } from "@/components/ui/toast";
 import CourseEditorModal from "./CourseEditorModal";
-import { useAuth } from "@/contexts/AuthContext";
-import { useOnboarding } from "@/contexts/OnBoardingContext";
+
+function formatCurrency(value: number) {
+	return new Intl.NumberFormat("es-MX", {
+		style: "currency",
+		currency: "MXN",
+		maximumFractionDigits: 0,
+	}).format(value);
+}
+
+function statusLabel(status: Course["status"]) {
+	switch (status) {
+		case "published":
+			return "Publicado";
+		case "archived":
+			return "Archivado";
+		case "draft":
+		default:
+			return "Borrador";
+	}
+}
+
+function statusDot(status: Course["status"], isActive: boolean) {
+	if (!isActive || status === "archived") return "bg-slate-300";
+	if (status === "published") return "bg-[#1973fd]";
+	return "bg-slate-950";
+}
 
 export default function SchoolCoursesSection() {
-	const { user } = useAuth();
-	const { state: onboarding } = useOnboarding();
 	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
@@ -78,7 +100,7 @@ export default function SchoolCoursesSection() {
 	};
 
 	const handleDelete = async (course: Course) => {
-		if (!window.confirm(`¿Eliminar el programa \"${course.name}\"?`)) return;
+		if (!window.confirm(`¿Eliminar el programa "${course.name}"?`)) return;
 
 		try {
 			setSubmitting(true);
@@ -86,7 +108,7 @@ export default function SchoolCoursesSection() {
 			await loadCourses();
 			showToast({
 				title: "Oferta eliminada",
-				description: `\"${course.name}\" ya no aparece en tu oferta académica.`,
+				description: `"${course.name}" ya no aparece en tu oferta académica.`,
 				variant: "success",
 			});
 		} catch (err) {
@@ -134,7 +156,7 @@ export default function SchoolCoursesSection() {
 				await coursesService.update(selectedCourse.id, values);
 				showToast({
 					title: "Oferta actualizada",
-					description: `Los cambios en \"${selectedCourse.name}\" ya quedaron guardados.`,
+					description: `Los cambios en "${selectedCourse.name}" ya quedaron guardados.`,
 					variant: "success",
 				});
 			}
@@ -158,112 +180,165 @@ export default function SchoolCoursesSection() {
 		}
 	};
 
+	const stats = useMemo(() => {
+		const active = courses.filter((course) => course.isActive).length;
+		const published = courses.filter((course) => course.status === "published").length;
+		return { active, published, total: courses.length };
+	}, [courses]);
+
 	return (
 		<>
-		<section className="surface rounded-4xl bg-white p-0 shadow-sm ring-1 ring-black/5 overflow-hidden">
-			<header className="flex items-center justify-between px-5 py-4 sm:px-6 sm:py-5">
-				<div>
-					<h2 className="text-xl sm:text-2xl font-extrabold text-slate-900">
-						Oferta académica
-					</h2>
-					<p className="mt-1 text-xs sm:text-sm text-slate-600">
-						Administra tus programas, modalidades y cupos publicados.
-					</p>
+			<section className="rounded-[2rem] border border-slate-200 bg-white">
+				<div className="border-b border-slate-200 p-6 sm:p-8">
+					<div className="flex flex-wrap items-start justify-between gap-4">
+						<div>
+							<p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
+								Oferta académica
+							</p>
+							<h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
+								Programas visibles.
+							</h1>
+							<p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
+								Gestiona tus cursos con una vista simple: nombre, modalidad, precio y estado.
+							</p>
+						</div>
+
+						<button
+							type="button"
+							onClick={openCreateModal}
+							className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 px-4 text-sm font-semibold text-slate-950 transition hover:border-slate-300 hover:bg-slate-50"
+						>
+							<Plus size={16} />
+							Agregar programa
+						</button>
+					</div>
+
+					<div className="mt-8 grid gap-3 sm:grid-cols-3">
+						<Metric label="Total" value={`${stats.total}`} />
+						<Metric label="Activos" value={`${stats.active}`} accent />
+						<Metric label="Publicados" value={`${stats.published}`} />
+					</div>
 				</div>
-				{onboarding?.data?.tipoRegistro !== "escuela" && (
-					<button
-						type="button"
-						onClick={openCreateModal}
-						className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2 text-xs sm:text-sm font-bold text-white shadow hover:bg-indigo-700"
-					>
-						<span className="text-base leading-none">+</span>
-						<span>Agregar programa</span>
-					</button>
-				)}
-			</header>
 
-			<div className="divide-y divide-slate-100/70">
-				{loading ? (
-					<div className="px-5 py-4 text-sm text-slate-500 sm:px-6 sm:py-5">
-						Cargando programas...
-					</div>
-				) : null}
+				<div className="p-6 sm:p-8">
+					{loading ? (
+						<div className="text-sm text-slate-500">Cargando programas...</div>
+					) : null}
 
-				{error ? (
-					<div className="px-5 py-4 text-sm text-rose-600 sm:px-6 sm:py-5">
-						{error}
-					</div>
-				) : null}
-
-				{courses.map((course) => (
-					<div
-						key={course.id}
-						className="flex items-center justify-between px-5 py-4 sm:px-6 sm:py-5 hover:bg-slate-50"
-					>
-						<div className="flex items-center gap-4 sm:gap-5">
-							<div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-xs font-bold text-slate-400">
-								{course.name.slice(0, 2).toUpperCase()}
-							</div>
-							<div>
-								<p className="text-sm sm:text-base font-extrabold text-slate-900">
-									{course.name}
-								</p>
-								<p className="mt-1 flex flex-wrap items-center gap-2 text-[10px] sm:text-[11px] font-bold text-slate-400">
-									<span>{course.modality || "SIN MODALIDAD"}</span>
-									<span className="h-1 w-1 rounded-full bg-slate-300" />
-									<span className="text-indigo-600">
-										{course.capacity ? `${course.capacity} cupos` : "Cupos abiertos"}
-									</span>
-									<span className="h-1 w-1 rounded-full bg-slate-300" />
-									<span>{course.status.toUpperCase()}</span>
-								</p>
-							</div>
+					{error ? (
+						<div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">
+							{error}
 						</div>
-						<div className="flex items-center gap-2 sm:gap-3">
-							<button
-								type="button"
-								onClick={() => openEditModal(course)}
-								className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
-							>
-								<Pencil size={16} />
-							</button>
-							<button
-								type="button"
-								onClick={() => void handleDelete(course)}
-								disabled={submitting}
-								className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-50"
-							>
-								<Trash2 size={16} />
-							</button>
-							<button className="hidden sm:inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 hover:bg-slate-50">
-								<MoreHorizontal size={16} />
-							</button>
-						</div>
-					</div>
-				))}
+					) : null}
 
-				{!loading && !error && !courses.length ? (
-					<div className="px-5 py-8 text-sm text-slate-500 sm:px-6">
-						Todavía no tienes programas registrados.
-					</div>
-				) : null}
-			</div>
-		</section>
-		<CourseEditorModal
-			isOpen={isModalOpen}
-			onClose={() => {
-				if (submitting) return;
-				setIsModalOpen(false);
-				setSelectedCourse(null);
-				if (searchParams.get("create") === "1") {
-					router.replace(pathname);
-				}
-			}}
-			onSubmit={handleSubmit}
-			mode={modalMode}
-			initialCourse={selectedCourse}
-			submitting={submitting}
-		/>
+					{!loading && !error && courses.length ? (
+						<div className="space-y-3">
+							{courses.map((course) => (
+								<div
+									key={course.id}
+									className="rounded-[1.5rem] border border-slate-200 px-4 py-4 transition hover:border-slate-300"
+								>
+									<div className="flex items-start justify-between gap-4">
+										<div className="min-w-0">
+											<div className="flex items-center gap-2">
+												<span className={`h-2 w-2 rounded-full ${statusDot(course.status, course.isActive)}`} />
+												<span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+													{statusLabel(course.status)}
+												</span>
+											</div>
+
+											<p className="mt-3 truncate text-sm font-semibold text-slate-950 sm:text-base">
+												{course.name}
+											</p>
+
+											<div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-500">
+												<span>{course.modality || "Modalidad por definir"}</span>
+												<span className="h-1 w-1 rounded-full bg-slate-300" />
+												<span>{formatCurrency(course.price)}</span>
+												<span className="h-1 w-1 rounded-full bg-slate-300" />
+												<span>{course.capacity ? `${course.capacity} cupos` : "Cupos abiertos"}</span>
+											</div>
+										</div>
+
+										<div className="flex items-center gap-2">
+											<button
+												type="button"
+												onClick={() => openEditModal(course)}
+												className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-950"
+												aria-label="Editar programa"
+											>
+												<Pencil size={14} />
+											</button>
+											<button
+												type="button"
+												onClick={() => void handleDelete(course)}
+												disabled={submitting}
+												className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-950 disabled:opacity-50"
+												aria-label="Eliminar programa"
+											>
+												<Trash2 size={14} />
+											</button>
+										</div>
+									</div>
+
+									<div className="mt-4 flex items-center justify-between gap-4 border-t border-slate-100 pt-4">
+										<span className="text-xs font-medium text-slate-400">
+											{course.isActive ? "Visible para familias" : "No visible"}
+										</span>
+										<span className="inline-flex items-center gap-1 text-sm font-semibold text-slate-950">
+											Ver detalle
+											<ArrowUpRight size={16} />
+										</span>
+									</div>
+								</div>
+							))}
+						</div>
+					) : null}
+
+					{!loading && !error && !courses.length ? (
+						<div className="rounded-[1.5rem] border border-dashed border-slate-200 px-5 py-10 text-sm text-slate-500">
+							Todavía no tienes programas registrados.
+						</div>
+					) : null}
+				</div>
+			</section>
+
+			<CourseEditorModal
+				isOpen={isModalOpen}
+				onClose={() => {
+					if (submitting) return;
+					setIsModalOpen(false);
+					setSelectedCourse(null);
+					if (searchParams.get("create") === "1") {
+						router.replace(pathname);
+					}
+				}}
+				onSubmit={handleSubmit}
+				mode={modalMode}
+				initialCourse={selectedCourse}
+				submitting={submitting}
+			/>
 		</>
+	);
+}
+
+function Metric({
+	label,
+	value,
+	accent = false,
+}: {
+	label: string;
+	value: string;
+	accent?: boolean;
+}) {
+	return (
+		<div className="rounded-2xl bg-slate-50 px-4 py-4">
+			<p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+				{label}
+			</p>
+			<p className={`mt-3 text-2xl font-semibold ${accent ? "text-[#1973fd]" : "text-slate-950"}`}>
+				{value}
+			</p>
+		</div>
 	);
 }

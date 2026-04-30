@@ -1,4 +1,12 @@
-import { BarChart3, Mail, Play, Users } from "lucide-react";
+import {
+	ArrowUpRight,
+	CalendarDays,
+	ChevronRight,
+	Clock3,
+	Mail,
+	Send,
+	Users,
+} from "lucide-react";
 
 type CampaignStatus = "PROGRAMADA" | "ENVIADA" | "BORRADOR";
 
@@ -18,7 +26,7 @@ const campaigns: Campaign[] = [
 		segment: "Leads interesados en Primaria",
 		sent: "428 contactos",
 		status: "ENVIADA",
-		date: "31 ENE 2026",
+		date: "31 ene 2026",
 	},
 	{
 		id: 2,
@@ -26,102 +34,188 @@ const campaigns: Campaign[] = [
 		segment: "Todos los leads activos",
 		sent: "312 contactos",
 		status: "PROGRAMADA",
-		date: "HOY 6:00 PM",
+		date: "Hoy · 6:00 PM",
 	},
 	{
 		id: 3,
 		name: "Campaña Primavera",
-		segment: "Leads fríos último año",
+		segment: "Leads fríos del último año",
 		sent: "154 contactos",
 		status: "BORRADOR",
-		date: "—",
+		date: "Sin programar",
 	},
 ];
 
-function statusClasses(status: CampaignStatus) {
+function statusLabel(status: CampaignStatus) {
 	switch (status) {
 		case "PROGRAMADA":
-			return "bg-amber-50 text-amber-700";
+			return "Programada";
 		case "ENVIADA":
-			return "bg-emerald-50 text-emerald-700";
+			return "Enviada";
 		case "BORRADOR":
 		default:
-			return "bg-slate-100 text-slate-600";
+			return "Borrador";
+	}
+}
+
+function statusDot(status: CampaignStatus) {
+	switch (status) {
+		case "PROGRAMADA":
+			return "bg-amber-500";
+		case "ENVIADA":
+			return "bg-emerald-500";
+		case "BORRADOR":
+		default:
+			return "bg-slate-300";
 	}
 }
 
 export default function SchoolBroadcastsSection() {
 	return (
-		<section className="surface rounded-4xl bg-white p-0 shadow-sm ring-1 ring-black/5 overflow-hidden">
-			<header className="flex items-center justify-between px-5 py-4 sm:px-6 sm:py-5 border-b border-slate-100/70">
-				<div>
-					<h2 className="text-xl sm:text-2xl font-extrabold text-slate-900">
-						Envíos Masivos
-					</h2>
-					<p className="mt-1 text-xs sm:text-sm text-slate-600">
-						Lanza campañas por correo o WhatsApp a tus leads y familias actuales.
+		<section className="rounded-[2rem] border border-slate-200 bg-white">
+			<div className="grid gap-0 lg:grid-cols-[minmax(0,1.2fr)_380px]">
+				<div className="border-b border-slate-200 p-6 sm:p-8 lg:border-b-0 lg:border-r">
+					<p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
+						Envíos masivos
 					</p>
-				</div>
-				<div className="flex flex-wrap items-center gap-2">
-					<button className="hidden sm:inline-flex items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100">
-						<BarChart3 size={14} className="text-slate-500" />
-						<span>Ver reportes</span>
-					</button>
-					<button className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2 text-xs sm:text-sm font-bold text-white shadow hover:bg-indigo-700">
-						<span className="text-base leading-none">+</span>
-						<span>Nueva campaña</span>
-					</button>
-				</div>
-			</header>
+					<h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
+						Campañas simples.
+					</h1>
+					<p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
+						Redacta un mensaje, elige a quién llega y mantén visible el historial sin convertir esta pantalla en una herramienta pesada.
+					</p>
 
-			<div className="hidden border-b border-slate-100/70 bg-slate-50/60 px-5 py-2 text-[11px] font-semibold text-slate-500 sm:grid sm:grid-cols-[minmax(0,3fr)_minmax(0,2fr)_140px_120px] sm:px-6">
-				<span>Nombre</span>
-				<span>Segmento</span>
-				<span>Enviados</span>
-				<span className="text-right">Estado</span>
-			</div>
+					<div className="mt-8 space-y-5">
+						<div className="space-y-2">
+							<label className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
+								Asunto
+							</label>
+							<input
+								type="text"
+								defaultValue="Open House Febrero"
+								className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-950 outline-none transition focus:border-slate-300"
+							/>
+						</div>
 
-			<div className="divide-y divide-slate-100/70">
-				{campaigns.map((c) => (
-					<div
-						key={c.id}
-						className="flex flex-col gap-3 px-5 py-4 sm:grid sm:grid-cols-[minmax(0,3fr)_minmax(0,2fr)_140px_120px] sm:items-center sm:gap-2 sm:px-6 sm:py-4 hover:bg-slate-50"
-					>
-						<div className="flex items-start gap-3">
-							<div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-								<Mail size={16} />
+						<div className="grid gap-4 sm:grid-cols-2">
+							<div className="space-y-2">
+								<label className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
+									Segmento
+								</label>
+								<div className="flex h-12 items-center justify-between rounded-2xl border border-slate-200 px-4 text-sm text-slate-950">
+									<span>Leads activos</span>
+									<Users size={16} className="text-slate-400" />
+								</div>
 							</div>
-							<div>
-								<p className="text-sm font-extrabold text-slate-900">
-									{c.name}
-								</p>
-								<p className="mt-0.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">
-									{c.date}
-								</p>
+
+							<div className="space-y-2">
+								<label className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
+									Canal
+								</label>
+								<div className="flex h-12 items-center justify-between rounded-2xl border border-slate-200 px-4 text-sm text-slate-950">
+									<span>Email</span>
+									<Mail size={16} className="text-slate-400" />
+								</div>
 							</div>
 						</div>
-						<div className="flex items-center gap-2 text-xs text-slate-600">
-							<Users size={14} className="text-slate-400" />
-							<span className="line-clamp-1">{c.segment}</span>
+
+						<div className="space-y-2">
+							<label className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
+								Mensaje
+							</label>
+							<textarea
+								rows={8}
+								defaultValue="Hola, queremos invitarte a nuestro Open House de febrero. Podrás conocer instalaciones, horarios y el plan académico."
+								className="w-full resize-none rounded-[1.5rem] border border-slate-200 bg-white px-4 py-4 text-sm leading-7 text-slate-950 outline-none transition focus:border-slate-300"
+							/>
 						</div>
-						<div className="text-xs font-semibold text-slate-600">
-							{c.sent}
-						</div>
-						<div className="flex items-center justify-between gap-3 sm:justify-end">
-							<span
-								className={`inline-flex items-center rounded-full px-3 py-1 text-[10px] sm:text-xs font-bold ${statusClasses(
-									c.status,
-								)}`}
-							>
-								{c.status}
-							</span>
-							<button className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50" aria-label="Ejecutar campaña">
-								<Play size={14} />
+
+						<div className="flex flex-wrap items-center gap-3">
+							<button className="inline-flex h-12 items-center gap-2 rounded-2xl bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800">
+								<Send size={16} />
+								Enviar ahora
+							</button>
+							<button className="inline-flex h-12 items-center gap-2 rounded-2xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50">
+								<CalendarDays size={16} />
+								Programar
 							</button>
 						</div>
 					</div>
-				))}
+				</div>
+
+				<aside className="p-6 sm:p-8">
+					<div className="flex items-center justify-between">
+						<div>
+							<p className="text-sm font-semibold text-slate-950">Historial</p>
+							<p className="mt-1 text-sm text-slate-500">
+								Últimas campañas.
+							</p>
+						</div>
+						<button className="text-sm font-semibold text-slate-500 transition hover:text-slate-950">
+							Ver todo
+						</button>
+					</div>
+
+					<div className="mt-6 space-y-3">
+						{campaigns.map((campaign) => (
+							<button
+								key={campaign.id}
+								className="flex w-full items-start justify-between rounded-[1.5rem] border border-slate-200 px-4 py-4 text-left transition hover:border-slate-300 hover:bg-slate-50"
+							>
+								<div className="min-w-0">
+									<div className="flex items-center gap-2">
+										<span className={`h-2 w-2 rounded-full ${statusDot(campaign.status)}`} />
+										<span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+											{statusLabel(campaign.status)}
+										</span>
+									</div>
+									<p className="mt-3 truncate text-sm font-semibold text-slate-950">
+										{campaign.name}
+									</p>
+									<p className="mt-1 text-sm text-slate-500">
+										{campaign.segment}
+									</p>
+									<div className="mt-3 flex flex-wrap items-center gap-4 text-xs font-medium text-slate-400">
+										<span className="inline-flex items-center gap-1.5">
+											<Users size={14} />
+											{campaign.sent}
+										</span>
+										<span className="inline-flex items-center gap-1.5">
+											<Clock3 size={14} />
+											{campaign.date}
+										</span>
+									</div>
+								</div>
+								<ChevronRight size={18} className="ml-4 shrink-0 text-slate-300" />
+							</button>
+						))}
+					</div>
+
+					<div className="mt-8 rounded-[1.5rem] bg-slate-50 p-5">
+						<p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
+							Resumen
+						</p>
+						<div className="mt-4 space-y-3">
+							<StatLine label="Campañas activas" value="02" />
+							<StatLine label="Contactos alcanzados" value="740" />
+							<StatLine label="Última apertura" value="64%" />
+						</div>
+						<div className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-950">
+							Ver rendimiento
+							<ArrowUpRight size={16} />
+						</div>
+					</div>
+				</aside>
 			</div>
 		</section>
+	);
+}
+
+function StatLine({ label, value }: { label: string; value: string }) {
+	return (
+		<div className="flex items-center justify-between text-sm">
+			<span className="text-slate-500">{label}</span>
+			<span className="font-semibold text-slate-950">{value}</span>
+		</div>
 	);
 }

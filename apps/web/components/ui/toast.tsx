@@ -11,7 +11,7 @@ import {
 } from "react";
 import { CheckCircle2, CircleAlert, Info, X } from "lucide-react";
 
-type ToastVariant = "success" | "error" | "info";
+type ToastVariant = "success" | "error" | "info" | "warning";
 
 type ToastItem = {
 	id: number;
@@ -47,6 +47,14 @@ function getToastStyles(variant: ToastVariant) {
 			icon: CircleAlert,
 			iconClassName: "text-rose-600",
 			containerClassName: "border-rose-200 bg-rose-50/95",
+		};
+	}
+
+	if (variant === "warning") {
+		return {
+			icon: CircleAlert,
+			iconClassName: "text-amber-600",
+			containerClassName: "border-amber-200 bg-amber-50/95",
 		};
 	}
 

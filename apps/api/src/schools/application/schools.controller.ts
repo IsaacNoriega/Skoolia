@@ -104,18 +104,18 @@ export class SchoolsController {
     });
   }
 
-  @Patch(':id/image')
+  @Patch('me/image/:field')
   @UseGuards(AuthGuard, RolesGuard)
   @Roles('private')
   async updateImage(
-    @Param('id') schoolId: string,
+    @Param('field') field: 'logoUrl' | 'coverImageUrl',
     @Body('fileId') fileId: string,
     @CurrentUser() user: JwtPayload,
   ) {
     return this.updateSchoolImageUseCase.execute({
       ownerId: user.sub,
       role: user.role,
-      field: 'logoUrl' as const,
+      field,
       fileId,
     });
   }
