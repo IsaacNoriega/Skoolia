@@ -251,86 +251,108 @@ export default function SearchToolbar({
 
     router.push(`${pathname}?${params.toString()}`);
   };
-
   return (
-    <div className="mx-auto max-w-7xl px-6 pt-6">
-      {/* Tabs eliminados para que solo se muestre el buscador y filtros dinámicos */}
-      <div className="flex flex-wrap items-center gap-3">
-        {/* Back */}
-        <button
-          onClick={() => router.back()}
-          className="flex items-center gap-2 rounded-full px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100"
-        >
-          <ChevronLeft className="h-4 w-4" /> Volver
-        </button>
-
-        {/* Search input pill */}
-        <div className="flex flex-1 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 shadow-sm">
-          <Search className="h-4 w-4 text-slate-500" />
-          <input
-            className="w-full bg-transparent text-sm font-medium text-slate-700 outline-none"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") void applyFilters();
-            }}
-            placeholder={activeTab === "cursos" ? "Mejores Cursos" : "Mejores Escuelas"}
-          />
-        </div>
-
-        {/* Location */}
-        <div className="hidden md:flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm">
-          <MapPin className="h-4 w-4 text-slate-500" />
-          <select
-            value={location}
-            onChange={(e) => {
-              const value = e.target.value;
-              setLocation(value);
-              setNearMe(value === "Cerca de mí");
-            }}
-            className="w-48 bg-transparent outline-none"
+    <div className="mx-auto max-w-7xl px-6 pt-10">
+      {/* Search Header */}
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <button
+            onClick={() => router.back()}
+            className="group mb-2 flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-slate-900"
           >
-            <option value={ALL_ZONES_LABEL}>{ALL_ZONES_LABEL}</option>
-            <option value="Cerca de mí">Cerca de mí</option>
-            {MEXICO_STATES.map((state) => (
-              <option key={state} value={state}>
-                {state}
-              </option>
-            ))}
-            {location &&
-            location !== ALL_ZONES_LABEL &&
-            location !== "Cerca de mí" &&
-            !isKnownState ? (
-              <option value={location}>{location}</option>
-            ) : null}
-          </select>
+            <ChevronLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
+            Volver
+          </button>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+            {activeTab === "cursos" ? "Explora cursos" : "Encuentra escuelas"}
+          </h1>
         </div>
 
-        {/* Advanced filters */}
-        <button
-          onClick={() => setShowAdvanced((prev) => !prev)}
-          className="hidden sm:flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-indigo-700"
-        >
-          <SlidersHorizontal className="h-4 w-4" />
-          Filtros avanzados
-        </button>
+        <div className="flex rounded-2xl bg-slate-100 p-1">
+          <button
+            onClick={() => setActiveTab("escuelas")}
+            className={`rounded-xl px-4 py-2 text-sm font-bold transition-all ${activeTab === "escuelas" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+          >
+            Escuelas
+          </button>
+          <button
+            onClick={() => setActiveTab("cursos")}
+            className={`rounded-xl px-4 py-2 text-sm font-bold transition-all ${activeTab === "cursos" ? "bg-white text-violet-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+          >
+            Cursos
+          </button>
+        </div>
+      </div>
 
-        <button
-          onClick={() => void applyFilters()}
-          disabled={geoLoading}
-          className="flex items-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-indigo-700"
-        >
-          <Search className="h-4 w-4" />
-          {geoLoading ? "Ubicando..." : "Buscar"}
-        </button>
+      {/* Unified Search Pill */}
+      <div className="relative z-10 mx-auto w-full max-w-4xl">
+        <div className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-white p-2 shadow-sm transition-all focus-within:border-slate-300 sm:flex-row sm:items-center sm:gap-0 sm:rounded-full">
+          
+          {/* Query */}
+          <div className="flex flex-1 items-center gap-3 px-4 py-2 sm:px-6">
+            <Search size={18} className="text-slate-400" />
+            <div className="flex flex-col">
+              <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">¿Qué buscas?</span>
+              <input
+                className="w-full bg-transparent text-sm font-medium text-slate-900 placeholder:text-slate-300 outline-none"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void applyFilters();
+                }}
+                placeholder={activeTab === "cursos" ? "Yoga, Inglés..." : "Primaria, Bilingüe..."}
+              />
+            </div>
+          </div>
 
-        {/* View options */}
-        <button className="grid h-10 w-10 place-items-center rounded-2xl bg-white text-slate-700 shadow-sm border border-slate-200">
-          <Grid3X3 className="h-5 w-5" />
-        </button>
-        <button className="grid h-10 w-10 place-items-center rounded-2xl bg-white text-slate-700 shadow-sm border border-slate-200">
-          <MoreHorizontal className="h-5 w-5" />
-        </button>
+          <div className="hidden h-8 w-px bg-slate-50 sm:block" />
+
+          {/* Location */}
+          <div className="flex flex-1 items-center gap-3 px-4 py-2 sm:px-6">
+            <MapPin size={18} className="text-slate-400" />
+            <div className="flex flex-1 flex-col">
+              <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">¿Dónde?</span>
+              <select
+                value={location}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setLocation(value);
+                  setNearMe(value === "Cerca de mí");
+                }}
+                className="w-full appearance-none bg-transparent text-sm font-medium text-slate-900 outline-none cursor-pointer"
+              >
+                <option value={ALL_ZONES_LABEL}>{ALL_ZONES_LABEL}</option>
+                <option value="Cerca de mí">📍 Cerca de mí</option>
+                {MEXICO_STATES.map((state) => (
+                  <option key={state} value={state}>
+                    {state}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="hidden h-8 w-px bg-slate-50 sm:block" />
+
+          {/* Filters Toggle */}
+          <div className="flex items-center gap-2 px-2">
+            <button
+              onClick={() => setShowAdvanced((prev) => !prev)}
+              className={`flex h-12 w-12 items-center justify-center rounded-full transition-colors ${showAdvanced ? "bg-slate-50 text-slate-900" : "text-slate-400 hover:text-slate-900"}`}
+              title="Filtros"
+            >
+              <SlidersHorizontal size={18} />
+            </button>
+
+            <button
+              onClick={() => void applyFilters()}
+              disabled={geoLoading}
+              className={`flex h-12 px-8 items-center justify-center rounded-full text-white font-bold text-[10px] uppercase tracking-widest transition-all active:scale-95 ${geoLoading ? "bg-slate-200" : "bg-slate-900 hover:bg-black"}`}
+            >
+              {geoLoading ? "..." : "Buscar"}
+            </button>
+          </div>
+        </div>
       </div>
 
       {showAdvanced ? (

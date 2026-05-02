@@ -1,7 +1,7 @@
 FROM node:20-alpine AS deps
 
 WORKDIR /app
-COPY package.json package-lock.json ./
+COPY apps/web/package.json apps/web/package-lock.json ./
 RUN npm ci
 
 FROM node:20-alpine AS build
@@ -11,7 +11,10 @@ ARG NEXT_PUBLIC_API_URL=http://localhost:8000
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY apps/web .
+# Copy shared schemas from api for the build
+COPY apps/api/drizzle/schemas ./drizzle-schemas
+RUN ls -R ./drizzle-schemas
 RUN npm run build
 
 FROM node:20-alpine AS runner

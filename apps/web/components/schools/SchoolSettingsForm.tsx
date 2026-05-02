@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { schoolsService, type School } from "../../lib/services/services/schools.service";
 import { MEXICO_STATES, resolveMexicanState } from "@/lib/mexico-states";
@@ -49,11 +50,18 @@ type FormState = {
 };
 
 export default function SchoolSettingsForm() {
+  const pathname = usePathname();
+  const isCourseMode = pathname.startsWith("/courses");
+  const accentBgClass = isCourseMode ? "bg-violet-600" : "bg-[#1973fd]";
+  const accentHoverBgClass = isCourseMode ? "hover:bg-violet-700" : "hover:bg-indigo-700";
+  const accentRingClass = isCourseMode ? "focus:ring-violet-500" : "focus:ring-indigo-500";
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [school, setSchool] = useState<School | null>(null);
+
 
   const [form, setForm] = useState<FormState>({
     name: "",
@@ -224,8 +232,12 @@ export default function SchoolSettingsForm() {
   return (
     <form onSubmit={onSubmit} className="w-full rounded-3xl bg-white p-8">
       <div className="border-b border-slate-100 pb-6">
-        <h1 className="text-lg font-extrabold text-slate-900 sm:text-xl">Configuración de la escuela</h1>
-        <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-slate-400">Actualiza datos generales, imágenes y detalles.</p>
+        <h1 className="text-lg font-extrabold text-slate-900 sm:text-xl">
+          {isCourseMode ? "Configuración de perfil" : "Configuración de la escuela"}
+        </h1>
+        <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+          {isCourseMode ? "Actualiza tus datos, imágenes y detalles de instructor." : "Actualiza datos generales, imágenes y detalles."}
+        </p>
       </div>
 
       {success && (
@@ -244,16 +256,16 @@ export default function SchoolSettingsForm() {
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Nombre</label>
           <input
-            className="h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+            className={`h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentRingClass}`}
             value={form.name}
             onChange={(e) => set("name", e.target.value)}
-            placeholder="Nombre de la escuela"
+            placeholder={isCourseMode ? "Tu nombre público" : "Nombre de la escuela"}
           />
         </div>
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Descripción</label>
           <textarea
-            className="w-full rounded-2xl bg-slate-50 px-4 py-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+            className={`w-full rounded-2xl bg-slate-50 px-4 py-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentRingClass}`}
             rows={4}
             value={form.description}
             onChange={(e) => set("description", e.target.value)}
@@ -277,7 +289,7 @@ export default function SchoolSettingsForm() {
               <input
                 type="file"
                 accept="image/*"
-                className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-full file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:font-medium file:text-white hover:file:bg-[#1973fd]"
+                className={`block w-full text-sm text-slate-600 file:mr-3 file:rounded-full file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:font-medium file:text-white hover:file:${accentBgClass}`}
                 onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
               />
               <p className="text-xs text-slate-500">
@@ -299,7 +311,7 @@ export default function SchoolSettingsForm() {
               <input
                 type="file"
                 accept="image/*"
-                className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-full file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:font-medium file:text-white hover:file:bg-[#1973fd]"
+                className={`block w-full text-sm text-slate-600 file:mr-3 file:rounded-full file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:font-medium file:text-white hover:file:${accentBgClass}`}
                 onChange={(e) => setCoverFile(e.target.files?.[0] ?? null)}
               />
               <p className="text-xs text-slate-500">
@@ -315,7 +327,7 @@ export default function SchoolSettingsForm() {
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Dirección</label>
           <input
-            className="h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+            className={`h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentRingClass}`}
             value={form.address}
             onChange={(e) => set("address", e.target.value)}
           />
@@ -323,7 +335,7 @@ export default function SchoolSettingsForm() {
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Estado</label>
           <select
-            className="h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+            className={`h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentRingClass}`}
             value={form.city}
             onChange={(e) => set("city", e.target.value)}
           >
@@ -338,7 +350,7 @@ export default function SchoolSettingsForm() {
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Latitud</label>
           <input
-            className="h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+            className={`h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentRingClass}`}
             type="number"
             min={-90}
             max={90}
@@ -351,7 +363,7 @@ export default function SchoolSettingsForm() {
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Longitud</label>
           <input
-            className="h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+            className={`h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentRingClass}`}
             type="number"
             min={-180}
             max={180}
@@ -364,115 +376,132 @@ export default function SchoolSettingsForm() {
       </div>
 
       {/* Académico */}
-      <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div>
-          <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Nivel educativo</label>
-          <select
-            className="h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
-            value={form.educationalLevel}
-            onChange={(e) => set("educationalLevel", e.target.value)}
-          >
-            <option value="">Selecciona...</option>
-            {EDUCATIONAL_LEVEL_OPTIONS.map((option) => (
-              <option key={option} value={option}>{option}</option>
-            ))}
-          </select>
+      {!isCourseMode && (
+        <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Nivel educativo</label>
+            <select
+              className={`h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentRingClass}`}
+              value={form.educationalLevel}
+              onChange={(e) => set("educationalLevel", e.target.value)}
+            >
+              <option value="">Selecciona...</option>
+              {EDUCATIONAL_LEVEL_OPTIONS.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Tipo de institución</label>
+            <select
+              className={`h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentRingClass}`}
+              value={form.institutionType}
+              onChange={(e) => set("institutionType", e.target.value)}
+            >
+              <option value="">Selecciona...</option>
+              {INSTITUTION_TYPE_OPTIONS.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Horario</label>
+            <select
+              className={`h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentRingClass}`}
+              value={form.schedule}
+              onChange={(e) => set("schedule", e.target.value)}
+            >
+              <option value="">Selecciona...</option>
+              {SCHEDULE_OPTIONS.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Idiomas</label>
+            <select
+              className={`h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentRingClass}`}
+              value={form.languages}
+              onChange={(e) => set("languages", e.target.value)}
+            >
+              <option value="">Selecciona...</option>
+              {LANGUAGE_OPTIONS.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Máx. alumnos por clase</label>
+            <input
+              className={`h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentRingClass}`}
+              type="number"
+              min={1}
+              step={1}
+              value={form.maxStudentsPerClass}
+              onChange={(e) => set("maxStudentsPerClass", e.target.value)}
+              placeholder="e.g., 30"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Año de inscripción</label>
+            <input
+              className={`h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentRingClass}`}
+              type="number"
+              min={1900}
+              max={2100}
+              step={1}
+              value={form.enrollmentYear}
+              onChange={(e) => set("enrollmentYear", e.target.value)}
+              placeholder="e.g., 2026"
+            />
+          </div>
+          <label className="mt-2 flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={form.enrollmentOpen}
+              onChange={(e) => set("enrollmentOpen", e.target.checked)}
+              className={`h-4 w-4 rounded border-slate-300 ${isCourseMode ? "text-violet-600 focus:ring-violet-500" : "text-indigo-600 focus:ring-indigo-500"}`}
+            />
+            <span className="text-xs font-bold text-slate-600">Inscripciones abiertas</span>
+          </label>
         </div>
-        <div>
-          <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Tipo de institución</label>
-          <select
-            className="h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
-            value={form.institutionType}
-            onChange={(e) => set("institutionType", e.target.value)}
-          >
-            <option value="">Selecciona...</option>
-            {INSTITUTION_TYPE_OPTIONS.map((option) => (
-              <option key={option} value={option}>{option}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Horario</label>
-          <select
-            className="h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
-            value={form.schedule}
-            onChange={(e) => set("schedule", e.target.value)}
-          >
-            <option value="">Selecciona...</option>
-            {SCHEDULE_OPTIONS.map((option) => (
-              <option key={option} value={option}>{option}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Idiomas</label>
-          <select
-            className="h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
-            value={form.languages}
-            onChange={(e) => set("languages", e.target.value)}
-          >
-            <option value="">Selecciona...</option>
-            {LANGUAGE_OPTIONS.map((option) => (
-              <option key={option} value={option}>{option}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Máx. alumnos por clase</label>
-          <input
-            className="h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
-            type="number"
-            min={1}
-            step={1}
-            value={form.maxStudentsPerClass}
-            onChange={(e) => set("maxStudentsPerClass", e.target.value)}
-            placeholder="e.g., 30"
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Año de inscripción</label>
-          <input
-            className="h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
-            type="number"
-            min={1900}
-            max={2100}
-            step={1}
-            value={form.enrollmentYear}
-            onChange={(e) => set("enrollmentYear", e.target.value)}
-            placeholder="e.g., 2026"
-          />
-        </div>
-        <label className="mt-2 flex items-center gap-3">
-          <input
-            type="checkbox"
-            checked={form.enrollmentOpen}
-            onChange={(e) => set("enrollmentOpen", e.target.checked)}
-            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-          />
-          <span className="text-xs font-bold text-slate-600">Inscripciones abiertas</span>
-        </label>
-      </div>
+      )}
 
-      {/* Precios */}
-      <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div>
-          <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Precio mensual</label>
-          <input
-            className="h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
-            type="number"
-            min={0}
-            step={1}
-            value={form.monthlyPrice}
-            onChange={(e) => set("monthlyPrice", e.target.value)}
-            placeholder="e.g., 2500"
-          />
+      {isCourseMode && (
+        <div className="mt-10 space-y-6">
+          <label className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={form.enrollmentOpen}
+              onChange={(e) => set("enrollmentOpen", e.target.checked)}
+              className={`h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500`}
+            />
+            <span className="text-xs font-bold text-slate-600">Perfil activo y visible</span>
+          </label>
         </div>
-      </div>
+      )}
+
+      {!isCourseMode && (
+        <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Precio mensual</label>
+            <input
+              className={`h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentRingClass}`}
+              type="number"
+              min={0}
+              step={1}
+              value={form.monthlyPrice}
+              onChange={(e) => set("monthlyPrice", e.target.value)}
+              placeholder="e.g., 2500"
+            />
+          </div>
+        </div>
+      )}
 
       <div className="mt-10 flex gap-3">
         <button
           type="submit"
-          className="inline-flex items-center rounded-full bg-slate-900 px-6 py-2 text-xs font-bold text-white shadow hover:bg-indigo-700 disabled:opacity-60"
+          className={`inline-flex items-center rounded-full bg-slate-900 px-6 py-2 text-xs font-bold text-white shadow ${accentHoverBgClass} disabled:opacity-60`}
           disabled={saving}
         >
           {saving ? "Guardando…" : "Guardar cambios"}

@@ -1,7 +1,7 @@
 "use client";
 
+import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { Send } from "lucide-react";
 	import { useAuth } from "@/contexts/AuthContext";
 
@@ -28,6 +28,14 @@ function formatDate(isoDate: string) {
 }
 
 export default function SchoolMessagesSection() {
+	const pathname = usePathname();
+	const isCourseMode = pathname.startsWith("/courses");
+	const accentBgClass = isCourseMode ? "bg-violet-600" : "bg-indigo-600";
+	const accentHoverBgClass = isCourseMode ? "hover:bg-violet-700" : "hover:bg-indigo-700";
+	const accentLightBgClass = isCourseMode ? "bg-violet-50" : "bg-indigo-50";
+	const accentBorderClass = isCourseMode ? "border-l-violet-500" : "border-l-indigo-500";
+	const accentActiveBgClass = isCourseMode ? "bg-violet-50/90" : "bg-indigo-50/90";
+
 	const searchParams = useSearchParams();
 	const { showToast } = useToast();
 	const requestedThreadId = searchParams.get("thread");
@@ -43,6 +51,7 @@ export default function SchoolMessagesSection() {
 	// ...existing code...
 
 		const { user } = useAuth();
+	const { logout } = useAuth(); // I might not need logout here
 
 	// Depuración: mostrar el valor de user y user.id
 	console.log('[SchoolMessagesSection] user:', user);
@@ -217,13 +226,13 @@ export default function SchoolMessagesSection() {
 										key={thread.publicUserId}
 										type="button"
 										className={`flex w-full items-center justify-between px-5 py-4 sm:px-6 sm:py-4 text-left transition-colors ${
-											active ? "bg-indigo-50/90 border-l-4 border-l-indigo-500" : "hover:bg-slate-50"
+											active ? `${accentActiveBgClass} border-l-4 ${accentBorderClass}` : "hover:bg-slate-50"
 										}`}
 										onClick={() => setActiveThreadId(thread.publicUserId)}
 									>
 										<div className="flex items-center gap-3 sm:gap-4">
 											<div className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-extrabold ${
-												active ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-700"
+												active ? `${accentBgClass} text-white` : "bg-slate-100 text-slate-700"
 											}`}>
 												{initials || "PF"}
 											</div>
@@ -314,7 +323,7 @@ export default function SchoolMessagesSection() {
 							/>
 							<button
 								type="button"
-								className="h-9 w-9 rounded-xl bg-violet-600 text-white hover:bg-violet-700 flex items-center justify-center disabled:opacity-50"
+								className={`h-9 w-9 rounded-xl ${accentBgClass} text-white ${accentHoverBgClass} flex items-center justify-center disabled:opacity-50`}
 								aria-label="Enviar mensaje"
 								onClick={() => void sendMessage()}
 								disabled={!activeThreadId || !draft.trim() || sending}

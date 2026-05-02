@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { useEffect, useState, useMemo } from "react";
+import { X, Image as ImageIcon, Upload } from "lucide-react";
 
 import type { Course } from "@/lib/services/services/courses.service";
 
@@ -30,6 +31,7 @@ type Props = {
 		endDate?: string;
 		status: Course["status"];
 		isActive: boolean;
+		coverImage?: File | null;
 	}) => Promise<void>;
 	mode: "create" | "edit";
 	initialCourse?: Course | null;
@@ -63,12 +65,26 @@ export default function CourseEditorModal({
 	initialCourse,
 	submitting,
 }: Props) {
+	const pathname = usePathname();
+	const isCourseMode = pathname.startsWith("/courses");
+	const accentColorClass = isCourseMode ? "ring-violet-500" : "ring-indigo-500";
+	const accentBgClass = isCourseMode ? "bg-violet-600" : "bg-indigo-600";
+	const accentHoverBgClass = isCourseMode ? "hover:bg-violet-700" : "hover:bg-indigo-700";
+	const accentTextClass = isCourseMode ? "text-violet-600" : "text-indigo-600";
+
 	const [form, setForm] = useState<CourseFormValues>(() => buildInitialValues(initialCourse));
+	const [coverImage, setCoverImage] = useState<File | null>(null);
 	const [error, setError] = useState<string | null>(null);
+
+	const previewUrl = useMemo(() => {
+		if (coverImage) return URL.createObjectURL(coverImage);
+		return initialCourse?.coverImageUrl ?? "";
+	}, [coverImage, initialCourse?.coverImageUrl]);
 
 	useEffect(() => {
 		if (!isOpen) return;
 		setForm(buildInitialValues(initialCourse));
+		setCoverImage(null);
 		setError(null);
 	}, [initialCourse, isOpen]);
 
@@ -109,6 +125,7 @@ export default function CourseEditorModal({
 				endDate: form.endDate || undefined,
 				status: form.status,
 				isActive: form.isActive,
+				coverImage,
 			});
 		} catch {
 			setError("No se pudo guardar el programa. Inténtalo de nuevo.");
@@ -151,8 +168,45 @@ export default function CourseEditorModal({
 								value={form.name}
 								onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
 								placeholder="Ej. Primaria bilingüe"
-								className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+								className={`h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentColorClass}`}
 							/>
+						</div>
+
+						<div className="sm:col-span-2">
+							<label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">
+								Imagen de portada
+							</label>
+							<div className="flex flex-wrap items-center gap-4">
+								<div className="relative h-24 w-32 shrink-0 overflow-hidden rounded-2xl bg-slate-100 ring-1 ring-slate-200">
+									{previewUrl ? (
+										// eslint-disable-next-line @next/next/no-img-element
+										<img
+											src={previewUrl}
+											alt="Vista previa"
+											className="h-full w-full object-cover"
+										/>
+									) : (
+										<div className="flex h-full w-full items-center justify-center text-slate-300">
+											<ImageIcon size={24} />
+										</div>
+									)}
+								</div>
+								<div className="flex-1 space-y-2">
+									<label className={`inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 transition hover:bg-slate-50 cursor-pointer`}>
+										<Upload size={14} />
+										{coverImage ? "Cambiar foto" : "Subir foto"}
+										<input
+											type="file"
+											accept="image/*"
+											className="hidden"
+											onChange={(e) => setCoverImage(e.target.files?.[0] ?? null)}
+										/>
+									</label>
+									<p className="text-[10px] text-slate-400 leading-normal">
+										{coverImage ? `Seleccionado: ${coverImage.name}` : "Recomendado: JPG o PNG de 1200x800px."}
+									</p>
+								</div>
+							</div>
 						</div>
 
 						<div className="sm:col-span-2">
@@ -166,7 +220,7 @@ export default function CourseEditorModal({
 								}
 								rows={4}
 								placeholder="Describe el programa, beneficios y perfil de ingreso."
-								className="w-full rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+								className={`w-full rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentColorClass}`}
 							/>
 						</div>
 
@@ -180,7 +234,7 @@ export default function CourseEditorModal({
 								value={form.price}
 								onChange={(event) => setForm((current) => ({ ...current, price: event.target.value }))}
 								placeholder="0"
-								className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+								className={`h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentColorClass}`}
 							/>
 						</div>
 
@@ -194,7 +248,7 @@ export default function CourseEditorModal({
 								value={form.capacity}
 								onChange={(event) => setForm((current) => ({ ...current, capacity: event.target.value }))}
 								placeholder="30"
-								className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+								className={`h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentColorClass}`}
 							/>
 						</div>
 
@@ -206,7 +260,7 @@ export default function CourseEditorModal({
 								value={form.modality}
 								onChange={(event) => setForm((current) => ({ ...current, modality: event.target.value }))}
 								placeholder="Presencial, híbrido, online"
-								className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+								className={`h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentColorClass}`}
 							/>
 						</div>
 
@@ -222,7 +276,7 @@ export default function CourseEditorModal({
 										status: event.target.value as Course["status"],
 									}))
 								}
-								className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+								className={`h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentColorClass}`}
 							>
 								<option value="draft">Borrador</option>
 								<option value="published">Publicado</option>
@@ -238,7 +292,7 @@ export default function CourseEditorModal({
 								type="date"
 								value={form.startDate}
 								onChange={(event) => setForm((current) => ({ ...current, startDate: event.target.value }))}
-								className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+								className={`h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentColorClass}`}
 							/>
 						</div>
 
@@ -250,7 +304,7 @@ export default function CourseEditorModal({
 								type="date"
 								value={form.endDate}
 								onChange={(event) => setForm((current) => ({ ...current, endDate: event.target.value }))}
-								className="h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500"
+								className={`h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentColorClass}`}
 							/>
 						</div>
 
@@ -261,7 +315,7 @@ export default function CourseEditorModal({
 								onChange={(event) =>
 									setForm((current) => ({ ...current, isActive: event.target.checked }))
 								}
-								className="h-4 w-4 rounded border-slate-300 text-indigo-600"
+								className={`h-4 w-4 rounded border-slate-300 ${isCourseMode ? "text-violet-600" : "text-indigo-600"}`}
 							/>
 							Activo y visible en la operación diaria
 						</label>
@@ -282,7 +336,7 @@ export default function CourseEditorModal({
 							type="button"
 							onClick={() => void handleSubmit()}
 							disabled={submitting}
-							className="inline-flex items-center rounded-2xl bg-indigo-600 px-5 py-2 text-xs font-bold text-white shadow hover:bg-indigo-700 disabled:opacity-50 sm:text-sm"
+							className={`inline-flex items-center rounded-2xl ${accentBgClass} px-5 py-2 text-xs font-bold text-white shadow ${accentHoverBgClass} disabled:opacity-50 sm:text-sm`}
 						>
 							{submitting ? "Guardando..." : mode === "create" ? "Crear programa" : "Guardar cambios"}
 						</button>

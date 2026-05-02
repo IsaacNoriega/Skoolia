@@ -1,12 +1,19 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { coursesService } from "@/lib/services/services/courses.service";
 import CatalogCard from "@/components/layout/CatalogCard";
 import FavoriteDetailModal from "@/components/parents/FavoriteDetailModal";
+import { useAuth } from "@/contexts/AuthContext";
+import { favoritesService } from "@/lib/services/services/favorites.service";
+import { useToast } from "@/components/ui/toast";
+import { useLeadTracking } from "@/lib/hooks/useLeadTracking";
 
 export default function CoursesFeed() {
+  const { user } = useAuth();
+  const { showToast } = useToast();
+  const { trackLead } = useLeadTracking({ userId: user?.id || "" });
   const searchParams = useSearchParams();
   const q = searchParams.get("q") || "";
   const loc = searchParams.get("loc") || "";
@@ -24,6 +31,44 @@ export default function CoursesFeed() {
 
   const [open, setOpen] = useState(false);
   const [selectedNode, setSelectedNode] = useState<any | null>(null);
+  const [courseFavorites, setCourseFavorites] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (user?.id) {
+      favoritesService.listForMe().then(list => {
+        setCourseFavorites(new Set(list.map(s => s.id)));
+      }).catch(console.error);
+    }
+  }, [user?.id]);
+
+  const toggleFavorite = async (courseId: string) => {
+    if (!user?.id) {
+      showToast({ title: "Inicia sesión para guardar favoritos", variant: "info" });
+      return;
+    }
+    try {
+      const result = await favoritesService.toggle(courseId);
+      if (result.isFavorite) {
+        setCourseFavorites((prev) => new Set([...prev, courseId]));
+        showToast({ title: "Agregado a favoritos", variant: "success" });
+        await trackLead({
+          targetId: courseId,
+          originType: "COURSE",
+          trigger: "FAVORITE",
+          status: "INTERESADO",
+        });
+      } else {
+        setCourseFavorites((prev) => {
+          const next = new Set(prev);
+          next.delete(courseId);
+          return next;
+        });
+        showToast({ title: "Removido de favoritos", variant: "success" });
+      }
+    } catch (error) {
+      showToast({ title: "Error al actualizar favoritos", variant: "error" });
+    }
+  };
 
   if (isLoading) return <div className="text-center py-10">Cargando cursos…</div>;
   if (!courses || !courses.length) return <div className="text-center py-10">No se encontraron cursos.</div>;
@@ -68,7 +113,7 @@ export default function CoursesFeed() {
             imageAlt={course.name}
             typeLabel="CURSO"
             title={course.name}
-            location={course.schoolName || "Sin ubicación"}
+            location={course.schoolName || course.ownerName || "Sin ubicación"}
             priceLabel="PRECIO"
             price={course.price ?? 0}
             priceFormatted={
@@ -77,6 +122,10 @@ export default function CoursesFeed() {
                 : "N/A"
             }
             planName={course.planName}
+            description={course.description}
+            studentsPerClass={course.capacity}
+            isFavorite={courseFavorites.has(course.id)}
+            onFavoriteToggle={() => toggleFavorite(course.id)}
             onCardClick={() => handleOpenModal(course)}
             onAction={() => handleOpenModal(course)}
           />
@@ -94,7 +143,7 @@ export default function CoursesFeed() {
             badges: [selectedNode.modality, "CURSO"].filter(Boolean),
             level: "CURSO",
             title: selectedNode.name,
-            location: selectedNode.schoolName ?? "Sin ubicación",
+            location: selectedNode.schoolName || selectedNode.ownerName || "Sin ubicación",
             price: selectedNode.price ?? "Por definir",
             description: selectedNode.description,
             rating: undefined,

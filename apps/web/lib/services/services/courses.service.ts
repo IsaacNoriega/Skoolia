@@ -14,6 +14,8 @@ export interface Course {
   modality?: string | null;
   status: 'draft' | 'published' | 'archived';
   isActive: boolean;
+  schoolName?: string | null;
+  ownerName?: string | null;
 }
 
 export const coursesService = {

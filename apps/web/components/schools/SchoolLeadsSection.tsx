@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { CalendarClock, MessageCircle, User } from "lucide-react";
 
@@ -154,6 +155,7 @@ export default function SchoolLeadsSection() {
 	const [toast, setToast] = useState("");
 	const [reminderToast, setReminderToast] = useState<string>("");
 	const { user } = useAuth();
+	const pathname = usePathname();
 	const [threads, setThreads] = useState<SchoolThread[]>([]);
 	const [filter, setFilter] = useState<LeadsFilter>("week");
 	const [stageFilter, setStageFilter] = useState<LeadStage | "all">("all");
@@ -165,6 +167,14 @@ export default function SchoolLeadsSection() {
 	const [error, setError] = useState<string | null>(null);
 	const [search, setSearch] = useState("");
 	const [tagFilter, setTagFilter] = useState("");
+
+	const isCourseMode = pathname.startsWith("/courses");
+	const accentBgClass = isCourseMode ? "bg-violet-600" : "bg-indigo-600";
+	const accentTextClass = isCourseMode ? "text-violet-600" : "text-indigo-600";
+	const accentLightBgClass = isCourseMode ? "bg-violet-50" : "bg-indigo-50";
+	const accentBorderClass = isCourseMode ? "border-violet-300" : "border-indigo-300";
+	const accentRingClass = isCourseMode ? "focus:ring-violet-300" : "focus:ring-indigo-300";
+
 
 	useEffect(() => {
 		setLeads(readLeads(user?.id));
@@ -381,7 +391,7 @@ export default function SchoolLeadsSection() {
 			<div className="surface rounded-4xl bg-white p-4 shadow-sm ring-1 ring-black/5 sm:p-6">
 				<div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
 					<div>
-						<h2 className="text-xl font-extrabold text-slate-900 sm:text-2xl">Leads escolares</h2>
+						<h2 className="text-xl font-extrabold text-slate-900 sm:text-2xl">{isCourseMode ? "Leads de cursos" : "Leads escolares"}</h2>
 						<p className="mt-1 text-sm text-slate-600">
 							Pipeline operativo diario: nuevo contacto, interesado, visita e inscrito.
 						</p>
@@ -457,7 +467,7 @@ export default function SchoolLeadsSection() {
 								onClick={() => setStageFilter(active ? "all" : stage)}
 								className={`rounded-2xl border px-3 py-2 text-left transition ${
 									active
-										? "border-indigo-300 bg-indigo-50"
+										? `${accentBorderClass} ${accentLightBgClass}`
 										: "border-slate-200 bg-white hover:bg-slate-50"
 								}`}
 							>
@@ -495,12 +505,12 @@ export default function SchoolLeadsSection() {
 						<div
 							key={thread.publicUserId}
 							className={`flex cursor-pointer items-center justify-between px-5 py-4 transition sm:px-6 sm:py-5 ${
-								isActive ? "bg-indigo-50/60" : "hover:bg-slate-50"
+								isActive ? `${accentLightBgClass}/60` : "hover:bg-slate-50"
 							}`}
 							onClick={() => setActiveLeadId(thread.publicUserId)}
 						>
 							<div className="flex items-center gap-3 sm:gap-4">
-								<div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-50 text-sm font-extrabold text-indigo-700">
+								<div className={`flex h-10 w-10 items-center justify-center rounded-full ${accentLightBgClass} text-sm font-extrabold ${accentTextClass}`}>
 									{thread.publicUserName
 										.split(" ")
 										.map((p) => p[0])
@@ -546,7 +556,7 @@ export default function SchoolLeadsSection() {
 												<select
 													value={lead.stage}
 													onChange={e => handleStageChange(thread.publicUserId, e.target.value as LeadStage)}
-													className={`rounded-full border px-2 py-1 text-xs font-bold transition ${status.classes} focus:outline-none focus:ring-2 focus:ring-indigo-300`}
+													className={`rounded-full border px-2 py-1 text-xs font-bold transition ${status.classes} focus:outline-none focus:ring-2 ${accentRingClass}`}
 													style={{ minWidth: 110 }}
 												>
 													<option value="nuevo_contacto">Nuevo contacto</option>
@@ -556,7 +566,7 @@ export default function SchoolLeadsSection() {
 												</select>
 								<div className="flex items-center gap-1 sm:gap-2">
 									<Link
-										href={`/schools/messages?thread=${thread.publicUserId}`}
+										href={isCourseMode ? `/courses/messages?thread=${thread.publicUserId}` : `/schools/messages?thread=${thread.publicUserId}`}
 										onClick={() => {
 											patchLead(thread.publicUserId, {
 												contactClicks: (leads[thread.publicUserId]?.contactClicks ?? 0) + 1,

@@ -28,39 +28,79 @@ export default function SchoolsNavbar() {
 			title: "Oferta académica",
 			description: "Programas, modalidades y cupos publicados.",
 		},
+		"/courses": {
+			title: "Vista general",
+			description: "Resumen operativo de tu panel de instructor.",
+		},
+		"/courses/academic": {
+			title: "Mis cursos",
+			description: "Gestiona tus cursos particulares y programas.",
+		},
 		"/schools/leads": {
 			title: "Prospectos",
 			description: "Seguimiento de leads y oportunidades activas.",
+		},
+		"/courses/leads": {
+			title: "Prospectos",
+			description: "Personas interesadas en tus cursos.",
 		},
 		"/schools/messages": {
 			title: "Mensajería",
 			description: "Conversaciones recientes con familias y prospectos.",
 		},
+		"/courses/messages": {
+			title: "Mensajería",
+			description: "Conversaciones con tus alumnos e interesados.",
+		},
 		"/schools/broadcasts": {
 			title: "Envíos masivos",
 			description: "Campañas y comunicación de alcance amplio.",
+		},
+		"/courses/broadcasts": {
+			title: "Envíos masivos",
+			description: "Notificaciones masivas a tus alumnos.",
 		},
 		"/schools/offers": {
 			title: "Ofertas y promos",
 			description: "Promociones activas y campañas comerciales.",
 		},
+		"/courses/offer": {
+			title: "Ofertas y promos",
+			description: "Tus promociones vigentes.",
+		},
 		"/schools/plans": {
 			title: "Planes y pagos",
 			description: "Suscripción, facturación y estado del plan.",
+		},
+		"/courses/plans": {
+			title: "Planes y pagos",
+			description: "Tu suscripción de instructor.",
 		},
 		"/schools/settings": {
 			title: "Configuración",
 			description: "Preferencias, datos base y ajustes del panel.",
 		},
+		"/courses/settings": {
+			title: "Configuración",
+			description: "Ajustes de tu perfil de instructor.",
+		},
 	};
 
 	const currentSection = sectionTitles[pathname] ?? sectionTitles["/schools"];
+	const isCourseMode = pathname.startsWith("/courses");
+	const accentBg = isCourseMode ? "bg-violet-600" : "bg-blue-600";
+	const accentHoverBg = isCourseMode ? "hover:bg-violet-700" : "hover:bg-blue-700";
 
 	useEffect(() => {
 		let active = true;
 
 		(async () => {
 			try {
+				if (isCourseMode) {
+					// En modo curso independiente, quizás no mostramos nombre de escuela
+					if (active) setSchoolName(null);
+					return;
+				}
 				const school = await schoolsService.getMySchool();
 				if (active) {
 					setSchoolName(school?.name ?? null);
@@ -76,7 +116,7 @@ export default function SchoolsNavbar() {
 		return () => {
 			active = false;
 		};
-	}, []);
+	}, [isCourseMode]);
 
 	return (
 		<>
@@ -94,7 +134,7 @@ export default function SchoolsNavbar() {
 							</div>
 							<div className="hidden min-w-0 xl:block">
 								<p className="text-sm font-semibold text-slate-900">
-									{schoolName || "Mi escuela"}
+									{schoolName || (isCourseMode ? "Instructor Independiente" : "Mi escuela")}
 								</p>
 								<p className="truncate text-xs text-slate-500">
 									{currentSection.title}
@@ -118,7 +158,7 @@ export default function SchoolsNavbar() {
 							</div>
 							<button
 								onClick={() => setRegisterOpen(true)}
-								className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+								className={`inline-flex items-center gap-2 rounded-lg ${accentBg} px-4 py-2.5 text-sm font-semibold text-white transition ${accentHoverBg}`}
 							>
 								<PlusCircle size={16} />
 								<span>Registrar proyecto</span>
@@ -132,7 +172,7 @@ export default function SchoolsNavbar() {
 										{user?.email ?? "sin correo"}
 									</p>
 								</div>
-								<div className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-600 text-white">
+								<div className={`flex h-11 w-11 items-center justify-center rounded-full ${accentBg} text-white`}>
 									{user?.name?.charAt(0)?.toUpperCase() ??
 										user?.email?.charAt(0)?.toUpperCase() ?? (
 											<UserCircle2 size={20} />

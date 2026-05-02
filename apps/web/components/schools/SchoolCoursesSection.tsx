@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowUpRight, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowUpRight, Pencil, Plus, Trash2, Image as ImageIcon } from "lucide-react";
 
 import { coursesService, type Course } from "@/lib/services/services/courses.service";
+import { filesService } from "@/lib/services/services/files.service";
 import { useToast } from "@/components/ui/toast";
 import CourseEditorModal from "./CourseEditorModal";
 
@@ -28,9 +29,9 @@ function statusLabel(status: Course["status"]) {
 	}
 }
 
-function statusDot(status: Course["status"], isActive: boolean) {
+function statusDot(status: Course["status"], isActive: boolean, accentColor: string) {
 	if (!isActive || status === "archived") return "bg-slate-300";
-	if (status === "published") return "bg-[#1973fd]";
+	if (status === "published") return accentColor;
 	return "bg-slate-950";
 }
 
@@ -46,6 +47,11 @@ export default function SchoolCoursesSection() {
 	const [modalMode, setModalMode] = useState<"create" | "edit">("create");
 	const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
 	const [submitting, setSubmitting] = useState(false);
+
+	const isCourseMode = pathname.startsWith("/courses");
+	const accentColorClass = isCourseMode ? "bg-violet-600" : "bg-[#1973fd]";
+	const accentTextClass = isCourseMode ? "text-violet-600" : "text-[#1973fd]";
+
 
 	const loadCourses = async () => {
 		setLoading(true);
@@ -134,9 +140,18 @@ export default function SchoolCoursesSection() {
 		endDate?: string;
 		status: Course["status"];
 		isActive: boolean;
+		coverImage?: File | null;
 	}) => {
 		try {
 			setSubmitting(true);
+
+			let coverImageUrl = selectedCourse?.coverImageUrl || undefined;
+
+			if (values.coverImage) {
+				const uploaded = await filesService.upload(values.coverImage);
+				coverImageUrl = uploaded.url;
+			}
+
 			if (modalMode === "create") {
 				await coursesService.create({
 					name: values.name,
@@ -146,6 +161,7 @@ export default function SchoolCoursesSection() {
 					modality: values.modality,
 					startDate: values.startDate,
 					endDate: values.endDate,
+					coverImageUrl,
 				});
 				showToast({
 					title: "Oferta creada",
@@ -153,7 +169,10 @@ export default function SchoolCoursesSection() {
 					variant: "success",
 				});
 			} else if (selectedCourse) {
-				await coursesService.update(selectedCourse.id, values);
+				await coursesService.update(selectedCourse.id, {
+					...values,
+					coverImageUrl,
+				});
 				showToast({
 					title: "Oferta actualizada",
 					description: `Los cambios en "${selectedCourse.name}" ya quedaron guardados.`,
@@ -215,7 +234,7 @@ export default function SchoolCoursesSection() {
 
 					<div className="mt-8 grid gap-3 sm:grid-cols-3">
 						<Metric label="Total" value={`${stats.total}`} />
-						<Metric label="Activos" value={`${stats.active}`} accent />
+						<Metric label="Activos" value={`${stats.active}`} accent accentClass={accentTextClass} />
 						<Metric label="Publicados" value={`${stats.published}`} />
 					</div>
 				</div>
@@ -238,10 +257,26 @@ export default function SchoolCoursesSection() {
 									key={course.id}
 									className="rounded-[1.5rem] border border-slate-200 px-4 py-4 transition hover:border-slate-300"
 								>
-									<div className="flex items-start justify-between gap-4">
-										<div className="min-w-0">
+									<div className="flex items-start gap-4">
+										{/* Miniatura de imagen */}
+										<div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-100 sm:h-20 sm:w-20">
+											{course.coverImageUrl ? (
+												// eslint-disable-next-line @next/next/no-img-element
+												<img
+													src={course.coverImageUrl}
+													alt={course.name}
+													className="h-full w-full object-cover"
+												/>
+											) : (
+												<div className="flex h-full w-full items-center justify-center text-slate-300">
+													<ImageIcon size={20} />
+												</div>
+											)}
+										</div>
+
+										<div className="min-w-0 flex-1">
 											<div className="flex items-center gap-2">
-												<span className={`h-2 w-2 rounded-full ${statusDot(course.status, course.isActive)}`} />
+												<span className={`h-2 w-2 rounded-full ${statusDot(course.status, course.isActive, accentColorClass)}`} />
 												<span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
 													{statusLabel(course.status)}
 												</span>
@@ -326,17 +361,19 @@ function Metric({
 	label,
 	value,
 	accent = false,
+	accentClass = "text-[#1973fd]",
 }: {
 	label: string;
 	value: string;
 	accent?: boolean;
+	accentClass?: string;
 }) {
 	return (
 		<div className="rounded-2xl bg-slate-50 px-4 py-4">
 			<p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
 				{label}
 			</p>
-			<p className={`mt-3 text-2xl font-semibold ${accent ? "text-[#1973fd]" : "text-slate-950"}`}>
+			<p className={`mt-3 text-2xl font-semibold ${accent ? accentClass : "text-slate-950"}`}>
 				{value}
 			</p>
 		</div>

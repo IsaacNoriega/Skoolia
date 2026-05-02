@@ -17,4 +17,7 @@ export const favoritesService = {
       monthlyPrice: number | null;
     }>>('/favorites');
   },
+  async isFavorite(schoolId: string) {
+    return api<{ isFavorite: boolean }>(`/favorites/${schoolId}/check`);
+  },
 };

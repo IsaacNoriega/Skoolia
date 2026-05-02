@@ -35,7 +35,9 @@ type ActiveSection =
   | "plans"
   | "settings";
 
-type Props = { active?: ActiveSection };
+type DashboardMode = "school" | "course";
+
+type Props = { active?: ActiveSection; mode?: DashboardMode };
 
 type SidebarItem = {
   icon: LucideIcon;
@@ -51,7 +53,12 @@ function SidebarLink({
   href,
   isActive,
   badge,
-}: Omit<SidebarItem, "key"> & { isActive?: boolean }) {
+  mode = "school",
+}: Omit<SidebarItem, "key"> & { isActive?: boolean; mode?: DashboardMode }) {
+  const accentColor = mode === "school" ? "bg-[#1973fd]" : "bg-violet-600";
+  const accentText = mode === "school" ? "text-[#1973fd]" : "text-violet-600";
+  const accentBadgeBg = mode === "school" ? "bg-[#1973fd]/10" : "bg-violet-600/10";
+
   return (
     <Link
       href={href}
@@ -76,7 +83,7 @@ function SidebarLink({
       {badge !== undefined && (
         <span
           className={`absolute -right-1 -top-1 z-10 flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${
-            isActive ? "bg-[#1973fd] text-white" : "bg-[#1973fd]/10 text-[#1973fd]"
+            isActive ? `${accentColor} text-white` : `${accentBadgeBg} ${accentText}`
           }`}
         >
           {badge}
@@ -90,10 +97,15 @@ function SidebarLink({
   );
 }
 
-export default function SchoolsSidebar({ active = "summary" }: Props) {
+export default function SchoolsSidebar({ active = "summary", mode = "school" }: Props) {
   const { logout, user } = useAuth();
   const pathname = usePathname();
   const [threads, setThreads] = useState<SchoolThread[]>([]);
+
+  const isCourseMode = mode === "course" || pathname.startsWith("/courses");
+  const currentMode: DashboardMode = isCourseMode ? "course" : "school";
+  const basePath = currentMode === "school" ? "/schools" : "/courses";
+  const accentBg = currentMode === "school" ? "bg-[#1973fd]" : "bg-violet-600";
 
   useEffect(() => {
     let mounted = true;
@@ -139,13 +151,13 @@ export default function SchoolsSidebar({ active = "summary" }: Props) {
         {
           icon: Activity,
           label: "Vista general",
-          href: "/schools",
+          href: `${basePath}`,
           key: "summary" as const,
         },
         {
           icon: BookOpen,
           label: "Oferta académica",
-          href: "/schools/courses",
+          href: currentMode === "school" ? "/schools/courses" : "/courses/academic",
           key: "courses" as const,
         },
       ],
@@ -156,27 +168,27 @@ export default function SchoolsSidebar({ active = "summary" }: Props) {
         {
           icon: Users,
           label: "Prospectos",
-          href: "/schools/leads",
+          href: `${basePath}/leads`,
           key: "leads" as const,
           badge: pendingCount || undefined,
         },
         {
           icon: MessageCircle,
           label: "Mensajería",
-          href: "/schools/messages",
+          href: `${basePath}/messages`,
           key: "messages" as const,
           badge: pendingCount || undefined,
         },
         {
           icon: Inbox,
           label: "Envíos masivos",
-          href: "/schools/broadcasts",
+          href: `${basePath}/broadcasts`,
           key: "broadcasts" as const,
         },
         {
           icon: Megaphone,
           label: "Ofertas y promos",
-          href: "/schools/offers",
+          href: currentMode === "school" ? "/schools/offers" : "/courses/offer",
           key: "offers" as const,
         },
       ],
@@ -187,13 +199,13 @@ export default function SchoolsSidebar({ active = "summary" }: Props) {
         {
           icon: CreditCard,
           label: "Planes y pagos",
-          href: "/schools/plans",
+          href: `${basePath}/plans`,
           key: "plans" as const,
         },
         {
           icon: Settings,
           label: "Configuración",
-          href: "/schools/settings",
+          href: `${basePath}/settings`,
           key: "settings" as const,
         },
       ],
@@ -201,19 +213,19 @@ export default function SchoolsSidebar({ active = "summary" }: Props) {
   ];
 
   const currentSection: ActiveSection =
-    pathname === "/schools/courses"
+    pathname === "/schools/courses" || pathname === "/courses/academic"
       ? "courses"
-      : pathname === "/schools/leads"
+      : pathname.includes("/leads")
       ? "leads"
-      : pathname === "/schools/messages"
+      : pathname.includes("/messages")
       ? "messages"
-      : pathname === "/schools/broadcasts"
+      : pathname.includes("/broadcasts")
       ? "broadcasts"
-      : pathname === "/schools/offers"
+      : pathname.includes("/offers") || pathname.includes("/offer")
       ? "offers"
-      : pathname === "/schools/plans"
+      : pathname.includes("/plans")
       ? "plans"
-      : pathname === "/schools/settings"
+      : pathname.includes("/settings")
       ? "settings"
       : active;
 
@@ -222,7 +234,7 @@ export default function SchoolsSidebar({ active = "summary" }: Props) {
       <div className="flex min-h-0 flex-1 flex-col items-center px-3 py-6">
         <div className="mb-9">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#1973fd] text-white">
+            <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${accentBg} text-white`}>
               <School size={22} strokeWidth={2.4} />
             </div>
           </div>
@@ -241,6 +253,7 @@ export default function SchoolsSidebar({ active = "summary" }: Props) {
                       key={item.href}
                       {...sidebarItem}
                       isActive={currentSection === key}
+                      mode={currentMode}
                     />
                   );
                 })}
@@ -267,8 +280,8 @@ export default function SchoolsSidebar({ active = "summary" }: Props) {
           </button>
 
           <div
-            title={user?.name ?? "Cuenta escuela"}
-            className="mt-2 flex h-11 w-11 items-center justify-center rounded-full bg-[#1973fd] text-sm font-bold text-white"
+            title={user?.name ?? "Mi cuenta"}
+            className={`mt-2 flex h-11 w-11 items-center justify-center rounded-full ${accentBg} text-sm font-bold text-white`}
           >
             {(user?.name?.charAt(0) || user?.email?.charAt(0) || "S").toUpperCase()}
           </div>

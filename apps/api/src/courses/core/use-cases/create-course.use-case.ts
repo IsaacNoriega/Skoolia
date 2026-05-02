@@ -44,6 +44,8 @@ export class CreateCourseUseCase {
     }
 
     // Ya no se requiere ser "private" ni tener escuela
+    const school = await this.schoolRepository.findByOwner(params.ownerId);
+    const schoolId = school ? school.id : null;
 
     if (params.startDate && params.endDate) {
       if (params.startDate > params.endDate) {
@@ -61,6 +63,7 @@ export class CreateCourseUseCase {
 
     // Permitir cursos sin escuela
     return this.courseRepository.create({
+      schoolId,
       ownerId: params.ownerId,
       name: params.name,
       description: params.description,

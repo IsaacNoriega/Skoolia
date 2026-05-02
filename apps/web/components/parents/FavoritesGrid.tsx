@@ -252,17 +252,21 @@ export default function FavoritesGrid() {
               <CatalogCard
                 imageSrc={item.imageUrl ?? undefined}
                 imageAlt={item.title}
-                typeLabel={"INSTITUCIÓN"}
+                typeLabel={item.monthlyPrice ? "ESCUELA" : "CURSO"}
                 title={item.title}
                 location={item.location}
-                priceLabel="MENSUALIDAD"
-                price={item.price}
+                priceLabel={item.monthlyPrice ? "MENSUALIDAD" : "PRECIO"}
+                price={typeof item.price === 'number' ? item.price : 0}
+                priceFormatted={typeof item.price === 'number' ? `$${item.price.toLocaleString()}` : String(item.price)}
+                description={item.description}
+                languages={item.languages}
+                studentsPerClass={item.studentsPerClass}
                 onCardClick={async () => {
                   openModal(item);
                   if (user?.id) {
                     await trackLead({
                       targetId: item.id,
-                      originType: "SCHOOL",
+                      originType: item.monthlyPrice ? "SCHOOL" : "COURSE",
                       trigger: "VIEW_MORE",
                       status: "INTERESADO",
                     });
@@ -274,15 +278,12 @@ export default function FavoritesGrid() {
                 onFavoriteToggle={async () => {
                   await favoritesService.toggle(item.id);
                   if (user?.id) {
-                    const leadPayload = {
+                    await trackLead({
                       targetId: item.id,
-                      originType: "SCHOOL",
+                      originType: item.monthlyPrice ? "SCHOOL" : "COURSE",
                       trigger: "FAVORITE",
                       status: "INTERESADO",
-                    };
-                    console.log("[Favoritos] Enviando a trackLead:", { userId: user.id, ...leadPayload });
-                    const leadResult = await trackLead({ ...leadPayload });
-                    console.log("[Favoritos] Respuesta de trackLead:", leadResult);
+                    });
                   }
                   // optimistically remove from list
                   setItems((prev) => prev.filter((x) => x.id !== item.id));
@@ -294,7 +295,6 @@ export default function FavoritesGrid() {
                     return next;
                   });
                 }}
-                priceFormatted={""}
                 planName={item.planName}
               />
             </div>

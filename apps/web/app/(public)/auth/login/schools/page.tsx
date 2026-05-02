@@ -10,7 +10,7 @@ import { WaveVector } from "@/lib/icons/WaveVector";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export default function SchoolsLoginPage() {
+function SchoolsLoginPageContent() {
   const { refreshUser } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -129,3 +129,14 @@ export default function SchoolsLoginPage() {
     </div>
   );
 }
+
+import { Suspense } from "react";
+
+export default function SchoolsLoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#f4f4f4]" />}>
+      <SchoolsLoginPageContent />
+    </Suspense>
+  );
+}
+

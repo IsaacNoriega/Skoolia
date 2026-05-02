@@ -7,7 +7,7 @@ import { CourseRepository } from 'src/courses/core/ports/course.repository';
 import { Course } from 'src/courses/core/entities/course.types';
 import { DATABASE } from 'src/db/db.module';
 import * as dbTypes from 'src/db/db.types';
-import { files, schools } from 'drizzle/schemas';
+import { files, schools, privateUsers } from 'drizzle/schemas';
 import { alias } from 'drizzle-orm/pg-core';
 
 @Injectable()
@@ -120,9 +120,13 @@ export class DrizzleCourseRepository implements CourseRepository {
         isActive: courses.isActive,
         createdAt: courses.createdAt,
         updatedAt: courses.updatedAt,
+        schoolName: schools.name,
+        ownerName: privateUsers.name,
       })
       .from(courses)
       .leftJoin(coverFile, eq(coverFile.id, courses.coverImageUrl))
+      .leftJoin(schools, eq(schools.id, courses.schoolId))
+      .leftJoin(privateUsers, eq(privateUsers.id, courses.ownerId))
       .where(eq(courses.id, id))
       .limit(1);
 
@@ -161,9 +165,13 @@ export class DrizzleCourseRepository implements CourseRepository {
         isActive: courses.isActive,
         createdAt: courses.createdAt,
         updatedAt: courses.updatedAt,
+        schoolName: schools.name,
+        ownerName: privateUsers.name,
       })
       .from(courses)
       .leftJoin(coverFile, eq(coverFile.id, courses.coverImageUrl))
+      .leftJoin(schools, eq(schools.id, courses.schoolId))
+      .leftJoin(privateUsers, eq(privateUsers.id, courses.ownerId))
       .where(eq(courses.ownerId, ownerId));
 
     return rows.map(r => ({ ...r, ownerId: r.ownerId ?? '' }));
@@ -196,9 +204,13 @@ export class DrizzleCourseRepository implements CourseRepository {
         isActive: courses.isActive,
         createdAt: courses.createdAt,
         updatedAt: courses.updatedAt,
+        schoolName: schools.name,
+        ownerName: privateUsers.name,
       })
       .from(courses)
       .leftJoin(coverFile, eq(coverFile.id, courses.coverImageUrl))
+      .leftJoin(schools, eq(schools.id, courses.schoolId))
+      .leftJoin(privateUsers, eq(privateUsers.id, courses.ownerId))
       .where(and(eq(courses.schoolId, schoolId), eq(courses.isActive, true)));
 
     return rows.map(r => ({ ...r, ownerId: r.ownerId ?? '' }));
@@ -226,9 +238,13 @@ export class DrizzleCourseRepository implements CourseRepository {
         isActive: courses.isActive,
         createdAt: courses.createdAt,
         updatedAt: courses.updatedAt,
+        schoolName: schools.name,
+        ownerName: privateUsers.name,
       })
       .from(courses)
       .leftJoin(coverFile, eq(coverFile.id, courses.coverImageUrl))
+      .leftJoin(schools, eq(schools.id, courses.schoolId))
+      .leftJoin(privateUsers, eq(privateUsers.id, courses.ownerId))
       .where(eq(courses.isActive, true));
 
     return rows.map(r => ({ ...r, ownerId: r.ownerId ?? '' }));

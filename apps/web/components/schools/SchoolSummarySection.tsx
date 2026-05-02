@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
 	ArrowRight,
@@ -83,6 +84,15 @@ export default function SchoolSummarySection() {
 	const [error, setError] = useState<string | null>(null);
 
 	const { user } = useAuth();
+	const pathname = usePathname();
+
+	const isCourseMode = pathname.startsWith("/courses");
+	const accentColor = isCourseMode ? "#7c3aed" : "#1973fd"; // violet-600 vs blue-600
+	const accentBgClass = isCourseMode ? "bg-violet-600" : "bg-[#1973fd]";
+	const accentTextClass = isCourseMode ? "text-violet-600" : "text-[#1973fd]";
+	const accentHoverBgClass = isCourseMode ? "hover:bg-violet-700" : "hover:bg-[#0f63e9]";
+	const accentShadowClass = isCourseMode ? "shadow-[0_16px_34px_rgba(124,58,237,0.26)]" : "shadow-[0_16px_34px_rgba(25,115,253,0.26)]";
+	const accentLightBgClass = isCourseMode ? "bg-violet-600/10" : "bg-[#1973fd]/10";
 
 	useEffect(() => {
 		let mounted = true;
@@ -91,7 +101,7 @@ export default function SchoolSummarySection() {
 			try {
 				setLoading(true);
 				const [schoolData, coursesData, planData] = await Promise.all([
-					schoolsService.getMySchool(),
+					schoolsService.getMySchool().catch(() => null),
 					coursesService.listMine(),
 					subscriptionsService.getActivePlan().catch(() => null),
 				]);
@@ -107,11 +117,12 @@ export default function SchoolSummarySection() {
 					if (mounted) setThreads(threadData);
 				}
 			} catch {
-				if (mounted) setError("No se pudo cargar el resumen de tu escuela.");
+				if (mounted) setError("No se pudo cargar el resumen de tu panel.");
 			} finally {
 				if (mounted) setLoading(false);
 			}
 		};
+
 
 		void fetchData();
 		return () => {
@@ -187,10 +198,10 @@ export default function SchoolSummarySection() {
 				<div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-center">
 					<div className="min-w-0">
 						<p className="text-xs font-bold uppercase text-slate-400">
-							Panel escolar
+							{isCourseMode ? "Panel de instructor" : "Panel escolar"}
 						</p>
 						<h1 className="mt-4 max-w-4xl text-4xl font-bold leading-[1.04] text-slate-950 lg:text-6xl">
-							{school?.name ?? "Mi institución"}
+							{school?.name ?? (isCourseMode ? "Mi perfil" : "Mi institución")}
 						</h1>
 						<p className="mt-5 max-w-4xl text-lg leading-8 text-slate-600">
 							{school?.description?.trim() ||
@@ -198,9 +209,9 @@ export default function SchoolSummarySection() {
 						</p>
 
 						<div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm font-medium text-slate-600">
-							<Meta icon={GraduationCap} label={school?.educationalLevel || "Nivel por definir"} />
-							<Meta icon={Clock3} label={school?.schedule || "Horario por definir"} />
-							<Meta icon={BookOpen} label={`${courses.length} programas`} />
+							{!isCourseMode && <Meta icon={GraduationCap} label={school?.educationalLevel || "Nivel por definir"} />}
+							{!isCourseMode && <Meta icon={Clock3} label={school?.schedule || "Horario por definir"} />}
+							<Meta icon={BookOpen} label={`${courses.length} ${isCourseMode ? "cursos publicados" : "programas"}`} />
 							<Meta
 								icon={Star}
 								label={`${Number(school?.averageRating ?? 0).toFixed(1)} (${school?.ratingsCount ?? 0})`}
@@ -210,10 +221,10 @@ export default function SchoolSummarySection() {
 
 						<div className="mt-8 flex flex-wrap items-center gap-4">
 							<Link
-								href="/schools/courses?create=1"
-								className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#1973fd] px-6 py-3 text-sm font-bold text-white shadow-[0_16px_34px_rgba(25,115,253,0.26)] transition hover:bg-[#0f63e9]"
+								href={isCourseMode ? "/courses/academic?create=1" : "/schools/courses?create=1"}
+								className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl ${accentBgClass} px-6 py-3 text-sm font-bold text-white ${accentShadowClass} transition ${accentHoverBgClass}`}
 							>
-								Publicar programa
+								{isCourseMode ? "Crear curso" : "Publicar programa"}
 								<ArrowRight size={17} />
 							</Link>
 							<div className="flex items-center gap-3 text-sm font-medium text-slate-600">
@@ -223,12 +234,12 @@ export default function SchoolSummarySection() {
 						</div>
 					</div>
 
-					<DashboardIllustration />
+					<DashboardIllustration accentColor={accentColor} />
 				</div>
 
 				<div className="mt-8 grid gap-3 border-t border-slate-200 pt-6 sm:grid-cols-2 xl:grid-cols-4">
 					<StatPill icon={Users} label="Prospectos" value={`${threads.length}`} detail={`${stats.unread} sin leer`} />
-					<StatPill icon={Layers3} label="Oferta activa" value={`${stats.active}`} detail={`${courses.length} total`} />
+					<StatPill icon={Layers3} label={isCourseMode ? "Cursos activos" : "Oferta activa"} value={`${stats.active}`} detail={`${courses.length} total`} />
 					<StatPill icon={MessageCircle} label="Mensajes hoy" value={`${stats.msgToday}`} detail={`${stats.pending} hilos activos`} />
 					<StatPill icon={ShieldCheck} label="Perfil" value={`${completion}%`} detail={school?.isVerified ? "Verificado" : "En revisión"} />
 				</div>
@@ -243,15 +254,15 @@ export default function SchoolSummarySection() {
 									Nivel 1
 								</p>
 								<h2 className="mt-2 text-3xl font-bold text-slate-950">
-									Operación de tu escuela
+									{isCourseMode ? "Tus cursos y programas" : "Operación de tu escuela"}
 								</h2>
 								<p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
 									Completa las acciones principales para que las familias encuentren información clara y puedan contactarte rápido.
 								</p>
 							</div>
 							<Link
-								href="/schools/settings"
-								className="hidden items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:border-[#1973fd]/30 hover:text-[#1973fd] sm:inline-flex"
+								href={isCourseMode ? "/courses/settings" : "/schools/settings"}
+								className={`hidden items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:border-slate-300 ${isCourseMode ? "hover:text-violet-600" : "hover:text-[#1973fd]"} sm:inline-flex`}
 							>
 								Ajustar perfil
 								<ArrowRight size={16} />
@@ -261,19 +272,21 @@ export default function SchoolSummarySection() {
 						<div className="mt-6 space-y-4">
 							<ActionCard
 								active
-								icon={<Sparkles className="text-[#1973fd]" size={30} />}
-								title="Completar perfil institucional"
+								icon={<Sparkles className={isCourseMode ? "text-violet-600" : "text-[#1973fd]"} size={30} />}
+								title={isCourseMode ? "Completar perfil de instructor" : "Completar perfil institucional"}
 								description={`${completion}% completado`}
-								href="/schools/settings"
-								trailing={<span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1973fd] text-sm font-bold text-white">{schoolInitials.slice(0, 1)}</span>}
+								href={isCourseMode ? "/courses/settings" : "/schools/settings"}
+								accentBgClass={accentBgClass}
+								accentColorClass={isCourseMode ? "border-violet-600 shadow-[0_0_0_3px_rgba(124,58,237,0.10)]" : "border-[#1973fd] shadow-[0_0_0_3px_rgba(25,115,253,0.10)]"}
+								trailing={<span className={`flex h-9 w-9 items-center justify-center rounded-full ${accentBgClass} text-sm font-bold text-white`}>{schoolInitials.slice(0, 1)}</span>}
 							/>
 							{visibleCourses.map((course) => (
 								<ActionCard
 									key={course.id}
-									icon={<CourseIcon status={course.status} />}
+									icon={<CourseIcon status={course.status} imageUrl={course.coverImageUrl} accentColorClass={accentBgClass} />}
 									title={course.name}
 									description={`${course.modality || "Modalidad por definir"} · ${formatCurrency(course.price)}`}
-									href="/schools/courses"
+									href={isCourseMode ? "/courses/academic" : "/schools/courses"}
 									trailing={<CourseStatus course={course} />}
 								/>
 							))}
@@ -281,8 +294,8 @@ export default function SchoolSummarySection() {
 								icon={<Send className="text-slate-700" size={28} />}
 								title="Responder conversaciones recientes"
 								description={stats.unread > 0 ? `${stats.unread} mensajes pendientes` : "Bandeja al día"}
-								href="/schools/messages"
-								trailing={<CheckCircle2 className={stats.unread > 0 ? "text-[#1973fd]" : "text-slate-300"} size={28} />}
+								href={isCourseMode ? "/courses/messages" : "/schools/messages"}
+								trailing={<CheckCircle2 className={stats.unread > 0 ? (isCourseMode ? "text-violet-600" : "text-[#1973fd]") : "text-slate-300"} size={28} />}
 							/>
 						</div>
 					</div>
@@ -298,8 +311,8 @@ export default function SchoolSummarySection() {
 								</p>
 							</div>
 							<Link
-								href="/schools/messages"
-								className="text-sm font-bold text-[#1973fd]"
+								href={isCourseMode ? "/courses/messages" : "/schools/messages"}
+								className={`text-sm font-bold ${accentTextClass}`}
 							>
 								Ver todas
 							</Link>
@@ -325,7 +338,7 @@ export default function SchoolSummarySection() {
 											</p>
 										</div>
 										{thread.unreadCount > 0 ? (
-											<span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-[#1973fd] px-2 text-xs font-bold text-white">
+											<span className={`flex h-6 min-w-6 items-center justify-center rounded-full ${accentBgClass} px-2 text-xs font-bold text-white`}>
 												{thread.unreadCount}
 											</span>
 										) : null}
@@ -343,7 +356,7 @@ export default function SchoolSummarySection() {
 
 				<aside className="space-y-5">
 					<div className="rounded-[2rem] border-[8px] border-slate-100 bg-white p-6 text-center shadow-sm">
-						<div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[1.5rem] bg-[#1973fd]/10">
+						<div className={`mx-auto flex h-20 w-20 items-center justify-center rounded-[1.5rem] ${accentLightBgClass}`}>
 							{school?.logoUrl ? (
 								// eslint-disable-next-line @next/next/no-img-element
 								<img
@@ -352,7 +365,7 @@ export default function SchoolSummarySection() {
 									className="h-16 w-16 rounded-2xl object-cover"
 								/>
 							) : (
-								<span className="text-2xl font-bold text-[#1973fd]">
+								<span className={`text-2xl font-bold ${accentTextClass}`}>
 									{schoolInitials}
 								</span>
 							)}
@@ -362,7 +375,7 @@ export default function SchoolSummarySection() {
 						</h3>
 						<div className="mx-auto mt-4 h-2 w-44 rounded-full bg-slate-100">
 							<div
-								className="h-full rounded-full bg-[#1973fd]"
+								className={`h-full rounded-full ${accentBgClass}`}
 								style={{ width: `${completion}%` }}
 							/>
 						</div>
@@ -373,9 +386,9 @@ export default function SchoolSummarySection() {
 
 					<div className="space-y-3 text-sm font-medium text-slate-600">
 						<InfoLine icon={CalendarDays} label={`Actualizado ${formatShortDate(school?.updatedAt)}`} />
-						<InfoLine icon={Globe2} label={school?.languages || "Idiomas por definir"} />
+						{!isCourseMode && <InfoLine icon={Globe2} label={school?.languages || "Idiomas por definir"} />}
 						<InfoLine icon={MapPin} label={locationLabel || "Ubicación pendiente"} />
-						<InfoLine icon={Wifi} label="Disponible para familias en línea" />
+						<InfoLine icon={Wifi} label={isCourseMode ? "Disponible para tutorías en línea" : "Disponible para familias en línea"} />
 						<InfoLine icon={CreditCard} label={planName} />
 					</div>
 
@@ -383,10 +396,10 @@ export default function SchoolSummarySection() {
 						<div className="flex items-center justify-between">
 							<div>
 								<p className="text-xs font-bold uppercase text-slate-400">
-									Inscripciones
+									{isCourseMode ? "Estado" : "Inscripciones"}
 								</p>
 								<p className="mt-2 text-2xl font-bold text-slate-950">
-									{school?.enrollmentOpen ? "Abiertas" : "Cerradas"}
+									{school?.enrollmentOpen ? (isCourseMode ? "Activo" : "Abiertas") : (isCourseMode ? "Inactivo" : "Cerradas")}
 								</p>
 							</div>
 							<span className={`h-3 w-3 rounded-full ${school?.enrollmentOpen ? "bg-emerald-500" : "bg-slate-300"}`} />
@@ -419,14 +432,14 @@ function Meta({
 	);
 }
 
-function DashboardIllustration() {
+function DashboardIllustration({ accentColor = "#1973fd" }: { accentColor?: string }) {
 	return (
 		<div className="relative mx-auto h-64 w-72">
-			<div className="absolute left-8 top-28 h-28 w-56 rotate-[-1deg] rounded-[2rem] border-[5px] border-slate-950 bg-[#1973fd] shadow-[0_18px_0_rgba(15,23,42,0.06)]" />
+			<div className="absolute left-8 top-28 h-28 w-56 rotate-[-1deg] rounded-[2rem] border-[5px] border-slate-950 shadow-[0_18px_0_rgba(15,23,42,0.06)]" style={{ backgroundColor: accentColor }} />
 			<div className="absolute left-10 top-20 h-28 w-52 rotate-[2deg] rounded-[2rem] border-[5px] border-slate-950 bg-[#8ea6ff]" />
 			<div className="absolute left-14 top-9 h-24 w-44 rotate-[5deg] rounded-[2rem] border-[5px] border-slate-950 bg-[#ede7ff]" />
 			<div className="absolute bottom-3 right-1 flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-[0_12px_30px_rgba(15,23,42,0.18)]">
-				<Play className="fill-[#1973fd] text-[#1973fd]" size={24} />
+				<Play className="fill-current text-slate-950" size={24} style={{ color: accentColor }} />
 			</div>
 		</div>
 	);
@@ -478,6 +491,8 @@ function ActionCard({
 	href,
 	trailing,
 	active = false,
+	accentBgClass = "bg-[#1973fd]",
+	accentColorClass = "border-[#1973fd] shadow-[0_0_0_3px_rgba(25,115,253,0.10)]",
 }: {
 	icon: React.ReactNode;
 	title: string;
@@ -485,18 +500,20 @@ function ActionCard({
 	href: string;
 	trailing: React.ReactNode;
 	active?: boolean;
+	accentBgClass?: string;
+	accentColorClass?: string;
 }) {
 	return (
 		<Link
 			href={href}
 			className={`relative flex min-h-24 items-center gap-5 rounded-[1.5rem] border bg-white px-5 py-4 transition hover:-translate-y-0.5 hover:shadow-[0_16px_40px_rgba(15,23,42,0.08)] ${
 				active
-					? "border-[#1973fd] shadow-[0_0_0_3px_rgba(25,115,253,0.10)]"
+					? accentColorClass
 					: "border-slate-200"
 			}`}
 		>
 			{active ? (
-				<span className="absolute -top-5 left-1/2 -translate-x-1/2 rounded-2xl bg-[#1973fd] px-5 py-2 text-sm font-bold text-white shadow-[0_12px_24px_rgba(25,115,253,0.24)]">
+				<span className={`absolute -top-5 left-1/2 -translate-x-1/2 rounded-2xl ${accentBgClass} px-5 py-2 text-sm font-bold text-white shadow-lg`}>
 					Iniciar
 				</span>
 			) : null}
@@ -514,7 +531,17 @@ function ActionCard({
 	);
 }
 
-function CourseIcon({ status }: { status: Course["status"] }) {
+function CourseIcon({ status, imageUrl, accentColorClass = "bg-[#1973fd]" }: { status: Course["status"]; imageUrl?: string | null; accentColorClass?: string }) {
+	if (imageUrl) {
+		return (
+			<img
+				src={imageUrl}
+				alt="Curso"
+				className="h-full w-full object-cover rounded-xl"
+			/>
+		);
+	}
+
 	const color =
 		status === "published"
 			? "bg-emerald-500"
@@ -525,7 +552,7 @@ function CourseIcon({ status }: { status: Course["status"] }) {
 	return (
 		<div className="grid grid-cols-2 gap-1">
 			<span className={`h-4 w-4 rounded ${color}`} />
-			<span className="h-4 w-4 rounded bg-[#1973fd]" />
+			<span className={`h-4 w-4 rounded ${accentColorClass}`} />
 			<span className="h-4 w-4 rounded bg-slate-950" />
 			<span className="h-4 w-4 rounded bg-slate-200" />
 		</div>

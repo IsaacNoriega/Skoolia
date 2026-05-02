@@ -44,6 +44,9 @@ export interface Course {
   status: CourseStatus;
   isActive: boolean;
 
+  schoolName?: string | null;
+  ownerName?: string | null;
+
   createdAt: Date;
   updatedAt: Date;
 

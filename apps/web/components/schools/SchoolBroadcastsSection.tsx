@@ -1,3 +1,6 @@
+"use client";
+
+import { usePathname } from "next/navigation";
 import {
 	ArrowUpRight,
 	CalendarDays,
@@ -71,6 +74,12 @@ function statusDot(status: CampaignStatus) {
 }
 
 export default function SchoolBroadcastsSection() {
+	const pathname = usePathname();
+	const isCourseMode = pathname.startsWith("/courses");
+	const accentBgClass = isCourseMode ? "bg-violet-600" : "bg-slate-950";
+	const accentHoverBgClass = isCourseMode ? "hover:bg-violet-700" : "hover:bg-slate-800";
+	const accentTextClass = isCourseMode ? "text-violet-600" : "text-slate-950";
+
 	return (
 		<section className="rounded-[2rem] border border-slate-200 bg-white">
 			<div className="grid gap-0 lg:grid-cols-[minmax(0,1.2fr)_380px]">
@@ -131,7 +140,7 @@ export default function SchoolBroadcastsSection() {
 						</div>
 
 						<div className="flex flex-wrap items-center gap-3">
-							<button className="inline-flex h-12 items-center gap-2 rounded-2xl bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800">
+							<button className={`inline-flex h-12 items-center gap-2 rounded-2xl ${accentBgClass} px-5 text-sm font-semibold text-white transition ${accentHoverBgClass}`}>
 								<Send size={16} />
 								Enviar ahora
 							</button>
@@ -200,7 +209,7 @@ export default function SchoolBroadcastsSection() {
 							<StatLine label="Contactos alcanzados" value="740" />
 							<StatLine label="Última apertura" value="64%" />
 						</div>
-						<div className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-950">
+						<div className={`mt-5 inline-flex items-center gap-2 text-sm font-semibold ${accentTextClass}`}>
 							Ver rendimiento
 							<ArrowUpRight size={16} />
 						</div>
