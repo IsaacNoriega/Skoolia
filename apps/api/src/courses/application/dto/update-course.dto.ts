@@ -6,6 +6,7 @@ import {
   IsBoolean,
   IsDate,
   IsIn,
+  IsArray,
 } from 'class-validator';
 
 export class UpdateCourseDto {
@@ -18,10 +19,16 @@ export class UpdateCourseDto {
   description?: string;
 
   @IsOptional()
+  @IsString()
+  coverImageUrl?: string;
+
+  @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   price?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   capacity?: number;
 
@@ -67,6 +74,12 @@ export class UpdateCourseDto {
   status?: 'draft' | 'published' | 'archived';
 
   @IsOptional()
+  @Type(() => Boolean)
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  gallery?: string[];
 }

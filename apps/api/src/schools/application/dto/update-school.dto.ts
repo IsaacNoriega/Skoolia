@@ -5,6 +5,7 @@ import {
   IsBoolean,
   IsInt,
   Min,
+  IsArray,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -16,6 +17,14 @@ export class UpdateSchoolDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsString()
+  logoUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  coverImageUrl?: string;
 
   // 📍 ubicación
   @IsOptional()
@@ -80,4 +89,9 @@ export class UpdateSchoolDto {
   @IsInt()
   @Min(0)
   monthlyPrice?: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  gallery?: string[];
 }
