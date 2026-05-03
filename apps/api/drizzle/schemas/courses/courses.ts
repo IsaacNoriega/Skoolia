@@ -8,6 +8,7 @@ import {
   doublePrecision,
   index,
   pgEnum,
+  jsonb,
 } from 'drizzle-orm/pg-core';
 
 import { schools } from '../schools/school';
@@ -38,9 +39,8 @@ export const courses = pgTable(
 
     description: text('description'),
 
-    coverImageUrl: uuid('cover_image_url').references(() => files.id, {
-      onDelete: 'set null',
-    }),
+    coverImageUrl: text('cover_image_url'),
+    gallery: jsonb('gallery').$type<string[]>().default([]),
 
     // 💰 pricing
     price: integer('price'),
