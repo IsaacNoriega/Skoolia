@@ -65,24 +65,7 @@ export const schoolsService = {
     return api<School>(`/schools/${id}`);
   },
 
-  async update(data: {
-    name?: string;
-    description?: string;
-    address?: string;
-    city?: string;
-    latitude?: number;
-    longitude?: number;
-
-    educationalLevel?: string;
-    institutionType?: string;
-    schedule?: string;
-    languages?: string;
-    maxStudentsPerClass?: number;
-    enrollmentYear?: number;
-    enrollmentOpen?: boolean;
-    monthlyPrice?: number;
-    gallery?: string[];
-  }) {
+  async update(data: any) {
     return api<School>("/schools", {
       method: "PATCH",
       body: data,

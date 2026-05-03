@@ -35,10 +35,18 @@ export const coursesService = {
   async create(data: {
     name: string;
     description?: string;
+    price?: number;
+    capacity?: number;
     startDate?: string;
     endDate?: string;
     modality?: string;
+    coverImageUrl?: string;
     gallery?: string[];
+    address?: string;
+    city?: string;
+    state?: string;
+    latitude?: number;
+    longitude?: number;
   }) {
     return api<Course>('/courses', {
       method: 'POST',
