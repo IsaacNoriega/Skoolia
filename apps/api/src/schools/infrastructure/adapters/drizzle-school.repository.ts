@@ -70,6 +70,9 @@ export class DrizzleSchoolRepository implements SchoolRepository {
     ownerId: string;
     latitude?: number;
     longitude?: number;
+    gallery?: string[];
+    logoUrl?: string;
+    coverImageUrl?: string;
   }) {
     return this.db.transaction(async (tx) => {
       const now = new Date();
@@ -83,6 +86,9 @@ export class DrizzleSchoolRepository implements SchoolRepository {
           ownerId: params.ownerId,
           latitude: params.latitude,
           longitude: params.longitude,
+          gallery: params.gallery,
+          logoUrl: params.logoUrl,
+          coverImageUrl: params.coverImageUrl,
         })
         .returning();
 
@@ -112,8 +118,9 @@ export class DrizzleSchoolRepository implements SchoolRepository {
         name: schools.name,
         description: schools.description,
 
-        logoUrl: logoFile.url,
-        coverImageUrl: coverFile.url,
+        logoUrl: schools.logoUrl,
+        coverImageUrl: schools.coverImageUrl,
+        gallery: schools.gallery,
 
         address: schools.address,
         city: schools.city,
@@ -143,8 +150,6 @@ export class DrizzleSchoolRepository implements SchoolRepository {
         updatedAt: schools.updatedAt,
       })
       .from(schools)
-      .leftJoin(logoFile, eq(logoFile.id, schools.logoUrl))
-      .leftJoin(coverFile, eq(coverFile.id, schools.coverImageUrl))
       .where(eq(schools.ownerId, ownerId))
       .limit(1);
 
@@ -161,8 +166,9 @@ export class DrizzleSchoolRepository implements SchoolRepository {
         name: schools.name,
         description: schools.description,
 
-        logoUrl: logoFile.url,
-        coverImageUrl: coverFile.url,
+        logoUrl: schools.logoUrl,
+        coverImageUrl: schools.coverImageUrl,
+        gallery: schools.gallery,
 
         address: schools.address,
         city: schools.city,
@@ -192,8 +198,6 @@ export class DrizzleSchoolRepository implements SchoolRepository {
         updatedAt: schools.updatedAt,
       })
       .from(schools)
-      .leftJoin(logoFile, eq(logoFile.id, schools.logoUrl))
-      .leftJoin(coverFile, eq(coverFile.id, schools.coverImageUrl))
       .where(eq(schools.id, id))
       .limit(1);
 
@@ -341,8 +345,9 @@ export class DrizzleSchoolRepository implements SchoolRepository {
       id: schools.id,
       name: schools.name,
       description: schools.description,
-      logoUrl: logoFile.url,
-      coverImageUrl: coverFile.url,
+      logoUrl: schools.logoUrl,
+      coverImageUrl: schools.coverImageUrl,
+      gallery: schools.gallery,
       address: schools.address,
       city: schools.city,
       state: schools.state,
@@ -382,8 +387,6 @@ export class DrizzleSchoolRepository implements SchoolRepository {
           )
       : queryBuilder
           .from(schools)
-          .leftJoin(logoFile, eq(logoFile.id, schools.logoUrl))
-          .leftJoin(coverFile, eq(coverFile.id, schools.coverImageUrl))
           .innerJoin(sub, eq(sub.schoolId, schools.id))
           .innerJoin(plan, eq(plan.id, sub.planId));
 
@@ -503,6 +506,7 @@ export class DrizzleSchoolRepository implements SchoolRepository {
           address: schools.address,
           city: schools.city,
           state: schools.state,
+          gallery: schools.gallery,
           lat: schools.latitude ?? schools.lat,
           lng: schools.longitude ?? schools.lng,
           educationalLevel: schools.educationalLevel,

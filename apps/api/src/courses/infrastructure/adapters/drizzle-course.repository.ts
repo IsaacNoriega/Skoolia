@@ -73,6 +73,7 @@ export class DrizzleCourseRepository implements CourseRepository {
     state?: string;
     latitude?: number;
     longitude?: number;
+    gallery?: string[];
   }): Promise<Course> {
     const [course] = await this.db
       .insert(courses)
@@ -92,6 +93,7 @@ export class DrizzleCourseRepository implements CourseRepository {
         state: params.state ?? null,
         latitude: params.latitude ?? null,
         longitude: params.longitude ?? null,
+        gallery: params.gallery ?? [],
       })
       .returning();
 
@@ -108,7 +110,8 @@ export class DrizzleCourseRepository implements CourseRepository {
         ownerId: courses.ownerId,
         name: courses.name,
         description: courses.description,
-        coverImageUrl: coverFile.url,
+        coverImageUrl: courses.coverImageUrl,
+        gallery: courses.gallery,
         price: courses.price,
         capacity: courses.capacity,
         startDate: courses.startDate,
@@ -124,7 +127,6 @@ export class DrizzleCourseRepository implements CourseRepository {
         ownerName: privateUsers.name,
       })
       .from(courses)
-      .leftJoin(coverFile, eq(coverFile.id, courses.coverImageUrl))
       .leftJoin(schools, eq(schools.id, courses.schoolId))
       .leftJoin(privateUsers, eq(privateUsers.id, courses.ownerId))
       .where(eq(courses.id, id))
@@ -148,7 +150,8 @@ export class DrizzleCourseRepository implements CourseRepository {
         ownerId: courses.ownerId,
         name: courses.name,
         description: courses.description,
-        coverImageUrl: coverFile.url,
+        coverImageUrl: courses.coverImageUrl,
+        gallery: courses.gallery,
         price: courses.price,
         capacity: courses.capacity,
         startDate: courses.startDate,
@@ -169,7 +172,6 @@ export class DrizzleCourseRepository implements CourseRepository {
         ownerName: privateUsers.name,
       })
       .from(courses)
-      .leftJoin(coverFile, eq(coverFile.id, courses.coverImageUrl))
       .leftJoin(schools, eq(schools.id, courses.schoolId))
       .leftJoin(privateUsers, eq(privateUsers.id, courses.ownerId))
       .where(eq(courses.ownerId, ownerId));
@@ -187,7 +189,8 @@ export class DrizzleCourseRepository implements CourseRepository {
         ownerId: courses.ownerId,
         name: courses.name,
         description: courses.description,
-        coverImageUrl: coverFile.url,
+        coverImageUrl: courses.coverImageUrl,
+        gallery: courses.gallery,
         price: courses.price,
         capacity: courses.capacity,
         startDate: courses.startDate,
@@ -208,7 +211,6 @@ export class DrizzleCourseRepository implements CourseRepository {
         ownerName: privateUsers.name,
       })
       .from(courses)
-      .leftJoin(coverFile, eq(coverFile.id, courses.coverImageUrl))
       .leftJoin(schools, eq(schools.id, courses.schoolId))
       .leftJoin(privateUsers, eq(privateUsers.id, courses.ownerId))
       .where(and(eq(courses.schoolId, schoolId), eq(courses.isActive, true)));
@@ -226,7 +228,8 @@ export class DrizzleCourseRepository implements CourseRepository {
         ownerId: courses.ownerId,
         name: courses.name,
         description: courses.description,
-        coverImageUrl: coverFile.url,
+        coverImageUrl: courses.coverImageUrl,
+        gallery: courses.gallery,
         price: courses.price,
         capacity: courses.capacity,
         startDate: courses.startDate,
@@ -242,7 +245,6 @@ export class DrizzleCourseRepository implements CourseRepository {
         ownerName: privateUsers.name,
       })
       .from(courses)
-      .leftJoin(coverFile, eq(coverFile.id, courses.coverImageUrl))
       .leftJoin(schools, eq(schools.id, courses.schoolId))
       .leftJoin(privateUsers, eq(privateUsers.id, courses.ownerId))
       .where(eq(courses.isActive, true));

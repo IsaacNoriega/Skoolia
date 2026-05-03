@@ -255,12 +255,14 @@ export class DrizzleMessageRepository implements MessageRepository {
           courseId: courseMessages.courseId,
           courseName: courses.name,
           publicUserId: courseMessages.publicUserId,
+          publicUserName: publicUsers.name,
           lastMessage: courseMessages.content,
           lastMessageAt: courseMessages.createdAt,
           lastSenderRole: courseMessages.senderRole,
         })
         .from(courseMessages)
         .leftJoin(courses, eq(courseMessages.courseId, courses.id))
+        .leftJoin(publicUsers, eq(courseMessages.publicUserId, publicUsers.id))
         .where(eq(courses.ownerId, participantId));
 
       // Agrupar por courseId + publicUserId para obtener el último mensaje de cada conversación
@@ -272,7 +274,7 @@ export class DrizzleMessageRepository implements MessageRepository {
             courseId: row.courseId,
             courseName: row.courseName,
             publicUserId: row.publicUserId,
-            publicUserName: '', // Puedes poblarlo si tienes acceso al nombre del usuario
+            publicUserName: row.publicUserName || 'Usuario Público',
             lastMessage: row.lastMessage,
             lastMessageAt: row.lastMessageAt,
             lastSenderRole: row.lastSenderRole,
@@ -281,7 +283,7 @@ export class DrizzleMessageRepository implements MessageRepository {
           });
         }
       }
-      threads = threads.concat(Array.from(threadMap.values()));
+      return Array.from(threadMap.values());
     }
          // Solo agrupar para cursos y padres, no para escuelas (ya está agrupado arriba)
          if (participantType === 'parent' || participantType === 'course') {
