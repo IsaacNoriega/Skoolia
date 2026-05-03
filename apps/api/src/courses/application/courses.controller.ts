@@ -102,6 +102,12 @@ export class CoursesController {
       startDate: dto.startDate,
       endDate: dto.endDate,
       modality: dto.modality,
+      address: dto.address,
+      city: dto.city,
+      state: dto.state,
+      latitude: dto.latitude,
+      longitude: dto.longitude,
+      gallery: dto.gallery,
     });
   }
 

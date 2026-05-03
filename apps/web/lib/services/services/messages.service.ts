@@ -12,6 +12,8 @@ export interface ParentMessage {
   id: string;
   schoolId: string;
   schoolName: string;
+  senderId?: string;
+  senderType?: 'parent' | 'school';
   senderRole: 'public' | 'private';
   content: string;
   createdAt: string;

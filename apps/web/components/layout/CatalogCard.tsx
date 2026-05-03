@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Heart, ImageIcon, MapPin, ArrowRight, Users } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Heart, ImageIcon, MapPin, ArrowRight, Users, Star, TrendingUp, Check } from "lucide-react";
 import React from "react";
 import { sanitizeImageSrc } from "@/lib/utils";
 import { PlanBadge } from "./PlanBadge";
@@ -28,6 +29,8 @@ type CatalogCardProps = {
   description?: string;
   institutionType?: string;
   planName?: string;
+  isComparing?: boolean;
+  onCompareToggle?: (e?: React.MouseEvent) => void;
 };
 
 export default function CatalogCard({
@@ -51,140 +54,130 @@ export default function CatalogCard({
   description,
   institutionType,
   planName,
+  isComparing = false,
+  onCompareToggle,
 }: CatalogCardProps) {
+  const router = useRouter();
   const safeImageSrc = sanitizeImageSrc(imageSrc);
   // Log para depuración
   console.log("CatalogCard props", { priceFormatted, title, name: title });
 
   const isPremium = planName === "PREMIUM_SUBSCRIPTION";
+
   return (
     <article
       onClick={onCardClick}
-      className={`surface group overflow-hidden rounded-4xl bg-white transition-all duration-300 border ${isPremium ? 'border-4 border-yellow-400 shadow-xl scale-[1.03]' : 'border-slate-200'} ${
-        onCardClick ? 'cursor-pointer hover:-translate-y-0.5 hover:shadow-lg' : 'hover:-translate-y-0.5 hover:shadow-lg'
+      className={`group relative flex flex-col overflow-hidden rounded-2xl bg-white border-2 transition-all duration-300 ${
+        isComparing 
+          ? 'border-indigo-600 shadow-xl shadow-indigo-100' 
+          : 'border-slate-100 hover:shadow-xl hover:shadow-indigo-50/50 hover:border-indigo-100'
+      } ${
+        onCardClick ? 'cursor-pointer' : ''
       } ${className}`}
     >
       {/* Media Section */}
-      <div className="relative h-48 sm:h-56 md:h-64 w-full">
+      <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-50">
         {safeImageSrc ? (
           <Image
             src={safeImageSrc}
             alt={imageAlt}
             fill
             sizes="(min-width: 1024px) 33vw, 100vw"
-            className="object-cover transition-transform duration-300 group-hover:scale-[1.05]"
+            className="object-cover transition-transform duration-700 group-hover:scale-105"
             priority={false}
             unoptimized
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-slate-100">
-            <div className="surface rounded-2xl bg-white p-4 text-slate-400">
-              <ImageIcon className="h-8 w-8" />
+          <div className="flex h-full w-full items-center justify-center bg-slate-50">
+            <ImageIcon className="h-10 w-10 text-slate-200" />
+          </div>
+        )}
+
+        {/* Selected Overlay */}
+        {isComparing && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-indigo-600/10 backdrop-blur-[1px]">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg animate-in zoom-in duration-300">
+              <Check size={28} className="stroke-[3px]" />
+            </div>
+          </div>
+        )}
+        
+        <div className="absolute right-3 top-3 z-20">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onFavoriteToggle?.(e);
+            }}
+            className="h-9 w-9 flex items-center justify-center rounded-full bg-white/90 backdrop-blur-md text-slate-400 border border-slate-100 shadow-sm transition-colors hover:text-rose-500"
+          >
+            <Heart size={16} className={`transition-all duration-300 ${isFavorite ? "fill-rose-500 text-rose-500" : ""}`} />
+          </button>
+        </div>
+
+        {/* Comparison Toggle Bar */}
+        {onCompareToggle && (
+          <div 
+            onClick={(e) => {
+              e.stopPropagation();
+              onCompareToggle?.(e);
+            }}
+            className="absolute bottom-0 left-0 right-0 z-20 flex items-center justify-between border-t border-slate-100 bg-white/80 px-4 py-2.5 backdrop-blur-md transition-all hover:bg-white"
+          >
+            <div className="flex items-center gap-2">
+              <TrendingUp size={12} className={isComparing ? "text-indigo-600" : "text-slate-400"} />
+              <span className={`text-[9px] font-black uppercase tracking-widest ${isComparing ? "text-indigo-600" : "text-slate-500"}`}>
+                {isComparing ? "Seleccionada" : "Comparar"}
+              </span>
+            </div>
+            <div className={`flex h-5 w-5 items-center justify-center rounded-md border transition-all ${
+              isComparing 
+                ? "bg-indigo-600 border-indigo-600 shadow-sm shadow-indigo-200" 
+                : "bg-white border-slate-200"
+            }`}>
+              {isComparing && <Check size={12} className="text-white stroke-[3px]" />}
             </div>
           </div>
         )}
 
-        {/* Badge de plan */}
-        {planName && (
-          <div className="absolute left-4 top-4 z-10">
-            <PlanBadge plan={planName} />
-          </div>
-        )}
-        {/* Tags */}
-        {tags && tags.length > 0 && (
-          <div className="pointer-events-none absolute left-4 bottom-4 flex flex-wrap gap-2">
-            {tags.map((tag) => (
-              <span
-                key={tag}
-                className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-700 shadow-sm"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {/* Favorite */}
-        <button
-          type="button"
-          aria-label={isFavorite ? "Quitar de favoritos" : "Agregar a favoritos"}
-          onClick={(e) => {
-            e.stopPropagation();
-            onFavoriteToggle?.(e);
-          }}
-          className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-full bg-white text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
-        >
-          <Heart className={`h-5 w-5 ${isFavorite ? "fill-current text-red-500" : ""}`} />
-        </button>
+        {/* Level Badge */}
+        <div className="absolute left-3 top-3 z-20 flex flex-col gap-2">
+           <span className="px-2.5 py-1 bg-white/90 backdrop-blur-md border border-slate-100 rounded-full text-[9px] font-bold text-indigo-600 uppercase tracking-widest">
+              {typeLabel}
+           </span>
+        </div>
       </div>
 
       {/* Info Section */}
-      <div className="px-5 sm:px-6 pb-5 sm:pb-6 pt-4 sm:pt-5">
-        <p className="text-[10px] sm:text-[11px] font-extrabold tracking-widest text-indigo-600 uppercase">
-          {typeLabel}
-        </p>
-        <h3 className="mt-2 text-base md:text-lg font-extrabold text-slate-900 transition-all duration-300 group-hover:text-indigo-600 group-hover:-translate-y-px line-clamp-2">
-          {title}
-        </h3>
-
-        <div className="mt-2 flex items-center gap-2 text-xs sm:text-sm text-slate-600">
-          <MapPin className="h-4 w-4" />
-          <span>{location}</span>
-        </div>
-
-        {/* Badges de Atributos */}
-        <div className="mt-3 flex flex-wrap gap-2 text-xs">
-          {languages && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-white/60 px-2 py-0.5 font-bold text-slate-700 border border-slate-200">
-              <span className="text-[10px]">🌐</span> {languages}
-            </span>
-          )}
-          {studentsPerClass && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-white/60 px-2 py-0.5 font-bold text-slate-700 border border-slate-200">
-              <Users className="w-3 h-3" /> {studentsPerClass} por salón
-            </span>
-          )}
-          {institutionType && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-white/60 px-2 py-0.5 font-bold text-slate-700 border border-slate-200">
-              🏢 {institutionType}
-            </span>
-          )}
-        </div>
-
-        {description && (
-          <p className="mt-3 text-xs text-slate-500 line-clamp-2 leading-relaxed">
-            {description}
-          </p>
-        )}
-
-        <div className="my-4 sm:my-5 h-px w-full bg-slate-200/60" />
-
-        <div className="flex items-center justify-between">
-          <div>
-            {price && (
-              <p className="text-3xl md:text-3xl font-black text-indigo-700 leading-none">
-                $ {price} MXN
-              </p>
-            )}
+      <div className="flex flex-1 flex-col p-5 gap-3">
+        <div className="space-y-1">
+          <h3 className="text-base font-bold text-slate-900 tracking-tight transition-colors group-hover:text-indigo-600">
+            {title}
+          </h3>
+          <div className="flex items-center gap-1.5 text-slate-400">
+             <MapPin size={10} className="text-indigo-400" />
+             <span className="uppercase tracking-widest text-[8px] font-bold">{location}</span>
           </div>
-
-          {href ? (
-            <Link
-              href={href}
-              className="grid h-11 w-11 place-items-center rounded-full bg-slate-900 text-white shadow-md transition-all hover:bg-indigo-700 hover:scale-110"
-            >
-              <ArrowRight className="h-5 w-5" />
-            </Link>
-          ) : (
-            <button
-              type="button"
-              onClick={onAction}
-              className="grid h-11 w-11 place-items-center rounded-full bg-slate-900 text-white shadow-md transition-all hover:bg-indigo-700 hover:scale-110"
-            >
-              <ArrowRight className="h-5 w-5" />
-            </button>
-          )}
         </div>
+
+        <div className="flex items-center justify-between pt-3 border-t border-slate-50">
+          <div className="flex items-center gap-1">
+            <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
+            <span className="text-[10px] font-bold text-slate-900">5.0</span>
+          </div>
+          
+          <div className="flex items-baseline gap-0.5">
+            <span className="text-sm font-bold text-slate-900">${price}</span>
+            <span className="text-[7px] font-bold text-slate-300 uppercase tracking-widest">/ mes</span>
+          </div>
+        </div>
+
+        <button
+          onClick={onAction}
+          className="w-full py-2.5 mt-1 rounded-lg bg-slate-900 text-white text-[9px] font-bold uppercase tracking-widest transition-all hover:bg-indigo-600 active:scale-95"
+        >
+          Ver Detalles
+        </button>
       </div>
     </article>
   );

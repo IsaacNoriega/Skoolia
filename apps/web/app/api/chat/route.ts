@@ -676,8 +676,15 @@ export async function POST(request: Request) {
 		// Cargar cursos si existe tabla courses
 		let allCourses: Array<any> = [];
 		try {
-			       // @ts-ignore
-				       const { courses } = await import("../../../../api/drizzle/schemas/courses");
+			let coursesSchema;
+			try {
+				// @ts-ignore
+				coursesSchema = await import("../../../drizzle-schemas/courses");
+			} catch {
+				// @ts-ignore
+				coursesSchema = await import("../../../../api/drizzle/schemas/courses");
+			}
+			const { courses } = coursesSchema;
 			allCourses = await db
 				.select({
 					id: courses.id,
@@ -694,7 +701,7 @@ export async function POST(request: Request) {
 				...c,
 				schoolName: allSchools.find((s) => s.id === c.schoolId)?.name ?? null,
 			}));
-		} catch {}
+		} catch { }
 
 		// Para el sistema prompt, mandar escuelas y cursos
 		const schoolsForPrompt = allSchools.map((s) => ({
@@ -752,8 +759,8 @@ export async function POST(request: Request) {
 		// Identificar cursos mencionados por IA (por nombre)
 		const mentionedCourseNames = allCourses.length
 			? allCourses
-					.filter((c) => cleanReply.toLowerCase().includes((c.name ?? "").toLowerCase()))
-					.map((c) => c.id)
+				.filter((c) => cleanReply.toLowerCase().includes((c.name ?? "").toLowerCase()))
+				.map((c) => c.id)
 			: [];
 		const recommendedCourses = mentionedCourseNames
 			.slice(0, 10)
@@ -780,13 +787,13 @@ export async function POST(request: Request) {
 			: (recommendedSchools.length
 				? recommendedSchools
 				: pickSchoolsByQuery(userMessage, allSchools).map((school) => ({
-						id: school.id,
-						name: school.name,
-						coverImageUrl: school.coverImageUrl?.toString() ?? null,
-						city: school.city,
-						monthlyPrice: school.monthlyPrice,
-						averageRating: school.averageRating,
-					}))
+					id: school.id,
+					name: school.name,
+					coverImageUrl: school.coverImageUrl?.toString() ?? null,
+					city: school.city,
+					monthlyPrice: school.monthlyPrice,
+					averageRating: school.averageRating,
+				}))
 			);
 
 		const normalizedSources = sources.length ? sources : extractUrlsFromText(cleanReply);

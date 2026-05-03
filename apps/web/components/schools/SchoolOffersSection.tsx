@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 import {
 	ArrowUpRight,
 	CalendarDays,
@@ -93,10 +94,10 @@ function statusLabel(status: CouponStatus) {
 	}
 }
 
-function statusDot(status: CouponStatus) {
+function statusDot(status: CouponStatus, isCourseMode: boolean) {
 	switch (status) {
 		case "NUEVO":
-			return "bg-[#1973fd]";
+			return isCourseMode ? "bg-violet-600" : "bg-[#1973fd]";
 		case "ACTIVO":
 			return "bg-slate-950";
 		case "EXPIRADO":
@@ -118,6 +119,16 @@ function formatExpiry(date: string) {
 export default function SchoolOffersSection() {
 	const { user } = useAuth();
 	const { showToast } = useToast();
+	const pathname = usePathname();
+	const isCourseMode = pathname.startsWith("/courses");
+
+	const accentColor = isCourseMode ? "#7c3aed" : "#1973fd";
+	const accentBgClass = isCourseMode ? "bg-violet-600" : "bg-[#1973fd]";
+	const accentTextClass = isCourseMode ? "text-violet-600" : "text-[#1973fd]";
+	const accentLightBgClass = isCourseMode ? "bg-violet-600/10" : "bg-[#1973fd]/10";
+	const accentLightTextClass = isCourseMode ? "text-violet-600" : "text-[#1973fd]";
+	const accentBorderLightClass = isCourseMode ? "bg-violet-600/8" : "bg-[#1973fd]/8";
+
 
 	const [coupons, setCoupons] = useState<Coupon[]>(() => {
 		const existing = readCoupons(user?.id);
@@ -261,11 +272,12 @@ export default function SchoolOffersSection() {
 					</div>
 
 					<div className="mt-8 grid gap-3 sm:grid-cols-3">
-						<Metric label="Cupones activos" value={`${metrics.activeCount}`} />
-						<Metric label="Usos totales" value={`${metrics.totalUsage}`} accent />
+						<Metric label="Cupones activos" value={`${metrics.activeCount}`} accentColorClass={accentTextClass} />
+						<Metric label="Usos totales" value={`${metrics.totalUsage}`} accent accentColorClass={accentTextClass} />
 						<Metric
 							label="Descuento estimado"
 							value={`$${(metrics.totalDiscountEstimate / 1000).toFixed(1)}k`}
+							accentColorClass={accentTextClass}
 						/>
 					</div>
 
@@ -330,7 +342,7 @@ export default function SchoolOffersSection() {
 									<div className="flex items-start justify-between gap-4">
 										<div className="min-w-0">
 											<div className="flex items-center gap-2">
-												<span className={`h-2 w-2 rounded-full ${statusDot(coupon.status)}`} />
+												<span className={`h-2 w-2 rounded-full ${statusDot(coupon.status, isCourseMode)}`} />
 												<span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
 													{statusLabel(coupon.status)}
 												</span>
@@ -339,7 +351,7 @@ export default function SchoolOffersSection() {
 												{coupon.name}
 											</p>
 											<div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-500">
-												<span className="rounded-full bg-[#1973fd]/8 px-3 py-1 text-[#1973fd]">
+												<span className={`rounded-full ${accentBorderLightClass} px-3 py-1 ${accentLightTextClass}`}>
 													{coupon.code}
 												</span>
 												<span>Vence {formatExpiry(coupon.expiresAt)}</span>
@@ -373,7 +385,7 @@ export default function SchoolOffersSection() {
 										</div>
 										<div className="mt-2 h-1.5 rounded-full bg-slate-100">
 											<div
-												className="h-1.5 rounded-full bg-[#1973fd]"
+												className={`h-1.5 rounded-full ${accentBgClass}`}
 												style={{
 													width: `${Math.min((coupon.usageUsed / coupon.usageLimit) * 100, 100)}%`,
 												}}
@@ -402,7 +414,7 @@ export default function SchoolOffersSection() {
 
 					<div className="mt-6 rounded-[1.5rem] bg-slate-50 p-5">
 						<div className="flex items-center gap-3">
-							<div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#1973fd]/10 text-[#1973fd]">
+							<div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${accentLightBgClass} ${accentLightTextClass}`}>
 								<Percent size={18} />
 							</div>
 							<div>
@@ -423,9 +435,9 @@ export default function SchoolOffersSection() {
 					</div>
 
 					<div className="mt-6 space-y-4">
-						<InfoRow icon={CalendarDays} label="Próxima vigencia" value={coupons[0] ? formatExpiry(coupons[0].expiresAt) : "Sin fecha"} />
-						<InfoRow icon={ArrowUpRight} label="Conversión estimada" value="12%" accent />
-						<InfoRow icon={ChevronRight} label="Promociones nuevas" value={`${coupons.filter((coupon) => coupon.status === "NUEVO").length}`} />
+						<InfoRow icon={CalendarDays} label="Próxima vigencia" value={coupons[0] ? formatExpiry(coupons[0].expiresAt) : "Sin fecha"} accentColorClass={accentTextClass} />
+						<InfoRow icon={ArrowUpRight} label="Conversión estimada" value="12%" accent accentColorClass={accentTextClass} />
+						<InfoRow icon={ChevronRight} label="Promociones nuevas" value={`${coupons.filter((coupon) => coupon.status === "NUEVO").length}`} accentColorClass={accentTextClass} />
 					</div>
 				</aside>
 			</div>
@@ -437,17 +449,19 @@ function Metric({
 	label,
 	value,
 	accent = false,
+	accentColorClass = "text-[#1973fd]",
 }: {
 	label: string;
 	value: string;
 	accent?: boolean;
+	accentColorClass?: string;
 }) {
 	return (
 		<div className="rounded-2xl bg-slate-50 px-4 py-4">
 			<p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
 				{label}
 			</p>
-			<p className={`mt-3 text-2xl font-semibold ${accent ? "text-[#1973fd]" : "text-slate-950"}`}>
+			<p className={`mt-3 text-2xl font-semibold ${accent ? accentColorClass : "text-slate-950"}`}>
 				{value}
 			</p>
 		</div>
@@ -459,16 +473,18 @@ function InfoRow({
 	label,
 	value,
 	accent = false,
+	accentColorClass = "text-[#1973fd]",
 }: {
 	icon: typeof CalendarDays;
 	label: string;
 	value: string;
 	accent?: boolean;
+	accentColorClass?: string;
 }) {
 	return (
 		<div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-4 last:border-b-0 last:pb-0">
 			<div className="flex items-center gap-3">
-				<Icon size={16} className={accent ? "text-[#1973fd]" : "text-slate-400"} />
+				<Icon size={16} className={accent ? accentColorClass : "text-slate-400"} />
 				<span className="text-sm text-slate-500">{label}</span>
 			</div>
 			<span className="text-sm font-semibold text-slate-950">{value}</span>

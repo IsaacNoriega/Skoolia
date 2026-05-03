@@ -1,5 +1,7 @@
 import SchoolCoursesSection from "@/components/schools/SchoolCoursesSection";
 
+export const dynamic = "force-dynamic";
+
 export default function SchoolsCoursesPage() {
   return (
     <div className="space-y-5 sm:space-y-6">

@@ -22,6 +22,7 @@ export interface Course {
   name: string;
   description: string | null;
   coverImageUrl: string | null;
+  gallery: string[] | null;
 
   price: number | null;
   capacity: number | null;
@@ -43,6 +44,9 @@ export interface Course {
 
   status: CourseStatus;
   isActive: boolean;
+
+  schoolName?: string | null;
+  ownerName?: string | null;
 
   createdAt: Date;
   updatedAt: Date;

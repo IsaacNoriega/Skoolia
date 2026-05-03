@@ -1,5 +1,8 @@
 import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/auth/getServerUser";
+
+export const dynamic = "force-dynamic";
+
 import { OnboardingProvider } from "../../contexts/OnBoardingContext";
 import OnboardingLayout from "./OnboardingLayout";
 

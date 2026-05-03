@@ -1,7 +1,7 @@
 "use client";
 
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type JSX } from "react";
-import { useRouter } from "next/navigation";
 import { ArrowUpRight, CreditCard, ShieldCheck, Zap, Loader2 } from "lucide-react";
 
 import { useToast } from "@/components/ui/toast";
@@ -11,12 +11,22 @@ import { plansService, type Plan } from "@/lib/services/services/plans.service";
 
 export default function SchoolPlansSection() {
   const router = useRouter();
+  const pathname = usePathname();
   const { showToast } = useToast();
   const { refreshUser } = useAuth();
   const [isUpgrading, setIsUpgrading] = useState<string | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [activePlan, setActivePlan] = useState<SchoolActivePlan | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const isCourseMode = pathname.startsWith("/courses");
+  const accentTextClass = isCourseMode ? "text-violet-600" : "text-indigo-600";
+  const accentBgClass = isCourseMode ? "bg-violet-600" : "bg-indigo-600";
+  const accentLightBgClass = isCourseMode ? "bg-violet-50" : "bg-indigo-50";
+  const accentBorderClass = isCourseMode ? "border-violet-200" : "border-indigo-200";
+  const accentRingClass = isCourseMode ? "ring-violet-500" : "ring-indigo-500";
+  const accentHoverBgClass = isCourseMode ? "hover:bg-violet-700" : "hover:bg-indigo-700";
+
 
   useEffect(() => {
     let mounted = true;
@@ -83,18 +93,18 @@ export default function SchoolPlansSection() {
   const getIcon = (name: string) => {
     if (name.includes("PREMIUM")) return <Zap className="h-6 w-6 text-amber-400" />;
     if (name.includes("FREEMIUM")) return <CreditCard className="h-6 w-6 text-slate-500" />;
-    return <ArrowUpRight className="h-6 w-6 text-indigo-500" />;
+    return <ArrowUpRight className={`h-6 w-6 ${accentTextClass}`} />;
   };
 
   return (
     <div className="space-y-6">
       <section className="text-center">
         <h1 className="text-2xl font-extrabold text-slate-900 sm:text-3xl">
-          Gestiona el plan de tu escuela
+          {isCourseMode ? "Gestiona tu plan de instructor" : "Gestiona el plan de tu escuela"}
         </h1>
         <p className="mx-auto mt-2 max-w-2xl text-xs text-slate-600 sm:text-sm">
-          Cada institucion en Skoolia puede tener su propio nivel de visibilidad.
-          Elige el que mejor se adapte a tus objetivos de captacion.
+          Cada perfil en Skoolia puede tener su propio nivel de visibilidad.
+          Elige el que mejor se adapte a tus objetivos de captación.
         </p>
       </section>
 
@@ -109,7 +119,7 @@ export default function SchoolPlansSection() {
               key={plan.id}
               className={`relative flex h-full flex-col rounded-[2rem] border border-slate-200/80 bg-white px-6 py-6 shadow-md transition duration-200 hover:-translate-y-0.5 hover:shadow-lg ${
                 isPopular ? "md:-mt-4 md:pb-8 border-amber-200" : ""
-              } ${isCurrentPlan ? "ring-2 ring-indigo-500 bg-indigo-50/10" : ""}`}
+              } ${isCurrentPlan ? `ring-2 ${accentRingClass} ${accentLightBgClass}/10` : ""}`}
             >
               {isPopular ? (
                 <div className="absolute inset-x-8 -top-4 flex justify-center">
@@ -155,7 +165,7 @@ export default function SchoolPlansSection() {
                   <button
                     type="button"
                     disabled
-                    className="inline-flex w-full items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 px-4 py-2 text-xs font-bold text-indigo-700 sm:text-sm"
+                    className={`inline-flex w-full items-center justify-center rounded-full border ${accentBorderClass} ${accentLightBgClass} px-4 py-2 text-xs font-bold ${accentTextClass} sm:text-sm`}
                   >
                     Tu plan actual
                   </button>
@@ -164,7 +174,7 @@ export default function SchoolPlansSection() {
                     type="button"
                     onClick={() => handleUpgrade(plan.id)}
                     disabled={isUpgrading !== null}
-                    className="inline-flex w-full items-center justify-center rounded-full border border-slate-900 bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-md transition hover:bg-indigo-700 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
+                    className={`inline-flex w-full items-center justify-center rounded-full border border-slate-900 bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-md transition ${accentHoverBgClass} hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm`}
                   >
                     {isProcessing ? "Procesando..." : "Cambiar a este plan"}
                   </button>
@@ -177,7 +187,7 @@ export default function SchoolPlansSection() {
 
       <section className="surface mt-2 flex flex-col items-start justify-between gap-4 rounded-[2rem] border border-slate-200/80 bg-white px-6 py-5 shadow-md sm:flex-row sm:items-center sm:px-8 sm:py-6">
         <div className="flex items-start gap-3">
-          <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 shadow-sm">
+          <div className={`mt-1 flex h-9 w-9 items-center justify-center rounded-2xl ${accentLightBgClass} ${accentTextClass} shadow-sm`}>
             <ShieldCheck size={18} />
           </div>
           <div>
@@ -192,7 +202,7 @@ export default function SchoolPlansSection() {
         </div>
         <button
           type="button"
-          className="inline-flex items-center justify-center rounded-2xl border border-slate-900 bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-md transition hover:bg-indigo-700 hover:shadow-lg sm:text-sm"
+          className={`inline-flex items-center justify-center rounded-2xl border border-slate-900 bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-md transition ${accentHoverBgClass} hover:shadow-lg sm:text-sm`}
         >
           Configurar pagos
         </button>

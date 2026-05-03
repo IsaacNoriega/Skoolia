@@ -1,9 +1,14 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, useMemo } from "react";
 import Link from "next/link";
-// Importar CSS aquí es más seguro para evitar que el mapa se vea "roto" al cargar
+import { 
+  MapContainer, 
+  TileLayer, 
+  Marker, 
+  Popup, 
+  Circle 
+} from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
 // 1. Definición de tipos
@@ -28,13 +33,6 @@ type SchoolsMapProps = {
   onLocationChange?: (lat: number, lng: number) => void;
 };
 
-// 2. Importaciones dinámicas (SOLO UNA VEZ)
-const MapContainer = dynamic(() => import("react-leaflet").then(mod => mod.MapContainer), { ssr: false });
-const TileLayer = dynamic(() => import("react-leaflet").then(mod => mod.TileLayer), { ssr: false });
-const Marker = dynamic(() => import("react-leaflet").then(mod => mod.Marker), { ssr: false });
-const Popup = dynamic(() => import("react-leaflet").then(mod => mod.Popup), { ssr: false });
-const Circle = dynamic(() => import("react-leaflet").then(mod => mod.Circle), { ssr: false });
-
 export default function SchoolsMap({ schools, userLocation, height = 400, draggable = false, onLocationChange }: SchoolsMapProps) {
   const [isMounted, setIsMounted] = useState(false);
   const leafletInitialized = useRef(false);
@@ -50,7 +48,7 @@ export default function SchoolsMap({ schools, userLocation, height = 400, dragga
     const fixLeafletIcons = async () => {
       const L = await import("leaflet");
       // @ts-ignore - Fix de iconos para que aparezcan en producción
-      delete L.Icon.Default.prototype._getIconUrl;
+      delete (L.Icon.Default.prototype as any)._getIconUrl;
       L.Icon.Default.mergeOptions({
         iconRetinaUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png",
         iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png",
@@ -62,11 +60,13 @@ export default function SchoolsMap({ schools, userLocation, height = 400, dragga
   }, []);
 
   // 4. Lógica de centro del mapa
-  const center: [number, number] = userLocation
-    ? [userLocation.lat, userLocation.lng]
-    : schools.length > 0
-      ? [schools[0].lat, schools[0].lng]
-      : [20.607, -103.391]; // Default ITESO/Tlaquepaque para tu demo
+  const center: [number, number] = useMemo(() => {
+    if (userLocation) return [userLocation.lat, userLocation.lng];
+    if (schools.length > 0 && typeof schools[0].lat === 'number' && typeof schools[0].lng === 'number') {
+      return [schools[0].lat, schools[0].lng];
+    }
+    return [20.607, -103.391]; // Default ITESO
+  }, [userLocation, schools]);
 
   const eventHandlers = useMemo(
     () => ({
@@ -82,22 +82,26 @@ export default function SchoolsMap({ schools, userLocation, height = 400, dragga
   );
 
   // Evitar errores de hidratación
-  if (!isMounted) return <div style={{ height, background: '#f1f5f9' }} className="rounded-2xl animate-pulse" />;
+  if (!isMounted) return <div style={{ height, background: '#f8fafc' }} className="rounded-[3rem] animate-pulse" />;
+
+  // Validar coordenadas mínimas para evitar errores de Leaflet
+  const validCenter = center && typeof center[0] === 'number' && typeof center[1] === 'number';
+  if (!validCenter) return <div style={{ height, background: '#f8fafc' }} className="rounded-[3rem] flex items-center justify-center text-slate-300 text-[10px] font-bold uppercase tracking-widest">Mapa no disponible</div>;
 
   return (
     <div
-      className="rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative"
-      style={{ height, minHeight: 300 }}
+      className="rounded-[3rem] overflow-hidden relative w-full h-full"
+      style={{ height }}
     >
       {draggable && (
-        <div className="absolute top-2 right-2 z-[1000] bg-white px-3 py-1.5 rounded-full shadow-md text-[11px] font-bold text-slate-700 border border-slate-100 pointer-events-none">
-          Puedes mover el pin para ajustar tu ubicación
+        <div className="absolute top-4 right-4 z-[1000] bg-white/80 backdrop-blur-md px-4 py-2 rounded-full shadow-lg text-[11px] font-bold text-slate-700 border border-white/20 pointer-events-none">
+          Mueve el pin para ajustar
         </div>
       )}
       <MapContainer
         center={center}
-        zoom={userLocation ? 14 : 6}
-        scrollWheelZoom={true}
+        zoom={userLocation ? 14 : 15}
+        scrollWheelZoom={false}
         style={{ height: "100%", width: "100%", zIndex: 1 }}
       >
         <TileLayer
@@ -106,23 +110,23 @@ export default function SchoolsMap({ schools, userLocation, height = 400, dragga
         />
 
         {schools.map((school) => {
-          // No renderizamos la escuela "preview" si tenemos userLocation y lo estamos mostrando como un draggable marker aparte
           if (school.id === "preview" && draggable) return null;
+          if (typeof school.lat !== 'number' || typeof school.lng !== 'number') return null;
           
           return (
             <Marker key={school.id} position={[school.lat, school.lng]}>
               <Popup>
-                <div className="p-1">
-                  <div className="font-bold text-slate-900 text-sm">{school.name}</div>
+                <div className="p-2 min-w-[150px]">
+                  <div className="font-black text-slate-900 text-sm mb-1">{school.name}</div>
                   {school.level && (
-                    <div className="text-[10px] font-bold uppercase text-indigo-600 tracking-wider">
+                    <div className="text-[10px] font-black uppercase text-indigo-600 tracking-widest">
                       {school.level}
                     </div>
                   )}
                   {school.id !== "preview" && (
                     <Link
-                      href={`/schools/${school.id}`}
-                      className="mt-3 block w-full text-center px-3 py-1.5 rounded-xl bg-slate-900 text-white text-[11px] font-bold hover:bg-indigo-700 transition-colors"
+                      href={`/search/institutions/${school.id}`}
+                      className="mt-3 block w-full text-center px-4 py-2 rounded-xl bg-indigo-600 text-white text-[11px] font-black hover:bg-indigo-700 transition shadow-lg shadow-indigo-100"
                     >
                       Ver perfil
                     </Link>

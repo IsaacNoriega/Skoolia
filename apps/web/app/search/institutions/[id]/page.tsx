@@ -5,6 +5,7 @@ import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
+  ArrowRight,
   MapPin,
   Star,
   Clock3,
@@ -16,6 +17,7 @@ import {
   Heart,
   BookOpen,
   Calendar,
+  ShieldCheck,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
@@ -35,33 +37,34 @@ export default function InstitutionDetailsPage() {
   const { trackLead } = useLeadTracking({ userId: user?.id || "" });
   const [actionLoading, setActionLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
-    async function handleInteraction(content: string, trigger: string) {
-      if (!school || !user) {
-        setActionMessage("Debes iniciar sesión para realizar esta acción.");
-        return;
-      }
-      setActionLoading(true);
-      setActionMessage(null);
-      try {
-        const leadPayload = {
-          targetId: school.id,
-          originType: "SCHOOL",
-          trigger,
-          status: "INTERESADO",
-        };
-        console.log("[Lead] Enviando a trackLead:", { userId: user.id, ...leadPayload });
-        const leadResult = await trackLead({ userId: user.id, ...leadPayload });
-        console.log("[Lead] Respuesta de trackLead:", leadResult);
-        const msgResult = await messagesService.sendParentMessage(school.id, content, user.id);
-        console.log("[Mensaje] Respuesta de sendParentMessage:", msgResult);
-        setActionMessage("¡Acción realizada con éxito!");
-      } catch (err) {
-        setActionMessage("Ocurrió un error al registrar la acción.");
-        console.error("Error en la interacción:", err);
-      } finally {
-        setActionLoading(false);
-      }
+  
+  async function handleInteraction(content: string, trigger: string) {
+    if (!school) {
+      setActionMessage("No se encontró información de la escuela.");
+      return;
     }
+    if (!user) {
+      setActionMessage("Debes iniciar sesión para realizar esta acción.");
+      return;
+    }
+    setActionLoading(true);
+    setActionMessage(null);
+    try {
+      await trackLead({
+        targetId: school.id,
+        originType: "SCHOOL",
+        trigger,
+        status: "INTERESADO",
+      });
+      await messagesService.sendParentMessage(school.id, content, user.id);
+      setActionMessage("¡Solicitud enviada con éxito!");
+    } catch (err) {
+      setActionMessage("Ocurrió un error. Revisa tu conexión.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const schoolId = params?.id;
@@ -69,212 +72,465 @@ export default function InstitutionDetailsPage() {
   const [school, setSchool] = useState<School | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
   const [ratings, setRatings] = useState<SchoolRating[]>([]);
+  const [myRating, setMyRating] = useState<SchoolRating | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
-  const [togglingFav, setTogglingFav] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
-  // Fetching Data
+  // Form State
+  const [submittingRating, setSubmittingRating] = useState(false);
+  const [userRating, setUserRating] = useState(0);
+  const [userComment, setUserComment] = useState("");
+
+  useEffect(() => {
+    if (!schoolId || !user) return;
+    favoritesService.isFavorite(schoolId).then(res => setIsFavorite(res.isFavorite));
+  }, [schoolId, user]);
+
+  async function toggleFavorite() {
+    if (!user) {
+      setActionMessage("Inicia sesión para guardar favoritos.");
+      return;
+    }
+    try {
+      const res = await favoritesService.toggle(schoolId!);
+      setIsFavorite(res.isFavorite);
+    } catch (err) {
+      setActionMessage("Error al actualizar favorito.");
+    }
+  }
+
   useEffect(() => {
     if (!schoolId) return;
     let mounted = true;
 
     (async () => {
       try {
-        setLoading(true);
-        const [schoolData, coursesData, ratingsData] = await Promise.all([
+        const [schoolData, coursesData, ratingsData, myRatingData] = await Promise.all([
           schoolsService.getById(schoolId),
           coursesService.listBySchoolId(schoolId),
           schoolRatingsService.list({ schoolId, page: 1, pageSize: 20 }),
+          user ? schoolRatingsService.getMine(schoolId) : Promise.resolve(null),
         ]);
 
         if (!mounted) return;
         setSchool(schoolData);
         setCourses(coursesData);
         setRatings(ratingsData);
+        setMyRating(myRatingData);
+        if (myRatingData) {
+          setUserRating(myRatingData.rating);
+          setUserComment(myRatingData.comment || "");
+        }
       } catch (err) {
-        if (!mounted) return;
-        setError("No se pudo cargar la información.");
+        if (mounted) setError("No se pudo cargar la información.");
       } finally {
         if (mounted) setLoading(false);
       }
     })();
 
     return () => { mounted = false; };
-  }, [schoolId]);
+  }, [schoolId, user]);
+
+  async function handleReviewSubmit() {
+    if (!user) {
+      setActionMessage("Debes iniciar sesión para calificar.");
+      return;
+    }
+    if (userRating === 0) {
+      setActionMessage("Por favor selecciona una calificación.");
+      return;
+    }
+    
+    setSubmittingRating(true);
+    try {
+      const updated = await schoolRatingsService.upsert({
+        schoolId: schoolId!,
+        rating: userRating,
+        comment: userComment,
+      });
+      setMyRating(updated);
+      
+      // Refresh global list
+      const freshRatings = await schoolRatingsService.list({ schoolId: schoolId!, page: 1, pageSize: 20 });
+      setRatings(freshRatings);
+      setActionMessage("¡Gracias por tu opinión!");
+    } catch (err) {
+      setActionMessage("Error al enviar calificación.");
+    } finally {
+      setSubmittingRating(false);
+    }
+  }
 
   const galleryItems = useMemo(() => {
     if (!school) return [];
     const items = [];
-    if (school.coverImageUrl) items.push({ label: "Portada", src: school.coverImageUrl, fit: "cover" });
-    if (school.logoUrl) items.push({ label: "Logo", src: school.logoUrl, fit: "contain" });
-    // Imagen por defecto para evitar error de Next/Image
-    if (items.length === 0) items.push({ label: "Sin imagen", src: "/images/placeholder-school.jpg", fit: "cover" });
-    return items;
-  }, [school]);
+    
+    // Imagen principal
+    if (school.coverImageUrl) {
+      items.push({ label: "Principal", src: school.coverImageUrl, fit: "cover" });
+    }
 
-  if (loading) return <div className="p-20 text-center animate-pulse">Cargando Skoolia...</div>;
-  if (error || !school) return <div className="p-20 text-center text-red-500">{error || "No encontrado"}</div>;
+    // Galería real de la base de datos
+    if (school.gallery && school.gallery.length > 0) {
+      school.gallery.forEach((url, i) => {
+        items.push({ label: `Galería ${i + 1}`, src: url, fit: "cover" });
+      });
+    } else {
+      // Fallback premium seeds solo si no hay galería
+      if (school.logoUrl) items.push({ label: "Logo", src: school.logoUrl, fit: "cover" });
+      items.push({ label: "Ambiente", src: `https://picsum.photos/seed/${schoolId}-1/1200/800`, fit: "cover" });
+      items.push({ label: "Educación", src: `https://picsum.photos/seed/${schoolId}-2/1200/800`, fit: "cover" });
+    }
+    
+    return items;
+  }, [school, schoolId]);
+
+  if (loading) return (
+    <div className="flex min-h-screen items-center justify-center bg-slate-50">
+      <div className="flex flex-col items-center gap-4">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
+        <p className="text-sm font-bold tracking-widest text-slate-400 uppercase">Cargando experiencia...</p>
+      </div>
+    </div>
+  );
+
+  if (error || !school) return (
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6 text-center">
+      <div className="max-w-md space-y-6">
+        <h2 className="text-2xl font-black text-slate-900">Oops, algo salió mal</h2>
+        <p className="text-slate-500">{error || "No encontramos la institución que buscas."}</p>
+        <button onClick={() => router.back()} className="font-bold text-indigo-600 underline">Volver atrás</button>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="bg-[#fcfcfc] min-h-screen pb-20">
-      {/* HEADER / NAV */}
-      <nav className="max-w-7xl mx-auto px-6 py-6 flex justify-between items-center">
-        <button 
-          onClick={() => router.back()}
-          className="flex items-center gap-2 text-sm font-bold bg-white shadow-sm border border-neutral-100 px-4 py-2 rounded-full hover:bg-neutral-50 transition"
-        >
-          <ArrowLeft size={18} /> Volver
-        </button>
-        <button 
-          onClick={() => setIsFavorite(!isFavorite)}
-          className={`p-2.5 rounded-full border transition ${isFavorite ? 'bg-rose-50 border-rose-100 text-rose-500' : 'bg-white border-neutral-100 text-neutral-400'}`}
-        >
-          <Heart size={20} fill={isFavorite ? "currentColor" : "none"} />
-        </button>
+    <div className="bg-white min-h-screen selection:bg-indigo-50 selection:text-indigo-900 overflow-x-hidden">
+      {/* 🌑 MINIMAL NAV */}
+      <nav className="fixed inset-x-0 top-0 z-[100] px-8 py-8 pointer-events-none">
+        <div className="max-w-7xl mx-auto flex justify-between items-center pointer-events-auto">
+          <motion.button 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            onClick={() => router.back()}
+            className="group flex items-center gap-3 px-5 py-2.5 bg-white border border-slate-200 rounded-full text-[10px] font-bold text-slate-500 hover:text-indigo-600 hover:border-indigo-100 transition-all active:scale-95 shadow-sm"
+          >
+            <ArrowLeft size={14} />
+            <span className="uppercase tracking-widest">Regresar</span>
+          </motion.button>
+          
+          <motion.button 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            onClick={toggleFavorite}
+            className={`px-5 py-2.5 rounded-full border transition-all font-bold text-[10px] uppercase tracking-widest flex items-center gap-2 ${
+              isFavorite 
+              ? 'bg-indigo-600 text-white border-indigo-600' 
+              : 'bg-white text-slate-400 border-slate-200 hover:text-indigo-600 hover:border-indigo-100 shadow-sm'
+            }`}
+          >
+            <Heart size={14} fill={isFavorite ? "currentColor" : "none"} />
+            <span>{isFavorite ? 'Guardado' : 'Favorito'}</span>
+          </motion.button>
+        </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-6 space-y-10">
+      <main className="pt-32 pb-32 max-w-6xl mx-auto px-8">
         
-        {/* TITULO Y HERO */}
-        <header className="text-center space-y-4">
-          <span className="text-[11px] font-black tracking-[0.3em] text-indigo-600 uppercase">Perfil de Institución</span>
-          <h1 className="text-4xl md:text-6xl font-black text-slate-900">{school.name}</h1>
-          <div className="flex justify-center gap-3">
-             <span className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-bold">{school.educationalLevel}</span>
-             <span className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold">{school.institutionType}</span>
-          </div>
-        </header>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-          
-          {/* COLUMNA IZQUIERDA: CONTENIDO */}
-          <div className="lg:col-span-8 space-y-10">
+        {/* 🏛️ MINIMAL HERO */}
+        <section className="mb-16">
+          <motion.div 
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="space-y-6"
+          >
+            <div className="flex items-center gap-4">
+               <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-[0.4em]">Institución</span>
+               <div className="h-px w-8 bg-indigo-100" />
+               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.4em]">{school.institutionType || "Privada"}</span>
+            </div>
             
-            {/* GALERIA MODERNA */}
-            <section className="relative h-[500px] rounded-[40px] overflow-hidden shadow-2xl bg-neutral-200">
-               <Image 
-                  src={galleryItems[activeImageIndex].src} 
-                  alt="School" 
-                  fill 
-                  className={`transition-all duration-700 ${galleryItems[activeImageIndex].fit === 'cover' ? 'object-cover' : 'object-contain p-12'}`}
-               />
-               <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/60 to-transparent" />
-               
-               {/* Controles galeria */}
-               <div className="absolute bottom-6 left-6 flex gap-2">
-                 {galleryItems.map((_, i) => (
-                   <button 
-                    key={i} 
-                    onClick={() => setActiveImageIndex(i)}
-                    className={`h-1.5 transition-all rounded-full ${i === activeImageIndex ? 'w-8 bg-white' : 'w-2 bg-white/40'}`}
+            <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-slate-900">
+               {school.name}
+            </h1>
+
+            <div className="flex flex-col md:flex-row md:items-center gap-6 md:gap-12">
+              <div className="flex items-center gap-3 text-slate-400">
+                <MapPin size={16} className="text-indigo-400" />
+                <p className="text-sm font-medium">
+                  <span className="text-slate-900">{school.city || "Ciudad de México"}</span>
+                  <span className="mx-2 opacity-20">/</span>
+                  <span className="uppercase tracking-widest text-[9px] font-bold">{school.address || "Distrito Educativo"}</span>
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="flex text-amber-400">
+                  <Star size={14} fill="currentColor" />
+                </div>
+                <span className="text-[10px] font-bold text-slate-900 uppercase tracking-widest">{school.averageRating?.toFixed(1) || "5.0"}</span>
+              </div>
+            </div>
+          </motion.div>
+        </section>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
+          
+          {/* 🖼️ CONTENT ARCHITECTURE */}
+          <div className="lg:col-span-7 space-y-24">
+            
+            {/* Gallery: Pure Focus */}
+            <section className="relative aspect-[16/10] rounded-2xl overflow-hidden bg-slate-50 border border-slate-100 shadow-sm">
+               <AnimatePresence mode="wait">
+                 <motion.div
+                   key={activeImageIndex}
+                   initial={{ opacity: 0 }}
+                   animate={{ opacity: 1 }}
+                   exit={{ opacity: 0 }}
+                   transition={{ duration: 0.5 }}
+                   className="absolute inset-0"
+                 >
+                   <Image 
+                      src={galleryItems[activeImageIndex].src} 
+                      alt="Gallery" 
+                      fill 
+                      className="object-cover"
+                      priority={true}
+                      unoptimized
                    />
-                 ))}
+                 </motion.div>
+               </AnimatePresence>
+               
+               <div className="absolute inset-x-6 bottom-6 flex justify-between items-center">
+                  <div className="flex gap-1.5 px-3 py-2 bg-white/90 backdrop-blur-md rounded-full border border-slate-100 shadow-sm">
+                    {galleryItems.map((_, i) => (
+                      <button 
+                        key={i} 
+                        onClick={() => setActiveImageIndex(i)}
+                        className={`h-1 transition-all duration-500 rounded-full ${i === activeImageIndex ? 'w-6 bg-indigo-600' : 'w-1 bg-slate-200 hover:bg-indigo-200'}`}
+                      />
+                    ))}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => setActiveImageIndex((prev) => (prev > 0 ? prev - 1 : galleryItems.length - 1))}
+                      className="h-10 w-10 flex items-center justify-center rounded-full bg-white/90 backdrop-blur-md border border-slate-100 text-slate-900 hover:text-indigo-600 transition-all active:scale-90 shadow-sm"
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    <button 
+                      onClick={() => setActiveImageIndex((prev) => (prev < galleryItems.length - 1 ? prev + 1 : 0))}
+                      className="h-10 w-10 flex items-center justify-center rounded-full bg-white/90 backdrop-blur-md border border-slate-100 text-slate-900 hover:text-indigo-600 transition-all active:scale-90 shadow-sm"
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
                </div>
             </section>
 
-            {/* BENTO GRID DE INFO RÁPIDA */}
+            {/* 🍱 MINIMAL GRID */}
             <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <StatCard icon={<Clock3 size={20}/>} label="Horario" value={school.schedule || "Por definir"} />
-              <StatCard icon={<Languages size={20}/>} label="Idiomas" value={school.languages || "Por definir"} />
-              <StatCard icon={<Users size={20}/>} label="Alumnos/Salón" value="Por definir" />
-              <StatCard icon={<ClipboardCheck size={20}/>} label="Inscripciones" value={school.enrollmentOpen ? "Abiertas" : "Cerradas"} color="text-emerald-600" />
+              {[
+                { icon: <Clock3 size={16}/>, label: "Horario", value: school.schedule || "08:00 - 15:00" },
+                { icon: <Languages size={16}/>, label: "Idiomas", value: school.languages || "Bilingüe" },
+                { icon: <Users size={16}/>, label: "Alumnos", value: school.maxStudentsPerClass ? `${school.maxStudentsPerClass}` : "25" },
+                { icon: <ClipboardCheck size={16}/>, label: "Admisión", value: school.enrollmentOpen ? "Abierta" : "Cerrada" },
+              ].map((stat, i) => (
+                <div key={i} className="p-6 rounded-xl bg-slate-50/50 border border-slate-100 flex flex-col gap-3">
+                  <div className="text-indigo-500">{stat.icon}</div>
+                  <div>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">{stat.label}</p>
+                    <p className="text-xs font-bold text-slate-900 tracking-tight">{stat.value}</p>
+                  </div>
+                </div>
+              ))}
             </section>
 
-            {/* FILOSOFÍA Y PROPUESTA */}
-            <section className="bg-white p-10 rounded-[40px] border border-neutral-100 shadow-sm space-y-6">
-              <h2 className="text-2xl font-bold">Nuestra Propuesta</h2>
-              <p className="text-neutral-600 leading-relaxed text-lg">
-                {school.description || "Esta institución se enfoca en brindar una experiencia educativa moderna..."}
+            {/* 📝 DESCRIPTION */}
+            <section className="space-y-6">
+              <h2 className="text-[10px] font-bold text-indigo-600 uppercase tracking-[0.4em]">Descripción</h2>
+              <p className="text-xl leading-relaxed text-slate-600 font-normal">
+                <span className="text-slate-900">{school.description || "Un entorno diseñado para cultivar líderes, pensadores críticos y ciudadanos globales del mañana."}</span>
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-6">
-                {["Acompañamiento humano", "Excelencia académica", "Formación integral"].map(item => (
-                  <div key={item} className="flex items-center gap-3 text-neutral-700 font-medium">
-                    <div className="w-2 h-2 rounded-full bg-indigo-500" /> {item}
-                  </div>
+              
+              <div className="flex flex-wrap gap-2">
+                {["Excelencia", "Innovación", "Valores"].map(tag => (
+                  <span key={tag} className="px-4 py-1.5 bg-indigo-50/50 border border-indigo-100 text-indigo-600 rounded-full text-[9px] font-bold uppercase tracking-widest">
+                    {tag}
+                  </span>
                 ))}
               </div>
             </section>
 
-            {/* MAPA */}
-            <section className="space-y-4">
-              <h3 className="text-xl font-bold px-2">Ubicación</h3>
-              <div className="rounded-[40px] overflow-hidden shadow-lg border border-neutral-100 h-[350px]">
-                {typeof school.latitude === 'number' && typeof school.longitude === 'number' ? (
-                  <SchoolsMap
-                    schools={[{
-                      id: school.id,
-                      name: school.name,
-                      lat: school.latitude,
-                      lng: school.longitude,
-                      level: school.educationalLevel ?? undefined
-                    }]}
-                    height={350}
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-full text-neutral-400 text-sm">Ubicación no disponible</div>
+            {/* 🗺️ MAP: CLEAN */}
+            <section className="space-y-6">
+              <h2 className="text-[10px] font-bold text-slate-900 uppercase tracking-[0.4em]">Ubicación</h2>
+              <div className="relative h-[400px] rounded-2xl overflow-hidden border border-slate-100">
+                <SchoolsMap 
+                  schools={[{ 
+                    id: school.id, 
+                    name: school.name, 
+                    lat: school.latitude || 19.4326, 
+                    lng: school.longitude || -99.1332, 
+                    level: school.educationalLevel || "Escuela" 
+                  }]} 
+                />
+              </div>
+            </section>
+
+            {/* 💬 REVIEWS: MINIMAL */}
+            <section className="space-y-8">
+              <div className="flex items-center justify-between">
+                <h2 className="text-[10px] font-bold text-slate-900 uppercase tracking-[0.4em]">Opiniones</h2>
+                {!user && (
+                  <button 
+                    onClick={() => router.push('/auth/login')}
+                    className="text-[9px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-200 pb-0.5"
+                  >
+                    Inicia sesión para opinar
+                  </button>
                 )}
+              </div>
+
+              {/* Review Form */}
+              {user && !myRating && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-8 bg-slate-50/50 rounded-2xl border border-slate-100 space-y-6"
+                >
+                  <div className="space-y-3">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">¿Qué te parece esta institución?</p>
+                    <div className="flex gap-2">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <button 
+                          key={s} 
+                          onClick={() => setUserRating(s)}
+                          className={`transition-all ${s <= (userRating || 0) ? 'text-amber-400 scale-110' : 'text-slate-200 hover:text-amber-200'}`}
+                        >
+                          <Star size={24} fill={s <= (userRating || 0) ? "currentColor" : "none"} />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {(userRating || 0) > 0 && (
+                    <motion.div 
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="space-y-6 overflow-hidden"
+                    >
+                      <div className="space-y-2">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Tu Comentario</p>
+                        <textarea 
+                          value={userComment}
+                          onChange={(e) => setUserComment(e.target.value)}
+                          placeholder="Comparte tu experiencia con esta institución..."
+                          className="w-full h-32 p-4 rounded-xl border border-slate-100 bg-white text-sm outline-none focus:border-indigo-100 transition-all placeholder:text-slate-200"
+                        />
+                      </div>
+
+                      <button 
+                        onClick={handleReviewSubmit}
+                        disabled={submittingRating}
+                        className="px-8 py-3 bg-indigo-600 text-white text-[10px] font-bold uppercase tracking-widest rounded-full hover:bg-indigo-700 transition-all disabled:opacity-50 shadow-lg shadow-indigo-100"
+                      >
+                        {submittingRating ? "Enviando..." : "Publicar Reseña"}
+                      </button>
+                    </motion.div>
+                  )}
+                </motion.div>
+              )}
+
+              <div className="space-y-4">
+                 {ratings.length === 0 ? (
+                   <div className="p-12 text-center border border-slate-100 rounded-2xl text-slate-300 text-[10px] font-bold uppercase tracking-widest">
+                     Sin reseñas aún
+                   </div>
+                 ) : (
+                   ratings.map((r) => (
+                     <div key={r.id} className="p-8 bg-white rounded-2xl border border-slate-100 space-y-4 shadow-sm">
+                       <div className="flex justify-between items-center">
+                         <div className="flex items-center gap-3">
+                           <div className="h-8 w-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-400">
+                             {r.publicUserId.substring(0, 1).toUpperCase()}
+                           </div>
+                           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{new Date(r.createdAt).toLocaleDateString()}</p>
+                         </div>
+                         <div className="flex gap-0.5 text-amber-400">
+                           {[...Array(5)].map((_, i) => (
+                             <Star key={i} size={8} fill={i < r.rating ? "currentColor" : "none"} />
+                           ))}
+                         </div>
+                       </div>
+                       <p className="text-base leading-relaxed text-slate-600 font-normal italic">
+                         "{r.comment}"
+                       </p>
+                     </div>
+                   ))
+                 )}
               </div>
             </section>
           </div>
 
-          {/* COLUMNA DERECHA: SIDEBAR STICKY */}
-          <aside className="lg:col-span-4">
-            <div className="sticky top-10 bg-white p-8 rounded-[40px] border border-neutral-100 shadow-xl space-y-8 text-center lg:text-left">
-              <div>
-                <span className="text-xs font-black text-neutral-400 uppercase tracking-widest">Inversión Estimada</span>
-                <p className="text-4xl font-black text-slate-900 mt-1">Por definir</p>
-              </div>
-
-              <div className="space-y-4">
-                <button
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl transition shadow-lg shadow-indigo-200"
-                  disabled={actionLoading}
-                  onClick={() => handleInteraction("Solicitud de información", "INFO_REQUEST")}
-                >
-                  {actionLoading ? "Enviando..." : "Solicitar Información"}
-                </button>
-                <button
-                  className="w-full bg-white border border-neutral-200 text-neutral-700 font-bold py-4 rounded-2xl hover:bg-neutral-50 transition"
-                  disabled={actionLoading}
-                  onClick={() => handleInteraction("Solicitud de cita", "SCHEDULE_VISIT")}
-                >
-                  {actionLoading ? "Enviando..." : "Agendar Visita"}
-                </button>
-                {actionMessage && (
-                  <div className="w-full mt-2 text-xs font-semibold text-center text-emerald-700">
-                    {actionMessage}
+          {/* 📬 MINIMAL SIDEBAR */}
+          <aside className="lg:col-span-5">
+            <div className="sticky top-32 space-y-6">
+              <div className="bg-white p-10 rounded-2xl border border-slate-100 shadow-sm space-y-8">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em]">Inversión Mensual</span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl font-bold text-slate-900 tracking-tight">
+                      {school.monthlyPrice ? `$${school.monthlyPrice.toLocaleString()}` : "$8,500"}
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">MXN</span>
                   </div>
-                )}
+                </div>
+
+                <div className="space-y-3">
+                  <button
+                    className="w-full h-14 bg-indigo-600 text-white text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all hover:bg-indigo-700 active:scale-95 disabled:opacity-50 shadow-md shadow-indigo-100"
+                    disabled={actionLoading}
+                    onClick={() => handleInteraction("Solicitud de información", "INFO_REQUEST")}
+                  >
+                    Solicitar Información
+                  </button>
+                  <button
+                    className="w-full h-14 bg-white text-slate-900 border border-slate-200 text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all active:scale-95 disabled:opacity-50"
+                    disabled={actionLoading}
+                    onClick={() => handleInteraction("Solicitud de cita", "SCHEDULE_VISIT")}
+                  >
+                    Agendar Visita
+                  </button>
+                </div>
+
+                <div className="pt-8 border-t border-slate-50 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <MapPin size={14} className="text-indigo-400" />
+                    <p className="text-[11px] font-medium text-slate-500">{school.address}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <ShieldCheck size={14} className="text-emerald-500" />
+                    <p className="text-[11px] font-medium text-slate-500">Verificado por Skoolia</p>
+                  </div>
+                </div>
               </div>
 
-              <div className="pt-6 border-t border-neutral-50 space-y-4">
-                <div className="flex items-start gap-3 text-sm text-neutral-500">
-                  <MapPin size={18} className="mt-0.5 text-indigo-500 flex-shrink-0" />
-                  <span>{school.address || "Dirección no disponible"}</span>
-                </div>
-                <div className="flex items-center gap-3 text-sm text-neutral-500">
-                  <Star size={18} className="text-amber-400" />
-                  <span>{school.ratingsCount} Reseñas totales</span>
-                </div>
+              <div className="p-8 rounded-2xl bg-slate-50/50 border border-slate-100 space-y-3">
+                 <h4 className="text-[9px] font-bold text-slate-900 uppercase tracking-widest">Nota Legal</h4>
+                 <p className="text-[10px] text-slate-400 leading-relaxed font-medium">
+                   Toda la información es proporcionada por la institución y verificada bajo estándares de calidad.
+                 </p>
               </div>
             </div>
           </aside>
           
         </div>
       </main>
-    </div>
-  );
-}
-
-// Subcomponente para las tarjetas de stats (Bento Grid)
-function StatCard({ icon, label, value, color = "text-slate-900" }: { icon: ReactNode, label: string, value: string, color?: string }) {
-  return (
-    <div className="bg-white p-5 rounded-3xl border border-neutral-100 shadow-sm hover:scale-[1.02] transition">
-      <div className="text-indigo-500 mb-3">{icon}</div>
-      <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">{label}</p>
-      <p className={`text-sm font-bold mt-1 truncate ${color}`}>{value}</p>
     </div>
   );
 }

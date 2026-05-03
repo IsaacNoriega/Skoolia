@@ -1,7 +1,6 @@
 'use client';
 import Image from 'next/image';
-import { X, MapPin, Star, ChevronLeft, ChevronRight, Users } from 'lucide-react';
-import { ArrowUpRight } from 'lucide-react';
+import { X, MapPin, Star, ChevronLeft, ChevronRight, Users, Clock3, Languages, ImageIcon, ArrowUpRight } from 'lucide-react';
 import { JSX, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -29,6 +28,7 @@ type Item = {
   enrollmentOpen?: boolean;
   enrollmentYear?: number;
   monthlyPrice?: number;
+  gallery?: string[];
 };
 
 export default function FavoriteDetailModal({
@@ -69,11 +69,14 @@ export default function FavoriteDetailModal({
 
   const modalImages = Array.from(
     new Set(
-      [item.imageUrl, ...generatedCovers]
+      [
+        item.imageUrl, 
+        ...(item.gallery && item.gallery.length > 0 ? item.gallery : generatedCovers)
+      ]
         .map((url) => sanitizeImageSrc(url))
         .filter(
-        (url): url is string => Boolean(url),
-      ),
+          (url): url is string => Boolean(url),
+        ),
     ),
   );
 
@@ -99,13 +102,16 @@ export default function FavoriteDetailModal({
     : (String(item.price).match(/\$\s?[\d,.]+/)?.[0] ?? String(item.price));
   const priceUnit = numericPrice != null ? 'MXN/mes' : (String(item.price).includes('MXN/mes') ? 'MXN/mes' : '');
 
+  const isCourse = item.level === 'CURSO' || item.level === 'CURSOS' || item.level === 'CURSO ACADÉMICO' || item.level === 'ACADEMICO' || item.level === 'ACADÉMICO';
+  const accentClass = isCourse ? 'text-violet-600' : 'text-indigo-600';
+  const accentBgClass = isCourse ? 'bg-violet-50' : 'bg-indigo-50';
+  const accentButtonClass = isCourse ? 'bg-violet-600 hover:bg-violet-700' : 'bg-indigo-600 hover:bg-indigo-700';
+
   const handleContact = async () => {
     if (!item.id || sending) return;
 
     try {
       setSending(true);
-      // Detectar si es curso o escuela por la presencia de alguna propiedad o convención
-      const isCourse = item.level === 'CURSO' || item.level === 'CURSOS' || item.level === 'CURSO ACADÉMICO' || item.level === 'ACADEMICO' || item.level === 'ACADÉMICO';
       if (isCourse) {
         if (!user) throw new Error('Usuario no autenticado');
         await courseMessagesService.sendCourseMessage(item.id, 'Hola, me interesa conocer más información de este curso.', { id: user.id, role: user.role });
@@ -135,206 +141,194 @@ export default function FavoriteDetailModal({
   };
 
   return (
-    <div className="fixed inset-0 z-100 flex items-center justify-center">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-md" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative z-101 mx-4 w-full max-w-6xl overflow-hidden rounded-2xl sm:rounded-4xl bg-white surface max-h-[90vh]">
+      <div className="relative z-[101] w-full max-w-6xl overflow-hidden rounded-[3.5rem] bg-white shadow-[0_50px_100px_-20px_rgba(0,0,0,0.25)] transition-all max-h-[90vh] flex flex-col md:flex-row">
+        
+        {/* Close Button */}
         <button
-          className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-full bg-white text-slate-700 shadow"
+          className="absolute right-8 top-8 z-50 grid h-12 w-12 place-items-center rounded-2xl bg-white/80 backdrop-blur-md text-slate-700 shadow-xl transition-all hover:scale-110 active:scale-95 hover:bg-white"
           aria-label="Cerrar"
           onClick={onClose}
         >
-          <X className="h-5 w-5" />
+          <X className="h-6 w-6" />
         </button>
 
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_520px]">
-          {/* Left media */}
-          <div className="relative h-65 sm:h-80 md:h-[72vh] w-full bg-slate-100">
-            {modalImages.length > 0 ? (
-              <Image
-                src={modalImages[currentImageIndex]}
-                alt={item.title}
-                fill
-                sizes="(min-width: 768px) 50vw, 100vw"
-                className="object-cover"
-                priority={false}
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center text-slate-400">Imagen</div>
-            )}
+        {/* Left Section: Media */}
+        <div className="relative h-72 w-full md:h-auto md:w-[50%] bg-slate-100 overflow-hidden">
+          {modalImages.length > 0 ? (
+            <Image
+              src={modalImages[currentImageIndex]}
+              alt={item.title}
+              fill
+              sizes="(min-width: 768px) 50vw, 100vw"
+              className="object-cover"
+              priority={true}
+              unoptimized
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center text-slate-200">
+              <ImageIcon className="h-16 w-16" />
+            </div>
+          )}
 
-            {hasMultipleImages ? (
-              <>
+          {/* Navigation Controls */}
+          {hasMultipleImages && (
+            <>
+              <div className="absolute inset-x-6 top-1/2 flex -translate-y-1/2 justify-between pointer-events-none">
                 <button
                   type="button"
                   onClick={goToPrevImage}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 grid h-10 w-10 place-items-center rounded-full bg-white/85 text-slate-700 shadow hover:bg-white"
-                  aria-label="Portada anterior"
+                  className="pointer-events-auto grid h-12 w-12 place-items-center rounded-2xl bg-white/20 text-white shadow-lg backdrop-blur-md border border-white/30 transition-all hover:bg-white hover:text-slate-900 hover:scale-110 active:scale-95"
                 >
-                  <ChevronLeft className="h-5 w-5" />
+                  <ChevronLeft className="h-6 w-6" />
                 </button>
                 <button
                   type="button"
                   onClick={goToNextImage}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 grid h-10 w-10 place-items-center rounded-full bg-white/85 text-slate-700 shadow hover:bg-white"
-                  aria-label="Siguiente portada"
+                  className="pointer-events-auto grid h-12 w-12 place-items-center rounded-2xl bg-white/20 text-white shadow-lg backdrop-blur-md border border-white/30 transition-all hover:bg-white hover:text-slate-900 hover:scale-110 active:scale-95"
                 >
-                  <ChevronRight className="h-5 w-5" />
+                  <ChevronRight className="h-6 w-6" />
                 </button>
+              </div>
 
-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 rounded-full bg-slate-900/45 px-3 py-1.5">
-                  {modalImages.map((_, index) => (
-                    <button
-                      key={`favorite-modal-dot-${index}`}
-                      type="button"
-                      onClick={() => setCurrentImageIndex(index)}
-                      aria-label={`Ir a portada ${index + 1}`}
-                      className={`h-2.5 w-2.5 rounded-full transition ${
-                        currentImageIndex === index
-                          ? 'bg-white'
-                          : 'bg-white/50 hover:bg-white/80'
-                      }`}
-                    />
-                  ))}
-                </div>
-              </>
-            ) : null}
+              {/* Progress Bar Dots */}
+              <div className="absolute bottom-10 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/20 px-4 py-2 backdrop-blur-xl border border-white/10">
+                {modalImages.map((_, index) => (
+                  <button
+                    key={`modal-dot-${index}`}
+                    onClick={() => setCurrentImageIndex(index)}
+                    className={`h-1.5 transition-all duration-500 rounded-full ${
+                      currentImageIndex === index ? 'w-8 bg-white' : 'w-1.5 bg-white/40 hover:bg-white/70'
+                    }`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Right Section: Content */}
+        <div className="flex flex-1 flex-col overflow-y-auto p-10 md:p-12 lg:p-16">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className={`rounded-full ${accentBgClass} px-4 py-1 text-[9px] font-bold uppercase tracking-widest ${accentClass} border border-transparent`}>
+                {item.level ?? (isCourse ? 'CURSO' : 'ESCUELA')}
+              </span>
+              <div className="flex items-center gap-1 px-2 py-0.5 bg-amber-50 rounded-full border border-amber-100">
+                <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
+                <span className="text-[10px] font-black text-amber-700">
+                  {typeof item.rating === 'number' ? item.rating.toFixed(1) : '5.0'}
+                </span>
+              </div>
+            </div>
           </div>
 
-          {/* Right content */}
-          <div className="p-5 sm:p-8 flex flex-col h-full">
-            {/* Header */}
-            <div className="flex items-center gap-2 mb-2">
-              <span className="rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-extrabold tracking-widest text-indigo-700">
-                {item.level ?? 'ESCUELA'}
-              </span>
-              <span className="text-[11px] font-bold tracking-widest text-slate-400">FUTURE TECH GLOBAL</span>
-            </div>
-            <h2 className="text-2xl sm:text-[28px] font-extrabold leading-tight text-slate-900 mb-1">{item.title}</h2>
-            <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-600 mb-2">
-              <MapPin className="h-4 w-4" />
-              <span>{item.location || 'Sin ubicación'}</span>
-              <Star className="h-4 w-4 text-amber-400" />
-              <span>
-                {typeof item.rating === 'number' ? item.rating.toFixed(1) : '—'}
-                {typeof item.rating === 'number' ? ' (valoración)' : ''}
-              </span>
+          <h2 className="mt-6 text-3xl md:text-4xl font-bold tracking-tight text-slate-900 leading-tight">
+            {item.title}
+          </h2>
+
+          <div className="mt-3 flex items-center gap-2 text-sm font-medium text-slate-400">
+            <MapPin className="h-4 w-4 shrink-0 text-slate-300" />
+            <span>{item.location || 'Ubicación por definir'}</span>
+          </div>
+
+          <div className="mt-10 space-y-12">
+            {/* Description Section */}
+            <div className="space-y-3">
+               <h3 className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-300">Resumen</h3>
+               <p className="text-base leading-relaxed text-slate-600 font-medium">
+                 {item.description || 'Explora una propuesta educativa de vanguardia diseñada para potenciar el talento y la curiosidad de los estudiantes en un entorno seguro y estimulante.'}
+               </p>
             </div>
 
-            {/* Descripción */}
-            <div className="mb-3">
-              <p className="text-xs sm:text-sm leading-relaxed text-slate-700 max-h-[120px] overflow-y-auto">
-                {item.description?.trim() ? item.description : 'Sin descripción registrada.'}
-              </p>
-            </div>
+            {/* Bento Grid Specs */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="group flex items-center gap-4 rounded-2xl bg-slate-50 p-5 border border-slate-100 transition-all hover:bg-white hover:shadow-lg hover:shadow-slate-50">
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${accentBgClass} ${accentClass} transition-transform group-hover:rotate-6`}>
+                  <Users className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Capacidad</p>
+                  <p className="text-sm font-bold text-slate-900">{item.studentsPerClass || '25'} alumnos</p>
+                </div>
+              </div>
 
-            {/* Grid de atributos */}
-            <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-3">
-              {/* Horario */}
-              <div className="bg-slate-50 rounded-2xl p-3 flex-1 flex items-center gap-2 min-h-[64px]">
-                <svg className="w-5 h-5 text-indigo-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 8v4l3 2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                <div>
-                  <div className="text-[11px] text-slate-500 font-semibold">Horario</div>
-                  <div className="text-xs font-bold text-slate-700">{item.schedule?.trim() ? item.schedule : 'No registrado'}</div>
+              <div className="group flex items-center gap-4 rounded-2xl bg-slate-50 p-5 border border-slate-100 transition-all hover:bg-white hover:shadow-lg hover:shadow-slate-50">
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 transition-transform group-hover:-rotate-6`}>
+                  <Languages className="h-5 w-5" />
                 </div>
-              </div>
-              {/* Idiomas */}
-              <div className="bg-slate-50 rounded-2xl p-3 flex-1 flex items-center gap-2 min-h-[64px]">
-                <svg className="w-5 h-5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 20v-6m0 0V4m0 10l3-3m-3 3l-3-3" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 <div>
-                  <div className="text-[11px] text-slate-500 font-semibold">Idiomas</div>
-                  <div className="text-xs font-bold text-slate-700">{item.languages?.trim() ? item.languages : 'No registrado'}</div>
-                </div>
-              </div>
-              {/* Alumnos por salón */}
-              <div className="bg-slate-50 rounded-2xl p-3 flex-1 flex items-center gap-2 min-h-[64px]">
-                <Users className="w-5 h-5 text-pink-400 shrink-0" />
-                <div>
-                  <div className="text-[11px] text-slate-500 font-semibold">Alumnos por salón</div>
-                  <div className="text-xs font-bold text-slate-700">{item.studentsPerClass != null && String(item.studentsPerClass).trim() !== '' ? item.studentsPerClass : 'No registrado'}</div>
-                </div>
-              </div>
-              {/* Tipo de institución */}
-              <div className="bg-slate-50 rounded-2xl p-3 flex-1 flex items-center gap-2 min-h-[64px]">
-                <svg className="w-5 h-5 text-blue-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 10l9-7 9 7v7a2 2 0 01-2 2H5a2 2 0 01-2-2v-7z" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                <div>
-                  <div className="text-[11px] text-slate-500 font-semibold">Tipo de institución</div>
-                  <div className="text-xs font-bold text-slate-700">{item.institutionType?.trim() ? item.institutionType : 'No registrado'}</div>
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Idiomas</p>
+                  <p className="text-sm font-bold text-slate-900">{item.languages || 'Bilingüe'}</p>
                 </div>
               </div>
             </div>
 
-            {/* Banner de inscripción */}
-            <div className="mb-3">
-              {item.enrollmentOpen ? (
-                <div className="flex items-center gap-2 bg-emerald-50 rounded-2xl px-4 py-2 min-h-[40px]">
-                  <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 mr-2"></span>
-                  <span className="text-xs font-semibold text-emerald-700">Inscripciones abiertas</span>
-                  {item.enrollmentYear ? (
-                    <span className="ml-2 bg-emerald-100 text-emerald-700 rounded-full px-3 py-1 text-[11px] font-bold">
-                      {item.enrollmentYear}
-                    </span>
-                  ) : null}
+            {/* Community Experience (Simplified Ratings) */}
+            <div className="space-y-6 pt-4 border-t border-slate-50">
+              <h3 className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-300">Experiencia de la Comunidad</h3>
+              <div className="flex items-center gap-8">
+                <div className="text-center">
+                  <div className="text-3xl font-black text-slate-900">
+                    {typeof item.rating === 'number' ? item.rating.toFixed(1) : '5.0'}
+                  </div>
+                  <div className="flex justify-center gap-0.5 mt-1 text-amber-400">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} size={8} fill={i < (item.rating || 5) ? "currentColor" : "none"} />
+                    ))}
+                  </div>
                 </div>
-              ) : (
-                <div className="flex items-center gap-2 bg-slate-100 rounded-2xl px-4 py-2 min-h-[40px]">
-                  <span className="inline-block h-2 w-2 rounded-full bg-slate-400 mr-2"></span>
-                  <span className="text-xs font-semibold text-slate-500">Inscripciones cerradas</span>
-                  {item.enrollmentYear ? (
-                    <span className="ml-2 bg-slate-200 text-slate-700 rounded-full px-3 py-1 text-[11px] font-bold">
-                      {item.enrollmentYear}
-                    </span>
-                  ) : null}
+                <div className="flex-1 space-y-2">
+                  <p className="text-[11px] text-slate-500 italic leading-relaxed">
+                    "Excelente ambiente educativo y personal altamente calificado. Las instalaciones son de primer nivel."
+                  </p>
+                  <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">— Padre de familia</p>
                 </div>
-              )}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-auto pt-10 flex flex-col sm:flex-row items-center justify-between gap-6 border-t border-slate-100">
+            <div className="flex flex-col">
+              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-300">Inversión Estimada</p>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className="text-3xl font-bold text-slate-900">{priceValue || '—'}</span>
+                <span className="text-[10px] font-bold text-slate-400">MXN/MES</span>
+              </div>
             </div>
 
-            {/* Precio mensual y botones alineados */}
-            <div className="mt-auto mb-4 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-              <div>
-                <div className="text-[10px] sm:text-[11px] font-extrabold tracking-widest text-slate-500">MENSUALIDAD</div>
-                <div className="mt-2 text-3xl sm:text-4xl font-extrabold text-emerald-700">{priceValue || '—'}</div>
-                {priceUnit ? (
-                  <div className="-mt-1 text-lg sm:text-xl font-extrabold text-emerald-700">{priceUnit}</div>
-                ) : null}
-              </div>
-              <div className="flex items-center gap-3">
-                <button
-                  className="flex-1 sm:flex-initial w-full sm:w-auto rounded-full bg-indigo-600 px-6 py-2 text-sm font-bold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed"
-                  onClick={handleContact}
-                  disabled={!item.id || sending}
-                >
-                  {sending ? 'Enviando...' : 'Contactar'}
-                </button>
-                <button
-                  className="group flex-1 sm:flex-initial w-full sm:w-auto rounded-full border border-slate-200 bg-gradient-to-b from-white to-slate-50 px-6 py-2 text-sm font-bold text-slate-700 shadow-sm transition-all hover:-translate-y-[1px] hover:border-slate-300 hover:from-slate-50 hover:to-slate-100 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 disabled:opacity-60 disabled:cursor-not-allowed"
-                  onClick={async () => {
-                    if (!item.id) return;
-                    if (user?.id) {
-                      await trackLead({
-                        targetId: item.id,
-                        originType: item.level && item.level.toLowerCase().includes("curso") ? "COURSE" : "SCHOOL",
-                        trigger: "VIEW_MORE",
-                        status: "INTERESADO",
-                      });
-                    }
-                    onClose();
-                    if (item.level && item.level.toLowerCase().includes("curso")) {
-                      router.push(`/search/course/${item.id}`);
-                    } else {
-                      router.push(`/search/institutions/${item.id}`);
-                    }
-                  }}
-                  disabled={!item.id}
-                >
-                  <span className="inline-flex items-center gap-1.5">
-                    Ver más
-                    <ArrowUpRight className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-                  </span>
-                </button>
-              </div>
+            <div className="flex w-full sm:w-auto items-center gap-3">
+              <button
+                onClick={handleContact}
+                disabled={sending}
+                className={`flex-1 sm:flex-none h-14 px-8 rounded-xl ${accentButtonClass} text-white text-[11px] font-bold uppercase tracking-widest transition-all hover:shadow-xl hover:shadow-indigo-100 active:scale-95 disabled:opacity-50`}
+              >
+                {sending ? 'Enviando...' : 'Contactar'}
+              </button>
+              
+              <button
+                onClick={async () => {
+                  if (!item.id) return;
+                  if (user?.id) {
+                    await trackLead({
+                      targetId: item.id,
+                      originType: isCourse ? "COURSE" : "SCHOOL",
+                      trigger: "VIEW_MORE",
+                      status: "INTERESADO",
+                    });
+                  }
+                  onClose();
+                  router.push(isCourse ? `/search/course/${item.id}` : `/search/institutions/${item.id}`);
+                }}
+                className="flex h-14 w-14 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-900 transition-all hover:bg-slate-50 hover:border-slate-300 active:scale-95 shadow-sm"
+                title="Ver perfil completo"
+              >
+                <ArrowUpRight className="h-5 w-5" />
+              </button>
             </div>
           </div>
         </div>

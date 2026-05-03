@@ -6,7 +6,8 @@ export interface Course {
   id: string;
   name: string;
   description?: string | null;
-  coverImageUrl?: string | null;
+  coverImageUrl: string | null;
+  gallery: string[] | null;
   price: number;
   capacity?: number | null;
   startDate?: string | null;
@@ -14,6 +15,8 @@ export interface Course {
   modality?: string | null;
   status: 'draft' | 'published' | 'archived';
   isActive: boolean;
+  schoolName?: string | null;
+  ownerName?: string | null;
 }
 
 export const coursesService = {
@@ -32,12 +35,18 @@ export const coursesService = {
   async create(data: {
     name: string;
     description?: string;
-    coverImageUrl?: string;
-    price: number;
+    price?: number;
     capacity?: number;
     startDate?: string;
     endDate?: string;
     modality?: string;
+    coverImageUrl?: string;
+    gallery?: string[];
+    address?: string;
+    city?: string;
+    state?: string;
+    latitude?: number;
+    longitude?: number;
   }) {
     return api<Course>('/courses', {
       method: 'POST',

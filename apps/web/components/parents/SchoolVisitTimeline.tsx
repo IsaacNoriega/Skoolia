@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { History, MapPin, ChevronRight } from "lucide-react";
+import { History, MapPin, ChevronRight, Clock, Calendar, Sparkles } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 
 import HistoryEmptyState from "./HistoryEmptyState";
@@ -140,79 +141,109 @@ export default function SchoolVisitTimeline() {
 
   return (
     <>
-    <section className="surface w-full rounded-4xl bg-white p-0 overflow-hidden">
-      <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-slate-100/70">
-        <div className="flex items-center gap-2">
-          <History size={18} className="text-slate-700" />
-          <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900">Historial</h3>
-        </div>
-        <p className="mt-1 text-xs sm:text-sm text-slate-600">
-          Escuelas que has visitado recientemente.
-        </p>
-      </div>
-
-      {!loaded ? (
-        <div className="px-5 sm:px-6 py-8 text-sm text-slate-500">Cargando historial...</div>
-      ) : null}
-
-      <div className="divide-y divide-slate-100/60">
-        {grouped.map((group) => (
-          <div key={group.label} className="px-5 sm:px-6 py-4">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-              {group.label}
-            </p>
-
-            <div className="mt-3 space-y-2">
-              {group.items.map((item) => {
-                const initial = item.name.trim().charAt(0).toUpperCase() || "E";
-
-                return (
-                  <button
-                    key={`${item.id}-${item.visitedAt}`}
-                    type="button"
-                    onClick={() => openModal(item)}
-                    className="flex w-full items-center justify-between rounded-2xl border border-slate-100 px-3 py-3 text-left hover:bg-slate-50"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 font-extrabold text-slate-700">
-                        {item.imageSrc ? (
-                          <Image
-                            src={item.imageSrc}
-                            alt={item.name}
-                            fill
-                            sizes="36px"
-                            className="object-cover"
-                          />
-                        ) : (
-                          initial
-                        )}
-                      </div>
-
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-extrabold text-slate-900">
-                          {item.name}
-                        </p>
-                        <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
-                          <MapPin size={11} />
-                          {item.location}
-                        </p>
-                        <p className="mt-0.5 text-[11px] text-slate-400">
-                          {formatTimeLabel(item.visitedAt)}
-                        </p>
-                      </div>
-                    </div>
-
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-50 text-slate-700">
-                      <ChevronRight size={16} />
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+    <motion.section 
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="w-full rounded-4xl bg-white shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden"
+    >
+      <div className="px-8 py-10 border-b border-slate-50 bg-slate-50/30">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-white shadow-lg flex items-center justify-center">
+            <History size={28} className="text-indigo-600" />
           </div>
-        ))}
+          <div>
+            <h3 className="text-2xl font-black tracking-tight text-slate-900">Historial</h3>
+            <p className="text-sm font-medium text-slate-500">Escuelas que has visitado recientemente.</p>
+          </div>
+        </div>
       </div>
-    </section>
+
+      <div className="p-8">
+        {!loaded ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-4">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
+            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Cargando...</p>
+          </div>
+        ) : (
+          <div className="space-y-12">
+            {grouped.map((group) => (
+              <div key={group.label} className="relative">
+                {/* Timeline Line */}
+                <div className="absolute left-6 top-10 bottom-0 w-0.5 bg-slate-100" />
+                
+                <div className="flex items-center gap-4 mb-8">
+                  <div className="relative z-10 w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center shadow-lg shadow-slate-200">
+                    <Calendar size={18} className="text-white" />
+                  </div>
+                  <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">{group.label}</h4>
+                </div>
+
+                <div className="ml-5 pl-8 space-y-4">
+                  <AnimatePresence>
+                    {group.items.map((item, idx) => {
+                      const initial = item.name.trim().charAt(0).toUpperCase() || "E";
+                      
+                      return (
+                        <motion.div
+                          key={`${item.id}-${item.visitedAt}`}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: idx * 0.05 }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => openModal(item)}
+                            className="group relative flex w-full items-center justify-between rounded-3xl border border-slate-100 bg-white p-5 text-left transition-all hover:border-indigo-200 hover:shadow-lg hover:shadow-indigo-50/50"
+                          >
+                            <div className="flex items-center gap-5 min-w-0">
+                              <div className="relative shrink-0">
+                                <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-slate-50 font-black text-xl text-slate-300 group-hover:bg-indigo-50 group-hover:text-indigo-300 transition-colors shadow-sm">
+                                  {item.imageSrc ? (
+                                    <Image
+                                      src={item.imageSrc}
+                                      alt={item.name}
+                                      fill
+                                      sizes="56px"
+                                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                                    />
+                                  ) : (
+                                    initial
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="min-w-0">
+                                <h5 className="truncate text-base font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                                  {item.name}
+                                </h5>
+                                <div className="mt-1.5 flex flex-wrap items-center gap-3">
+                                  <div className="flex items-center gap-1 text-[11px] font-bold text-slate-400">
+                                    <MapPin size={12} className="text-slate-300" />
+                                    {item.location}
+                                  </div>
+                                  <div className="flex items-center gap-1 text-[11px] font-bold text-slate-400">
+                                    <Clock size={12} className="text-slate-300" />
+                                    {formatTimeLabel(item.visitedAt)}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="shrink-0 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-300 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300">
+                              <ChevronRight size={18} />
+                            </div>
+                          </button>
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </motion.section>
 
     <FavoriteDetailModal
       open={modalOpen}

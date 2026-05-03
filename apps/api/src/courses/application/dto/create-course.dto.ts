@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsString, IsOptional, IsNumber, IsDate } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsDate, IsArray } from 'class-validator';
 
 export class CreateCourseDto {
   @IsString()
@@ -59,4 +59,9 @@ export class CreateCourseDto {
   @Type(() => Number)
   @IsNumber()
   longitude?: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  gallery?: string[];
 }

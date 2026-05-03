@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import SchoolSummarySection from "@/components/schools/SchoolSummarySection";
 
 export default function SchoolsDashboardPage() {

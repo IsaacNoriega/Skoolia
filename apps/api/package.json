@@ -12,7 +12,7 @@
 		"start": "nest start",
 		"start:dev": "nest start --watch",
 		"start:debug": "nest start --debug --watch",
-		"start:prod": "node dist/main",
+		"start:prod": "node dist/src/main",
 		"lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
 		"test": "jest",
 		"test:watch": "jest --watch",
@@ -26,7 +26,8 @@
 		"reset": "ts-node -r tsconfig-paths/register src/db/reset.ts",
 		"seed:plans": "ts-node -r tsconfig-paths/register src/db/seed-plans.ts",
 		"seed": "ts-node -r tsconfig-paths/register src/db/seed.ts",
-		"reset:seed": "npm run reset && npm run seed"
+		"reset:seed": "npm run reset && npm run seed",
+		"db:clean-seed": "ts-node -r tsconfig-paths/register src/db/clean-seed.ts"
 	},
 	"dependencies": {
 		"@apollo/server": "^5.4.0",

@@ -5,6 +5,7 @@ export interface School {
 
   logoUrl: string | null;
   coverImageUrl: string | null;
+  gallery: string[] | null;
 
 
   address: string | null;

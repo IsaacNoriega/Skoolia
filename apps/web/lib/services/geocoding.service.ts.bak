@@ -1,0 +1,75 @@
+export type GeocodeResult = {
+  lat: number;
+  lng: number;
+  type: 'exact' | 'fallback';
+};
+
+export type GeocodeResponse = {
+  success: boolean;
+  data?: GeocodeResult;
+  error?: string;
+};
+
+class GeocodingService {
+  private readonly baseUrl = 'https://nominatim.openstreetmap.org/search';
+  private readonly headers = {
+    'Accept-Language': 'es',
+    'User-Agent': 'Skoolia/1.0 (contacto@skoolia.mx)',
+  };
+
+  /**
+   * Intenta geocodificar una dirección. Si falla con la dirección completa,
+   * hace fallback intentando buscar solo la ciudad/estado.
+   */
+  async geocodeAddressWithFallback(address: string, city: string): Promise<GeocodeResponse> {
+    if (!city) {
+      return { success: false, error: 'Se requiere al menos el estado/ciudad para buscar.' };
+    }
+
+    try {
+      // Intento 1: Dirección completa
+      const exactQuery = encodeURIComponent(`${address}, ${city}, México`);
+      const exactRes = await this.fetchCoordinates(exactQuery);
+
+      if (exactRes) {
+        return { success: true, data: { ...exactRes, type: 'exact' } };
+      }
+
+      // Intento 2: Fallback a solo Estado/Ciudad si hay un address que falló
+      if (address) {
+        const fallbackQuery = encodeURIComponent(`${city}, México`);
+        const fallbackRes = await this.fetchCoordinates(fallbackQuery);
+
+        if (fallbackRes) {
+          return { success: true, data: { ...fallbackRes, type: 'fallback' } };
+        }
+      }
+
+      return { success: false, error: 'No se encontraron coordenadas para esta ubicación.' };
+    } catch (error) {
+      console.error('Error en geocodificación:', error);
+      return { success: false, error: 'Ocurrió un error al contactar el servicio de mapas.' };
+    }
+  }
+
+  private async fetchCoordinates(query: string): Promise<{ lat: number; lng: number } | null> {
+    const url = `${this.baseUrl}?format=json&q=${query}`;
+    const res = await fetch(url, { headers: this.headers });
+    
+    if (!res.ok) {
+      throw new Error(`Geocoding API error: ${res.status}`);
+    }
+
+    const data = await res.json();
+    if (Array.isArray(data) && data.length > 0) {
+      return {
+        lat: parseFloat(data[0].lat),
+        lng: parseFloat(data[0].lon),
+      };
+    }
+
+    return null;
+  }
+}
+
+export const geocodingService = new GeocodingService();

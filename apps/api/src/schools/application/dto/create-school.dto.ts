@@ -1,4 +1,4 @@
-import { IsOptional, IsString, MinLength, IsNumber } from 'class-validator';
+import { IsOptional, IsString, MinLength, IsNumber, IsArray } from 'class-validator';
 
 export class CreateSchoolDto {
   @IsString()
@@ -8,6 +8,14 @@ export class CreateSchoolDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsString()
+  logoUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  coverImageUrl?: string;
 
   // Ubicación
   @IsOptional()
@@ -21,4 +29,9 @@ export class CreateSchoolDto {
   @IsOptional()
   @IsNumber()
   longitude?: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  gallery?: string[];
 }

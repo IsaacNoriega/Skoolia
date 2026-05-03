@@ -38,4 +38,7 @@ export class SchoolModel {
 
   @Field(() => Int, { nullable: true })
   monthlyPrice?: number;
+
+  @Field(() => [String], { nullable: true })
+  gallery?: string[];
 }

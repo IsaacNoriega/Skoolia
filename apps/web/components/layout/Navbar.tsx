@@ -14,12 +14,12 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { JSX, useEffect, useState } from "react";
+import { JSX, Suspense, useEffect, useState } from "react";
 import LoginModal from "./LoginModal";
 import RegisterModal from "./RegisterModal";
 import { useAuth } from "@/contexts/AuthContext";
 
-export default function Navbar(): JSX.Element {
+function NavbarContent(): JSX.Element {
   const { user, logout } = useAuth();
   const router = useRouter();
 
@@ -249,5 +249,13 @@ export default function Navbar(): JSX.Element {
         )}
       </nav>
     </div>
+  );
+}
+
+export default function Navbar(): JSX.Element {
+  return (
+    <Suspense fallback={<div className="h-20" />}>
+      <NavbarContent />
+    </Suspense>
   );
 }
