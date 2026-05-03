@@ -13,6 +13,7 @@ export interface SchoolNode {
   favoritesCount: number;
   isVerified: boolean;
   monthlyPrice?: number | null;
+  gallery?: string[] | null;
 }
 
 export interface SchoolEdge {
@@ -69,6 +70,7 @@ export const schoolsFeedService = {
               favoritesCount
               isVerified
               monthlyPrice
+              gallery
             }
             cursor
           }

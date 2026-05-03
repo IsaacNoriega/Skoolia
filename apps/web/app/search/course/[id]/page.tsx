@@ -55,9 +55,17 @@ export default function CourseDetailsPage() {
     if (course.coverImageUrl) {
       items.push({ label: "Principal", src: course.coverImageUrl });
     }
-    // Premium seeds for diversity
-    items.push({ label: "Ambiente", src: `https://picsum.photos/seed/${id}-course-1/1200/800` });
-    items.push({ label: "Práctica", src: `https://picsum.photos/seed/${id}-course-2/1200/800` });
+    
+    // Galería real
+    if (course.gallery && course.gallery.length > 0) {
+      course.gallery.forEach((url, i) => {
+        items.push({ label: `Galería ${i + 1}`, src: url });
+      });
+    } else {
+      // Fallback premium seeds solo si no hay galería
+      items.push({ label: "Ambiente", src: `https://picsum.photos/seed/${id}-course-1/1200/800` });
+      items.push({ label: "Práctica", src: `https://picsum.photos/seed/${id}-course-2/1200/800` });
+    }
     return items;
   }, [course, id]);
 
@@ -197,13 +205,53 @@ export default function CourseDetailsPage() {
             
             {/* Gallery / Image: Pure Focus */}
             <section className="relative aspect-[16/10] rounded-2xl overflow-hidden bg-slate-50 border border-slate-100 shadow-sm">
-               <Image 
-                  src={galleryItems[0]?.src || course.coverImageUrl || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&q=80&w=1200"} 
-                  alt={course.name} 
-                  fill 
-                  className="object-cover"
-                  unoptimized
-               />
+               <AnimatePresence mode="wait">
+                 <motion.div
+                   key={activeImageIndex}
+                   initial={{ opacity: 0 }}
+                   animate={{ opacity: 1 }}
+                   exit={{ opacity: 0 }}
+                   transition={{ duration: 0.5 }}
+                   className="absolute inset-0"
+                 >
+                   <Image 
+                      src={galleryItems[activeImageIndex]?.src || course.coverImageUrl || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&q=80&w=1200"} 
+                      alt={course.name} 
+                      fill 
+                      className="object-cover"
+                      unoptimized
+                   />
+                 </motion.div>
+               </AnimatePresence>
+
+               {galleryItems.length > 1 && (
+                 <div className="absolute inset-x-6 bottom-6 flex justify-between items-center">
+                    <div className="flex gap-1.5 px-3 py-2 bg-white/90 backdrop-blur-md rounded-full border border-slate-100 shadow-sm">
+                      {galleryItems.map((_, i) => (
+                        <button 
+                          key={i} 
+                          onClick={() => setActiveImageIndex(i)}
+                          className={`h-1 transition-all duration-500 rounded-full ${i === activeImageIndex ? 'w-6 bg-violet-600' : 'w-1 bg-slate-200 hover:bg-violet-200'}`}
+                        />
+                      ))}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => setActiveImageIndex((prev) => (prev > 0 ? prev - 1 : galleryItems.length - 1))}
+                        className="h-10 w-10 flex items-center justify-center rounded-full bg-white/90 backdrop-blur-md border border-slate-100 text-slate-900 hover:text-violet-600 transition-all active:scale-90 shadow-sm"
+                      >
+                        <ChevronLeft size={16} />
+                      </button>
+                      <button 
+                        onClick={() => setActiveImageIndex((prev) => (prev < galleryItems.length - 1 ? prev + 1 : 0))}
+                        className="h-10 w-10 flex items-center justify-center rounded-full bg-white/90 backdrop-blur-md border border-slate-100 text-slate-900 hover:text-violet-600 transition-all active:scale-90 shadow-sm"
+                      >
+                        <ChevronRight size={16} />
+                      </button>
+                    </div>
+                 </div>
+               )}
             </section>
 
             {/* 🍱 MINIMAL GRID */}

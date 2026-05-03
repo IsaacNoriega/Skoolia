@@ -83,6 +83,7 @@ export default function SchoolSettingsForm() {
   // Local-only file previews (upload coming later)
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
 
   const logoPreview = useMemo(
     () => (logoFile ? URL.createObjectURL(logoFile) : school?.logoUrl || ""),
@@ -199,6 +200,14 @@ export default function SchoolSettingsForm() {
       if (coverFile) {
         const uploadedCover = await filesService.upload(coverFile);
         latest = await schoolsService.updateImage("coverImageUrl", uploadedCover.id);
+      }
+
+      if (galleryFiles.length > 0) {
+        const uploadedGallery = await Promise.all(galleryFiles.map(file => filesService.upload(file)));
+        const galleryUrls = uploadedGallery.map(file => file.url);
+        // Mezclamos con las existentes si queremos, o reemplazamos. El usuario pidió "añadir".
+        const currentGallery = school?.gallery || [];
+        latest = await schoolsService.update({ gallery: [...currentGallery, ...galleryUrls] });
       }
 
       setSchool(latest);
@@ -319,6 +328,62 @@ export default function SchoolSettingsForm() {
               </p>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Galería */}
+      <div className="mt-10">
+        <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Galería de fotos (Máx. 5 adicionales)</span>
+        <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          {/* Existentes */}
+          {school?.gallery?.map((url, i) => (
+            <div key={i} className="relative aspect-square rounded-2xl overflow-hidden ring-1 ring-slate-100 group">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={url} alt={`Gallery ${i}`} className="h-full w-full object-cover" />
+              <button 
+                type="button"
+                onClick={async () => {
+                  const nextGallery = school.gallery?.filter((_, idx) => idx !== i) || [];
+                  const updated = await schoolsService.update({ gallery: nextGallery });
+                  setSchool(updated);
+                }}
+                className="absolute top-2 right-2 h-6 w-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-[10px]"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          {/* Nuevas */}
+          {galleryFiles.map((file, i) => (
+            <div key={`new-${i}`} className="relative aspect-square rounded-2xl overflow-hidden ring-1 ring-slate-200 bg-slate-50">
+               {/* eslint-disable-next-line @next/next/no-img-element */}
+               <img src={URL.createObjectURL(file)} alt="Preview" className="h-full w-full object-cover opacity-50" />
+               <button 
+                type="button"
+                onClick={() => setGalleryFiles(prev => prev.filter((_, idx) => idx !== i))}
+                className="absolute top-2 right-2 h-6 w-6 bg-slate-400 text-white rounded-full flex items-center justify-center text-[10px]"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          {/* Botón añadir */}
+          {(school?.gallery?.length || 0) + galleryFiles.length < 6 && (
+            <label className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 transition-colors">
+              <input 
+                type="file" 
+                multiple 
+                accept="image/*" 
+                className="hidden" 
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  setGalleryFiles(prev => [...prev, ...files].slice(0, 5 - (school?.gallery?.length || 0)));
+                }}
+              />
+              <span className="text-xl text-slate-300 font-light">+</span>
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Añadir foto</span>
+            </label>
+          )}
         </div>
       </div>
 

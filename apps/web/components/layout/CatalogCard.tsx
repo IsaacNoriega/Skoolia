@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Heart, ImageIcon, MapPin, ArrowRight, Users, Star } from "lucide-react";
+import { Heart, ImageIcon, MapPin, ArrowRight, Users, Star, TrendingUp, Check } from "lucide-react";
 import React from "react";
 import { sanitizeImageSrc } from "@/lib/utils";
 import { PlanBadge } from "./PlanBadge";
@@ -29,6 +29,8 @@ type CatalogCardProps = {
   description?: string;
   institutionType?: string;
   planName?: string;
+  isComparing?: boolean;
+  onCompareToggle?: (e?: React.MouseEvent) => void;
 };
 
 export default function CatalogCard({
@@ -52,6 +54,8 @@ export default function CatalogCard({
   description,
   institutionType,
   planName,
+  isComparing = false,
+  onCompareToggle,
 }: CatalogCardProps) {
   const router = useRouter();
   const safeImageSrc = sanitizeImageSrc(imageSrc);
@@ -63,7 +67,11 @@ export default function CatalogCard({
   return (
     <article
       onClick={onCardClick}
-      className={`group relative flex flex-col overflow-hidden rounded-2xl bg-white border border-slate-100 transition-all duration-300 hover:shadow-xl hover:shadow-indigo-50/50 hover:border-indigo-100 ${
+      className={`group relative flex flex-col overflow-hidden rounded-2xl bg-white border-2 transition-all duration-300 ${
+        isComparing 
+          ? 'border-indigo-600 shadow-xl shadow-indigo-100' 
+          : 'border-slate-100 hover:shadow-xl hover:shadow-indigo-50/50 hover:border-indigo-100'
+      } ${
         onCardClick ? 'cursor-pointer' : ''
       } ${className}`}
     >
@@ -84,8 +92,16 @@ export default function CatalogCard({
             <ImageIcon className="h-10 w-10 text-slate-200" />
           </div>
         )}
+
+        {/* Selected Overlay */}
+        {isComparing && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-indigo-600/10 backdrop-blur-[1px]">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg animate-in zoom-in duration-300">
+              <Check size={28} className="stroke-[3px]" />
+            </div>
+          </div>
+        )}
         
-        {/* Favorite Button */}
         <div className="absolute right-3 top-3 z-20">
           <button
             type="button"
@@ -98,6 +114,31 @@ export default function CatalogCard({
             <Heart size={16} className={`transition-all duration-300 ${isFavorite ? "fill-rose-500 text-rose-500" : ""}`} />
           </button>
         </div>
+
+        {/* Comparison Toggle Bar */}
+        {onCompareToggle && (
+          <div 
+            onClick={(e) => {
+              e.stopPropagation();
+              onCompareToggle?.(e);
+            }}
+            className="absolute bottom-0 left-0 right-0 z-20 flex items-center justify-between border-t border-slate-100 bg-white/80 px-4 py-2.5 backdrop-blur-md transition-all hover:bg-white"
+          >
+            <div className="flex items-center gap-2">
+              <TrendingUp size={12} className={isComparing ? "text-indigo-600" : "text-slate-400"} />
+              <span className={`text-[9px] font-black uppercase tracking-widest ${isComparing ? "text-indigo-600" : "text-slate-500"}`}>
+                {isComparing ? "Seleccionada" : "Comparar"}
+              </span>
+            </div>
+            <div className={`flex h-5 w-5 items-center justify-center rounded-md border transition-all ${
+              isComparing 
+                ? "bg-indigo-600 border-indigo-600 shadow-sm shadow-indigo-200" 
+                : "bg-white border-slate-200"
+            }`}>
+              {isComparing && <Check size={12} className="text-white stroke-[3px]" />}
+            </div>
+          </div>
+        )}
 
         {/* Level Badge */}
         <div className="absolute left-3 top-3 z-20 flex flex-col gap-2">

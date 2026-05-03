@@ -141,6 +141,7 @@ export default function SchoolCoursesSection() {
 		status: Course["status"];
 		isActive: boolean;
 		coverImage?: File | null;
+		galleryImages?: File[];
 	}) => {
 		try {
 			setSubmitting(true);
@@ -150,6 +151,12 @@ export default function SchoolCoursesSection() {
 			if (values.coverImage) {
 				const uploaded = await filesService.upload(values.coverImage);
 				coverImageUrl = uploaded.url;
+			}
+
+			let gallery: string[] = selectedCourse?.gallery || [];
+			if (values.galleryImages && values.galleryImages.length > 0) {
+				const uploadedGallery = await Promise.all(values.galleryImages.map(f => filesService.upload(f)));
+				gallery = [...gallery, ...uploadedGallery.map(f => f.url)];
 			}
 
 			if (modalMode === "create") {
@@ -162,6 +169,7 @@ export default function SchoolCoursesSection() {
 					startDate: values.startDate,
 					endDate: values.endDate,
 					coverImageUrl,
+					gallery,
 				});
 				showToast({
 					title: "Oferta creada",
@@ -172,6 +180,7 @@ export default function SchoolCoursesSection() {
 				await coursesService.update(selectedCourse.id, {
 					...values,
 					coverImageUrl,
+					gallery,
 				});
 				showToast({
 					title: "Oferta actualizada",

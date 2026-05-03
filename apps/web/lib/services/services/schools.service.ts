@@ -10,6 +10,7 @@ export interface School {
   // 🖼 imágenes
   logoUrl: string | null;
   coverImageUrl: string | null;
+  gallery: string[] | null;
 
   // 📍 ubicación
   address: string | null;
@@ -80,6 +81,7 @@ export const schoolsService = {
     enrollmentYear?: number;
     enrollmentOpen?: boolean;
     monthlyPrice?: number;
+    gallery?: string[];
   }) {
     return api<School>("/schools", {
       method: "PATCH",

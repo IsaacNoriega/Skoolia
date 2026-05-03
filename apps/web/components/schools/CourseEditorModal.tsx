@@ -32,6 +32,7 @@ type Props = {
 		status: Course["status"];
 		isActive: boolean;
 		coverImage?: File | null;
+		galleryImages?: File[];
 	}) => Promise<void>;
 	mode: "create" | "edit";
 	initialCourse?: Course | null;
@@ -74,6 +75,7 @@ export default function CourseEditorModal({
 
 	const [form, setForm] = useState<CourseFormValues>(() => buildInitialValues(initialCourse));
 	const [coverImage, setCoverImage] = useState<File | null>(null);
+	const [galleryImages, setGalleryImages] = useState<File[]>([]);
 	const [error, setError] = useState<string | null>(null);
 
 	const previewUrl = useMemo(() => {
@@ -85,6 +87,7 @@ export default function CourseEditorModal({
 		if (!isOpen) return;
 		setForm(buildInitialValues(initialCourse));
 		setCoverImage(null);
+		setGalleryImages([]);
 		setError(null);
 	}, [initialCourse, isOpen]);
 
@@ -126,6 +129,7 @@ export default function CourseEditorModal({
 				status: form.status,
 				isActive: form.isActive,
 				coverImage,
+				galleryImages,
 			});
 		} catch {
 			setError("No se pudo guardar el programa. Inténtalo de nuevo.");
@@ -222,6 +226,41 @@ export default function CourseEditorModal({
 								placeholder="Describe el programa, beneficios y perfil de ingreso."
 								className={`w-full rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentColorClass}`}
 							/>
+						</div>
+
+						<div className="sm:col-span-2">
+							<label className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-slate-400">
+								Galería del programa
+							</label>
+							<div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
+								{initialCourse?.gallery?.map((url, i) => (
+									<div key={i} className="relative aspect-square rounded-xl overflow-hidden ring-1 ring-slate-100 group">
+										{/* eslint-disable-next-line @next/next/no-img-element */}
+										<img src={url} alt="Gallery" className="h-full w-full object-cover" />
+									</div>
+								))}
+								{galleryImages.map((file, i) => (
+									<div key={`new-${i}`} className="relative aspect-square rounded-xl overflow-hidden ring-1 ring-slate-200 bg-slate-50">
+										{/* eslint-disable-next-line @next/next/no-img-element */}
+										<img src={URL.createObjectURL(file)} alt="Preview" className="h-full w-full object-cover opacity-50" />
+									</div>
+								))}
+								{((initialCourse?.gallery?.length || 0) + galleryImages.length) < 6 && (
+									<label className="aspect-square rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center cursor-pointer hover:bg-slate-50 transition-colors">
+										<input 
+											type="file" 
+											multiple 
+											accept="image/*" 
+											className="hidden" 
+											onChange={(e) => {
+												const files = Array.from(e.target.files || []);
+												setGalleryImages(prev => [...prev, ...files].slice(0, 5 - (initialCourse?.gallery?.length || 0)));
+											}}
+										/>
+										<span className="text-xl text-slate-300 font-light">+</span>
+									</label>
+								)}
+							</div>
 						</div>
 
 						<div>

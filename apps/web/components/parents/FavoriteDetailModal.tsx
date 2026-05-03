@@ -28,6 +28,7 @@ type Item = {
   enrollmentOpen?: boolean;
   enrollmentYear?: number;
   monthlyPrice?: number;
+  gallery?: string[];
 };
 
 export default function FavoriteDetailModal({
@@ -68,11 +69,14 @@ export default function FavoriteDetailModal({
 
   const modalImages = Array.from(
     new Set(
-      [item.imageUrl, ...generatedCovers]
+      [
+        item.imageUrl, 
+        ...(item.gallery && item.gallery.length > 0 ? item.gallery : generatedCovers)
+      ]
         .map((url) => sanitizeImageSrc(url))
         .filter(
-        (url): url is string => Boolean(url),
-      ),
+          (url): url is string => Boolean(url),
+        ),
     ),
   );
 

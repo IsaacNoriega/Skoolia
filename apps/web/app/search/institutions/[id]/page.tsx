@@ -166,11 +166,24 @@ export default function InstitutionDetailsPage() {
   const galleryItems = useMemo(() => {
     if (!school) return [];
     const items = [];
-    if (school.coverImageUrl) items.push({ label: "Principal", src: school.coverImageUrl, fit: "cover" });
-    if (school.logoUrl) items.push({ label: "Instalaciones", src: school.logoUrl, fit: "cover" });
-    // Fallback premium seeds
-    items.push({ label: "Ambiente", src: `https://picsum.photos/seed/${schoolId}-1/1200/800`, fit: "cover" });
-    items.push({ label: "Educación", src: `https://picsum.photos/seed/${schoolId}-2/1200/800`, fit: "cover" });
+    
+    // Imagen principal
+    if (school.coverImageUrl) {
+      items.push({ label: "Principal", src: school.coverImageUrl, fit: "cover" });
+    }
+
+    // Galería real de la base de datos
+    if (school.gallery && school.gallery.length > 0) {
+      school.gallery.forEach((url, i) => {
+        items.push({ label: `Galería ${i + 1}`, src: url, fit: "cover" });
+      });
+    } else {
+      // Fallback premium seeds solo si no hay galería
+      if (school.logoUrl) items.push({ label: "Logo", src: school.logoUrl, fit: "cover" });
+      items.push({ label: "Ambiente", src: `https://picsum.photos/seed/${schoolId}-1/1200/800`, fit: "cover" });
+      items.push({ label: "Educación", src: `https://picsum.photos/seed/${schoolId}-2/1200/800`, fit: "cover" });
+    }
+    
     return items;
   }, [school, schoolId]);
 
