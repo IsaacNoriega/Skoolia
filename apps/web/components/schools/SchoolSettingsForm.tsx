@@ -140,11 +140,11 @@ export default function SchoolSettingsForm() {
     setError(null);
     setSuccess(null);
     try {
-      const latitude = form.latitude ? Number(form.latitude) : undefined;
-      const longitude = form.longitude ? Number(form.longitude) : undefined;
-      const maxStudentsPerClass = form.maxStudentsPerClass ? Number(form.maxStudentsPerClass) : undefined;
-      const enrollmentYear = form.enrollmentYear ? Number(form.enrollmentYear) : undefined;
-      const monthlyPrice = form.monthlyPrice ? Number(form.monthlyPrice) : undefined;
+      const latitude = form.latitude && !isNaN(Number(form.latitude)) ? Number(form.latitude) : undefined;
+      const longitude = form.longitude && !isNaN(Number(form.longitude)) ? Number(form.longitude) : undefined;
+      const maxStudentsPerClass = form.maxStudentsPerClass && !isNaN(Number(form.maxStudentsPerClass)) ? Number(form.maxStudentsPerClass) : undefined;
+      const enrollmentYear = form.enrollmentYear && !isNaN(Number(form.enrollmentYear)) ? Number(form.enrollmentYear) : undefined;
+      const monthlyPrice = form.monthlyPrice && !isNaN(Number(form.monthlyPrice)) ? Number(form.monthlyPrice) : undefined;
 
       if (latitude != null && (!Number.isFinite(latitude) || latitude < -90 || latitude > 90)) {
         setError("La latitud debe ser un número entre -90 y 90.");

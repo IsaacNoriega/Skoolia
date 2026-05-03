@@ -177,8 +177,10 @@ export default function SchoolCoursesSection() {
 					variant: "success",
 				});
 			} else if (selectedCourse) {
+				// eslint-disable-next-line @typescript-eslint/no-unused-vars
+				const { coverImage, galleryImages, ...updatePayload } = values;
 				await coursesService.update(selectedCourse.id, {
-					...values,
+					...updatePayload,
 					coverImageUrl,
 					gallery,
 				});
