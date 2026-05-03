@@ -8,6 +8,9 @@ export interface SchoolRepository {
     ownerId: string;
     latitude?: number;
     longitude?: number;
+    gallery?: string[];
+    logoUrl?: string;
+    coverImageUrl?: string;
   }): Promise<School>;
 
   findById(id: string): Promise<School | null>;

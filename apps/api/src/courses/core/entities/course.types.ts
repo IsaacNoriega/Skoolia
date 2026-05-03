@@ -22,6 +22,7 @@ export interface Course {
   name: string;
   description: string | null;
   coverImageUrl: string | null;
+  gallery: string[] | null;
 
   price: number | null;
   capacity: number | null;
