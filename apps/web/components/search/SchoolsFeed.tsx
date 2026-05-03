@@ -128,6 +128,7 @@ export default function SchoolsFeed(props: any) {
             enrollmentOpen: selectedNode.enrollmentOpen,
             enrollmentYear: selectedNode.enrollmentYear,
             monthlyPrice: selectedNode.monthlyPrice,
+            gallery: selectedNode.gallery,
           }
         }
       />

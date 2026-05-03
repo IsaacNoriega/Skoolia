@@ -23,7 +23,7 @@ export default function CoursesFeed() {
   const modality = searchParams.get("modality") || "";
 
   const { data: courses, isLoading, refetch } = useQuery({
-    queryKey: ["courses-feed"],
+    queryKey: ["courses-feed", q, loc, minPrice, maxPrice, schedule, modality],
     queryFn: () => coursesService.listAll(),
     refetchInterval: 10000,
     refetchOnWindowFocus: true,
@@ -153,6 +153,7 @@ export default function CoursesFeed() {
             enrollmentOpen: undefined,
             enrollmentYear: undefined,
             monthlyPrice: undefined,
+            gallery: selectedNode.gallery,
           }
         }
       />
