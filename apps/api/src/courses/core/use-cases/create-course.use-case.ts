@@ -31,6 +31,12 @@ export class CreateCourseUseCase {
     startDate?: Date;
     endDate?: Date;
     modality?: string;
+    gallery?: string[];
+    address?: string;
+    city?: string;
+    state?: string;
+    latitude?: number;
+    longitude?: number;
   }) {
     const activePlan = await this.subscriptionsService.getSchoolActivePlanByOwner(params.ownerId);
       
@@ -73,6 +79,12 @@ export class CreateCourseUseCase {
       startDate: params.startDate,
       endDate: params.endDate,
       modality: params.modality,
+      gallery: params.gallery,
+      address: params.address,
+      city: params.city,
+      state: params.state,
+      latitude: params.latitude,
+      longitude: params.longitude,
     });
   }
 }

@@ -20,6 +20,7 @@ export class UpdateCourseUseCase {
     data: {
       name?: string;
       description?: string;
+      coverImageUrl?: string;
       price?: number;
       capacity?: number;
       startDate?: Date;
@@ -27,6 +28,12 @@ export class UpdateCourseUseCase {
       modality?: string;
       status?: 'draft' | 'published' | 'archived';
       isActive?: boolean;
+      gallery?: string[];
+      address?: string;
+      city?: string;
+      state?: string;
+      latitude?: number;
+      longitude?: number;
     };
   }) {
     if (params.role !== 'private') {
