@@ -62,6 +62,9 @@ export const courses = pgTable(
     latitude: doublePrecision('latitude'),
     longitude: doublePrecision('longitude'),
 
+    // 💻 online details
+    onlineInstructions: text('online_instructions'),
+
 
     averageRating: doublePrecision('average_rating').default(0).notNull(),
 

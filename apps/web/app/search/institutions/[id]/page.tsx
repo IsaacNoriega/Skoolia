@@ -28,6 +28,7 @@ import { schoolsService, type School } from "@/lib/services/services/schools.ser
 import { coursesService, type Course } from "@/lib/services/services/courses.service";
 import { schoolRatingsService, type SchoolRating } from "@/lib/services/services/rating.service";
 import { favoritesService } from "@/lib/services/services/favorites.service";
+import { enrollmentService, EnrollmentTargetType } from "@/lib/services/services/enrollment.service";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLeadTracking } from "@/lib/hooks/useLeadTracking";
 import { messagesService } from "@/lib/services/services/messages.service";
@@ -60,6 +61,31 @@ export default function InstitutionDetailsPage() {
       setActionMessage("¡Solicitud enviada con éxito!");
     } catch (err) {
       setActionMessage("Ocurrió un error. Revisa tu conexión.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleEnroll() {
+    if (!school) {
+      setActionMessage("No se encontró información de la escuela.");
+      return;
+    }
+    if (!user) {
+      setActionMessage("Debes iniciar sesión para inscribirte.");
+      return;
+    }
+    setActionLoading(true);
+    setActionMessage(null);
+    try {
+      await enrollmentService.enroll({
+        targetId: school.id,
+        targetType: EnrollmentTargetType.SCHOOL,
+        amount: school.monthlyPrice || 8500, // Fallback
+      });
+      setActionMessage("¡Inscripción realizada con éxito!");
+    } catch (err) {
+      setActionMessage("Error al procesar la inscripción.");
     } finally {
       setActionLoading(false);
     }
@@ -506,6 +532,13 @@ export default function InstitutionDetailsPage() {
                   >
                     Agendar Visita
                   </button>
+                  <button
+                    className="w-full h-14 bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all hover:bg-emerald-700 active:scale-95 disabled:opacity-50 shadow-md shadow-emerald-100"
+                    disabled={actionLoading}
+                    onClick={handleEnroll}
+                  >
+                    {actionLoading ? "Procesando..." : "Inscribirme Ahora"}
+                  </button>
                 </div>
 
                 <div className="pt-8 border-t border-slate-50 space-y-4">
@@ -531,6 +564,24 @@ export default function InstitutionDetailsPage() {
           
         </div>
       </main>
+      <AnimatePresence>
+        {actionMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, x: "-50%" }}
+            animate={{ opacity: 1, y: 0, x: "-50%" }}
+            exit={{ opacity: 0, y: 50, x: "-50%" }}
+            className="fixed bottom-10 left-1/2 z-[200] transform -translate-x-1/2 px-6 py-3 bg-slate-900 text-white text-[11px] font-bold uppercase tracking-widest rounded-full shadow-2xl flex items-center gap-4"
+          >
+            <span>{actionMessage}</span>
+            <button 
+              onClick={() => setActionMessage(null)}
+              className="w-5 h-5 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+            >
+              ×
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

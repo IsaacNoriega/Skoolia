@@ -3,7 +3,8 @@ export class Message {
   content: string;
   createdAt: Date;
   senderId: string;
-  senderType: 'parent' | 'school';
+  senderType: 'parent' | 'school' | 'course';
+  senderRole?: 'public' | 'private';
   receiverId: string;
   receiverType: 'school' | 'course' | 'parent';
   threadId: string;
@@ -11,8 +12,18 @@ export class Message {
 
 export type MessageThread = {
   id: string;
-  participants: Array<{ id: string; type: 'parent' | 'school' | 'course' }>;
-  lastMessageAt: Date;
+  participants?: Array<{ id: string; type: 'parent' | 'school' | 'course' }>;
+  lastMessageAt: Date | string;
+  type?: 'school' | 'course';
+  courseId?: string;
+  courseName?: string;
+  publicUserId?: string;
+  publicUserName?: string;
+  lastMessage?: string;
+  lastSenderRole?: string;
+  unreadCount?: number;
+  threadHasUnread?: boolean;
+  leadStatus?: string;
 };
 // Mensajes de curso
 export interface CourseMessage {
@@ -45,6 +56,7 @@ export interface CourseThreadSummaryForOwner {
   lastSenderRole: 'public' | 'private';
   unreadCount: number;
   threadHasUnread: boolean;
+  leadStatus?: string;
 }
 export type SenderRole = 'public' | 'private';
 
@@ -73,6 +85,7 @@ export interface SchoolThreadSummary {
   lastSenderRole: SenderRole;
   unreadCount: number;
   threadHasUnread: boolean;
+  leadStatus?: string;
 }
 
 export interface ParentThreadMessage {

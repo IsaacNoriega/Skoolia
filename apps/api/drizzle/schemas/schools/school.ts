@@ -54,6 +54,7 @@ export const schools = pgTable(
     ratingsCount: integer('ratings_count').default(0).notNull(),
     favoritesCount: integer('favorites_count').default(0).notNull(),
     rankingScore: doublePrecision('ranking_score').default(0).notNull(),
+    enrollmentsCount: integer('enrollments_count').default(0).notNull(),
 
     // 🏅 destacados
     isFeatured: boolean('is_featured').default(false).notNull(),

@@ -8,7 +8,8 @@ import EducationalLevelSelect from "./EducationalLevelSelect";
 import { cityOptions, institutionTypeOptions } from "./onboarding-options";
 import SchoolsMap from "../SchoolsMap";
 import { geocodingService } from "@/lib/services/geocoding.service";
-import { MapPin, Loader2 } from "lucide-react";
+import { MapPin, Loader2, Globe } from "lucide-react";
+import { COURSE_MODALITIES } from "@/lib/constants";
 
 export default function Step3() {
   const { state, setField, next, validate } = useOnboarding();
@@ -228,13 +229,29 @@ export default function Step3() {
                 className="h-16 w-full rounded-full bg-[#f3f3f3] border-0 text-lg px-8 focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-0"
               >
                 <option value="">Selecciona una modalidad</option>
-                <option value="presencial">Presencial</option>
-                <option value="en-linea">En línea</option>
-                <option value="hibrido">Híbrido</option>
+                {COURSE_MODALITIES.map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
               </select>
             </div>
+
+            {/* Instrucciones en línea solo si es En línea */}
+            {state.data.cursoModalidad === "En línea" && (
+              <div className="space-y-3">
+                <Label className="text-lg font-semibold flex items-center gap-2">
+                  <Globe size={20} />
+                  Instrucciones o Link para el curso
+                </Label>
+                <input
+                  value={state.data.onlineInstructions || ""}
+                  onChange={e => setField("onlineInstructions", e.target.value)}
+                  placeholder="Ej. Link de Zoom, instrucciones de acceso, etc. (Opcional)"
+                  className="h-16 w-full rounded-full bg-[#f3f3f3] border-0 text-lg px-8 focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-0"
+                />
+              </div>
+            )}
             {/* Dirección y estado solo si es presencial o híbrido */}
-            {(state.data.cursoModalidad === "presencial" || state.data.cursoModalidad === "hibrido") && (
+            {(state.data.cursoModalidad === "Presencial" || state.data.cursoModalidad === "Híbrido") && (
               <>
                 <div className="space-y-3">
                   <Label className="text-lg font-semibold">Dirección</Label>

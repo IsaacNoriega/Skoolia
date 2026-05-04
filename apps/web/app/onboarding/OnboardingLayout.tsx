@@ -99,7 +99,12 @@ export default function OnboardingLayout() {
         name: state.data.cursoNombre.trim(),
         description: state.data.cursoDescripcion?.trim() || undefined,
         modality: state.data.cursoModalidad || undefined,
-        // Solo los campos básicos, sin price ni capacity
+        address: state.data.address || undefined,
+        city: state.data.city || undefined,
+        state: state.data.city || undefined,
+        latitude: state.data.lat ?? undefined,
+        longitude: state.data.lng ?? undefined,
+        onlineInstructions: state.data.onlineInstructions || undefined,
       });
         console.log("[ONBOARDING] Curso enviado:", {
           name: state.data.cursoNombre.trim(),
@@ -107,9 +112,10 @@ export default function OnboardingLayout() {
           modality: state.data.cursoModalidad || undefined,
           address: state.data.address || undefined,
           city: state.data.city || undefined,
-          state: state.data.state || undefined,
+          state: state.data.city || undefined, // En onboarding 'city' es el estado
           latitude: state.data.lat ?? undefined,
           longitude: state.data.lng ?? undefined,
+          onlineInstructions: state.data.onlineInstructions || undefined,
         });
         console.log("[ONBOARDING] Curso guardado:", curso);
       setField("schoolId", curso.id); // O usa otro campo si es necesario

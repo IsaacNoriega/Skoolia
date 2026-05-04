@@ -7,8 +7,8 @@ export class CreateMessageDto {
   @IsString()
   senderId: string;
 
-  @IsIn(['parent', 'school'])
-  senderType: 'parent' | 'school';
+  @IsIn(['parent', 'school', 'course'])
+  senderType: 'parent' | 'school' | 'course';
 
   @IsString()
   receiverId: string;

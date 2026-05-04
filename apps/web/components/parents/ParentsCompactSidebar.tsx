@@ -1,10 +1,10 @@
 /* eslint-disable react-hooks/static-components */
 "use client";
 import Link from "next/link";
-import { Heart, History, MessageCircle, User } from "lucide-react";
+import { Heart, History, MessageCircle, User, ClipboardCheck } from "lucide-react";
 import { JSX } from "react";
 
-type Props = { active?: "favorites" | "messages" | "info" | "history" };
+type Props = { active?: "favorites" | "messages" | "info" | "history" | "enrollments" };
 
 type ItemProps = {
   icon: JSX.Element;
@@ -55,6 +55,12 @@ export default function ParentsCompactSidebar({ active = "info" }: Props) {
           label="Historial"
           href="/parents/history"
           isActive={active === "history"}
+        />
+        <Item
+          icon={<ClipboardCheck size={16} />}
+          label="Inscripciones"
+          href="/parents/enrollments"
+          isActive={active === "enrollments"}
         />
       </div>
     </aside>

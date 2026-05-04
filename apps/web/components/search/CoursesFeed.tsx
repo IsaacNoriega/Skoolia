@@ -10,17 +10,32 @@ import { favoritesService } from "@/lib/services/services/favorites.service";
 import { useToast } from "@/components/ui/toast";
 import { useLeadTracking } from "@/lib/hooks/useLeadTracking";
 
-export default function CoursesFeed() {
+export default function CoursesFeed({
+  search: propQ,
+  city: propLoc,
+  minPrice: propMinPrice,
+  maxPrice: propMaxPrice,
+  modality: propModality,
+  schedule: propSchedule,
+}: {
+  search?: string;
+  city?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  modality?: string;
+  schedule?: string;
+} = {}) {
   const { user } = useAuth();
   const { showToast } = useToast();
   const { trackLead } = useLeadTracking({ userId: user?.id || "" });
   const searchParams = useSearchParams();
-  const q = searchParams.get("q") || "";
-  const loc = searchParams.get("loc") || "";
-  const minPrice = parseInt(searchParams.get("minPrice") || "0");
-  const maxPrice = parseInt(searchParams.get("maxPrice") || "999999");
-  const schedule = searchParams.get("schedule") || "";
-  const modality = searchParams.get("modality") || "";
+
+  const q = searchParams.get("q") || propQ || "";
+  const loc = searchParams.get("loc") || propLoc || "";
+  const minPrice = parseInt(searchParams.get("minPrice") || String(propMinPrice || "0"));
+  const maxPrice = parseInt(searchParams.get("maxPrice") || String(propMaxPrice || "999999"));
+  const schedule = searchParams.get("schedule") || propSchedule || "";
+  const modality = searchParams.get("modality") || propModality || "";
 
   const { data: courses, isLoading, refetch } = useQuery({
     queryKey: ["courses-feed", q, loc, minPrice, maxPrice, schedule, modality],
@@ -154,6 +169,9 @@ export default function CoursesFeed() {
             enrollmentYear: undefined,
             monthlyPrice: undefined,
             gallery: selectedNode.gallery,
+            address: selectedNode.address,
+            city: selectedNode.city,
+            onlineInstructions: selectedNode.onlineInstructions,
           }
         }
       />

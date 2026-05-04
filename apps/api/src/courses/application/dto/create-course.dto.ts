@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsString, IsOptional, IsNumber, IsDate, IsArray } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsDate, IsArray, IsIn } from 'class-validator';
 
 export class CreateCourseDto {
   @IsString()
@@ -34,7 +34,7 @@ export class CreateCourseDto {
   endDate?: Date;
 
   @IsOptional()
-  @IsString()
+  @IsIn(['Presencial', 'En línea', 'Híbrido'])
   modality?: string;
 
   // Ubicación (opcional)
@@ -59,6 +59,10 @@ export class CreateCourseDto {
   @Type(() => Number)
   @IsNumber()
   longitude?: number;
+
+  @IsOptional()
+  @IsString()
+  onlineInstructions?: string;
 
   @IsOptional()
   @IsArray()

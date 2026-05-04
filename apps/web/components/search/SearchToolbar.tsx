@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { schoolCategoriesService, type Category } from "@/lib/services/services/schools-categories.service";
 import { MEXICO_STATES, resolveMexicanState } from "@/lib/mexico-states";
 import { useAuth } from "@/contexts/AuthContext";
+import { COURSE_MODALITIES } from "@/lib/constants";
 
 type Props = {
   tab?: "escuelas" | "cursos";
@@ -14,6 +15,7 @@ type Props = {
   level?: string;
   categoryId?: string;
   schedule?: string;
+  modality?: string;
   languages?: string;
   minPrice?: number;
   maxPrice?: number;
@@ -33,6 +35,7 @@ export default function SearchToolbar({
   level = "",
   categoryId = "",
   schedule = "",
+  modality = "",
   languages = "",
   minPrice,
   maxPrice,
@@ -42,12 +45,12 @@ export default function SearchToolbar({
   latitude,
   longitude,
 }: Props) {
-    const [activeTab, setActiveTab] = useState<"escuelas" | "cursos">(
-      tab || "escuelas"
-    );
-    useEffect(() => {
-      setActiveTab(tab || "escuelas");
-    }, [tab]);
+  const [activeTab, setActiveTab] = useState<"escuelas" | "cursos">(
+    tab || "escuelas"
+  );
+  useEffect(() => {
+    setActiveTab(tab || "escuelas");
+  }, [tab]);
   const router = useRouter();
   const { user } = useAuth();
   const pathname = usePathname();
@@ -56,7 +59,7 @@ export default function SearchToolbar({
   const [location, setLocation] = useState(loc);
   const [educationalLevel, setEducationalLevel] = useState(level);
   const [selectedCategoryId, setSelectedCategoryId] = useState(categoryId);
-  const [scheduleFilter, setScheduleFilter] = useState(schedule);
+  const [scheduleFilter, setScheduleFilter] = useState(modality || schedule);
   const [languagesFilter, setLanguagesFilter] = useState(languages);
   const [priceMin, setPriceMin] = useState(minPrice != null ? String(minPrice) : "");
   const [priceMax, setPriceMax] = useState(maxPrice != null ? String(maxPrice) : "");
@@ -76,7 +79,7 @@ export default function SearchToolbar({
   useEffect(() => setLocation(loc), [loc]);
   useEffect(() => setEducationalLevel(level), [level]);
   useEffect(() => setSelectedCategoryId(categoryId), [categoryId]);
-  useEffect(() => setScheduleFilter(schedule), [schedule]);
+  useEffect(() => setScheduleFilter(modality || schedule), [modality, schedule]);
   useEffect(() => setLanguagesFilter(languages), [languages]);
   useEffect(() => setPriceMin(minPrice != null ? String(minPrice) : ""), [minPrice]);
   useEffect(() => setPriceMax(maxPrice != null ? String(maxPrice) : ""), [maxPrice]);
@@ -183,7 +186,7 @@ export default function SearchToolbar({
     }
     if (normalizedLevel) params.set("level", normalizedLevel);
     if (selectedCategoryId) params.set("categoryId", selectedCategoryId);
-    if (normalizedSchedule) params.set("schedule", normalizedSchedule);
+    if (normalizedSchedule) params.set("modality", normalizedSchedule);
     if (normalizedLanguages) params.set("languages", normalizedLanguages);
     if (normalizedMinPrice && !Number.isNaN(Number(normalizedMinPrice))) {
       params.set("minPrice", normalizedMinPrice);
@@ -386,9 +389,9 @@ export default function SearchToolbar({
                         className="w-full appearance-none rounded-2xl bg-slate-50 border-2 border-slate-50 px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-violet-100 focus:bg-white transition-all"
                       >
                         <option value="">Todas las modalidades</option>
-                        <option value="Presencial">Presencial</option>
-                        <option value="En línea">En línea</option>
-                        <option value="Híbrido">Híbrido</option>
+                        {COURSE_MODALITIES.map(m => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
                       </select>
                     </FilterGroup>
 

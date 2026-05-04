@@ -21,7 +21,11 @@ export default async function OnboardingPage() {
 
   // 🚫 Si ya completó onboarding
   if (!user.onboardingRequired) {
-    redirect("/schools");
+    if (user.hasSchool) {
+      redirect("/schools");
+    } else {
+      redirect("/courses");
+    }
   }
 
   return (

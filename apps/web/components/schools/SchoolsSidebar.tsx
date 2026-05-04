@@ -15,6 +15,7 @@ import {
   School,
   Settings,
   Users,
+  ClipboardCheck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -33,6 +34,7 @@ type ActiveSection =
   | "broadcasts"
   | "offers"
   | "plans"
+  | "enrollments"
   | "settings";
 
 type DashboardMode = "school" | "course";
@@ -113,7 +115,9 @@ export default function SchoolsSidebar({ active = "summary", mode = "school" }: 
     const loadThreads = async () => {
       try {
         if (!user) return;
-        const data = await messagesService.listSchoolThreads(user.id);
+        const data = currentMode === "school" 
+          ? await messagesService.listSchoolThreads(user.id)
+          : await messagesService.listCourseThreadsByOwner(user.id);
         if (mounted) setThreads(data);
       } catch {
         if (mounted) setThreads([]);
@@ -191,6 +195,12 @@ export default function SchoolsSidebar({ active = "summary", mode = "school" }: 
           href: currentMode === "school" ? "/schools/offers" : "/courses/offer",
           key: "offers" as const,
         },
+        {
+          icon: ClipboardCheck,
+          label: "Inscripciones",
+          href: `${basePath}/enrollments`,
+          key: "enrollments" as const,
+        },
       ],
     },
     {
@@ -225,6 +235,8 @@ export default function SchoolsSidebar({ active = "summary", mode = "school" }: 
       ? "offers"
       : pathname.includes("/plans")
       ? "plans"
+      : pathname.includes("/enrollments")
+      ? "enrollments"
       : pathname.includes("/settings")
       ? "settings"
       : active;

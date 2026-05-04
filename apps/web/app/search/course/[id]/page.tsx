@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useLeadTracking } from "@/lib/hooks/useLeadTracking";
 import { useAuth } from "@/contexts/AuthContext";
 import { coursesService, type Course } from "@/lib/services/services/courses.service";
+import { enrollmentService, EnrollmentTargetType } from "@/lib/services/services/enrollment.service";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ArrowLeft, 
@@ -18,8 +19,11 @@ import {
   ChevronLeft, 
   ChevronRight, 
   Heart, 
-  MapPin 
+  MapPin,
+  MessageCircle
 } from "lucide-react";
+import { favoritesService } from "@/lib/services/services/favorites.service";
+import { courseMessagesService } from "@/lib/services/services/course-messages.service";
 
 export default function CourseDetailsPage() {
   const { id } = useParams();
@@ -39,11 +43,9 @@ export default function CourseDetailsPage() {
     setLoading(true);
 
     coursesService
-      .listAll()
-      .then((courses) => {
-        const found = courses.find((c) => c.id === id);
-        if (!found) setError("Curso no encontrado");
-        setCourse(found || null);
+      .getById(id as string)
+      .then((data) => {
+        setCourse(data);
       })
       .catch(() => setError("Error al cargar el curso"))
       .finally(() => setLoading(false));
@@ -70,8 +72,8 @@ export default function CourseDetailsPage() {
   }, [course, id]);
 
   useEffect(() => {
-    // Assuming we might need to check if it's favorite
-    // For now, toggle is implemented in coursesService
+    if (!id || !user) return;
+    favoritesService.isFavorite(id as string).then(res => setIsFavorite(res.isFavorite));
   }, [id, user]);
 
   const toggleFavorite = async () => {
@@ -88,9 +90,9 @@ export default function CourseDetailsPage() {
     }
   };
 
-  const handleEnroll = async () => {
-    if (!user?.id || !course?.id) {
-      setActionMessage("Inicia sesión para inscribirte.");
+  const handleContact = async () => {
+    if (!course || !user) {
+      setActionMessage("Inicia sesión para contactar.");
       return;
     }
     setSending(true);
@@ -99,12 +101,36 @@ export default function CourseDetailsPage() {
       await trackLead({
         targetId: course.id,
         originType: "COURSE",
-        trigger: "INSCRIBIRME",
+        trigger: "INFO_REQUEST",
         status: "INTERESADO",
       });
-      setActionMessage("¡Tu interés ha sido registrado!");
+      await courseMessagesService.sendCourseMessage(course.id, "Hola, me interesa obtener más información sobre este curso.", { id: user.id, role: user.role });
+      setActionMessage("¡Mensaje enviado con éxito!");
+    } catch (err) {
+      setActionMessage("Error al enviar el mensaje.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleEnroll = async () => {
+    if (!user?.id || !course?.id) {
+      setActionMessage("Inicia sesión para inscribirte.");
+      return;
+    }
+    setSending(true);
+    setActionMessage(null);
+    try {
+      await enrollmentService.enroll({
+        targetId: course.id,
+        targetType: EnrollmentTargetType.COURSE,
+        amount: course.price || 2450, // Fallback if no price
+      });
+      
+      setActionMessage("¡Inscripción realizada con éxito!");
+      // Optional: Refresh or redirect
     } catch (e) {
-      setActionMessage("Error al registrar interés.");
+      setActionMessage("Error al procesar la inscripción.");
     } finally {
       setSending(false);
     }
@@ -354,6 +380,14 @@ export default function CourseDetailsPage() {
 
                 <div className="space-y-3">
                   <button
+                    onClick={handleContact}
+                    disabled={sending}
+                    className="w-full h-14 bg-white text-slate-900 border border-slate-200 text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    <MessageCircle size={14} className="text-violet-500" />
+                    Solicitar Información
+                  </button>
+                  <button
                     onClick={handleEnroll}
                     disabled={sending}
                     className="w-full h-14 bg-violet-600 text-white text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all hover:bg-violet-700 active:scale-95 disabled:opacity-50 shadow-md shadow-violet-100"
@@ -365,10 +399,6 @@ export default function CourseDetailsPage() {
                   >
                     Descargar Temario
                   </button>
-                  
-                  {actionMessage && (
-                    <p className="text-center text-[9px] font-bold text-emerald-600 uppercase tracking-widest">{actionMessage}</p>
-                  )}
                 </div>
 
                 <div className="pt-8 border-t border-slate-50 space-y-4">
@@ -387,6 +417,24 @@ export default function CourseDetailsPage() {
           
         </div>
       </main>
+      <AnimatePresence>
+        {actionMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, x: "-50%" }}
+            animate={{ opacity: 1, y: 0, x: "-50%" }}
+            exit={{ opacity: 0, y: 50, x: "-50%" }}
+            className="fixed bottom-10 left-1/2 z-[200] transform -translate-x-1/2 px-6 py-3 bg-slate-900 text-white text-[11px] font-bold uppercase tracking-widest rounded-full shadow-2xl flex items-center gap-4"
+          >
+            <span>{actionMessage}</span>
+            <button 
+              onClick={() => setActionMessage(null)}
+              className="w-5 h-5 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+            >
+              ×
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

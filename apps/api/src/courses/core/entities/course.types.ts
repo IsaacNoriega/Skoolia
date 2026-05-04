@@ -38,6 +38,7 @@ export interface Course {
   state?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  onlineInstructions?: string | null;
 
   averageRating: number;
   enrollmentsCount: number;

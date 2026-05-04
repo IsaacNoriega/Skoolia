@@ -20,14 +20,12 @@ import RegisterModal from "./RegisterModal";
 import { useAuth } from "@/contexts/AuthContext";
 
 function NavbarContent(): JSX.Element {
-  const { user, logout } = useAuth();
+  const { user, loading, logout } = useAuth();
   const router = useRouter();
 
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const audience = searchParams.get("audience") ?? "parents";
-
-  const isWhite = pathname?.includes("login") || audience === "schools";
 
   const [scrolled, setScrolled] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
@@ -40,6 +38,25 @@ function NavbarContent(): JSX.Element {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  if (loading) {
+    return (
+      <div className="sticky top-0 z-50 bg-transparent pt-5">
+        <nav className="w-full max-w-6xl mx-auto px-8 py-4 bg-white/55 backdrop-blur-md rounded-4xl flex items-center justify-between h-[80px]">
+          <div className="flex items-center gap-2">
+            <div className="w-12 h-12 bg-gray-200 rounded-xl animate-pulse" />
+            <div className="h-6 w-24 bg-gray-200 rounded animate-pulse" />
+          </div>
+          <div className="flex gap-4">
+             <div className="w-24 h-10 bg-gray-200 rounded-full animate-pulse" />
+             <div className="w-24 h-10 bg-gray-200 rounded-full animate-pulse" />
+          </div>
+        </nav>
+      </div>
+    );
+  }
+
+  const isWhite = pathname?.includes("login") || audience === "schools";
 
   const displayName = user?.name ?? user?.email.split("@")[0] ?? "";
 
@@ -138,8 +155,11 @@ function NavbarContent(): JSX.Element {
 
             {user?.role === "private" && (
               <li>
-                <Link href="/schools" className="font-medium text-[#2d2c2b] hover:text-black">
-                  Panel escolar
+                <Link 
+                  href={user.hasSchool ? "/schools" : "/courses"} 
+                  className="font-medium text-[#2d2c2b] hover:text-black"
+                >
+                  Dashboard
                 </Link>
               </li>
             )}
@@ -186,7 +206,7 @@ function NavbarContent(): JSX.Element {
                 {user.role === "private" && (
                   <>
                     <Link
-                      href="/schools"
+                      href={user.hasSchool ? "/schools" : "/courses"}
                       className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 rounded-lg text-sm"
                     >
                       <LayoutDashboard size={16} />

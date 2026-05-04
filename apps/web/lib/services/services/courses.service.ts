@@ -17,6 +17,12 @@ export interface Course {
   isActive: boolean;
   schoolName?: string | null;
   ownerName?: string | null;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  onlineInstructions?: string | null;
 }
 
 export const coursesService = {
@@ -47,6 +53,7 @@ export const coursesService = {
     state?: string;
     latitude?: number;
     longitude?: number;
+    onlineInstructions?: string;
   }) {
     return api<Course>('/courses', {
       method: 'POST',
@@ -54,7 +61,7 @@ export const coursesService = {
     });
   },
 
-  async update(courseId: string, data: Partial<Course>) {
+  async update(courseId: string, data: Partial<Course & { coverImage?: File; galleryImages?: File[] }>) {
     return api<Course>(`/courses/${courseId}`, {
       method: 'PATCH',
       body: data,

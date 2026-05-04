@@ -46,7 +46,8 @@ export default function SchoolMessagesSection() {
 		const [loadingThreads, setLoadingThreads] = useState(true);
 		const [loadingMessages, setLoadingMessages] = useState(false);
 		const [sending, setSending] = useState(false);
-		const [schoolId, setSchoolId] = useState<string | null>(null);
+		const [participantId, setParticipantId] = useState<string | null>(null);
+		const [filter, setFilter] = useState<"all" | "school" | "course">("all");
 
 	// ...existing code...
 
@@ -60,41 +61,55 @@ export default function SchoolMessagesSection() {
 	}
 
 		const loadThreads = useCallback(async () => {
-			if (!schoolId) return;
-			const data = await messagesService.listSchoolThreads(schoolId);
+			if (!participantId) return;
+			const data = isCourseMode 
+				? await messagesService.listCourseThreadsByOwner(participantId)
+				: await messagesService.listSchoolThreads(participantId);
+			console.log('[SchoolMessagesSection] Threads data:', data);
 			setThreads(data);
 			setActiveThreadId((current) => {
-				if (current && data.some((thread) => thread.publicUserId === current)) {
+				if (current && data.some((thread) => thread.id === current)) {
 					return current;
 				}
-				return data[0]?.publicUserId ?? null;
+				return data[0]?.id ?? null;
 			});
-		}, [schoolId]);
+		}, [participantId, isCourseMode]);
 
 		const loadMessages = useCallback(async (threadId: string, syncThreads = false) => {
-			if (!schoolId) return;
-			const data = await messagesService.listSchoolThreadMessages(threadId, schoolId);
+			if (!participantId) return;
+			const data = await messagesService.listThreadMessages(threadId);
 			setMessages(data);
 
 			if (syncThreads) {
-				const refreshedThreads = await messagesService.listSchoolThreads(schoolId);
+				const refreshedThreads = isCourseMode
+					? await messagesService.listCourseThreadsByOwner(participantId)
+					: await messagesService.listSchoolThreads(participantId);
 				setThreads(refreshedThreads);
 				notifySchoolThreadsUpdated();
 			}
-		}, [schoolId]);
+		}, [participantId, isCourseMode]);
 
-		// Al montar, obtener schoolId desde /schools/me
+		// Al montar, obtener participantId (schoolId o userId del dueño del curso)
 		useEffect(() => {
 			let mounted = true;
 			(async () => {
 				if (!user) return;
 				try {
-					const school = await schoolsService.getMySchool();
-					if (!mounted) return;
-					setSchoolId(school.id);
+					if (isCourseMode) {
+						// Para cursos independientes, el ID del participante es el ID del usuario (dueño)
+						setParticipantId(user.id);
+					} else {
+						const school = await schoolsService.getMySchool();
+						if (!mounted) return;
+						if (school && school.id) {
+							setParticipantId(school.id);
+						} else {
+							setParticipantId(null);
+						}
+					}
 				} catch (err) {
-					console.error('[SchoolMessagesSection] Error al obtener schoolId:', err);
-					setSchoolId(null);
+					console.error('[SchoolMessagesSection] Error al obtener participantId:', err);
+					setParticipantId(null);
 				} finally {
 					if (mounted) setLoadingThreads(false);
 				}
@@ -102,13 +117,13 @@ export default function SchoolMessagesSection() {
 			return () => {
 				mounted = false;
 			};
-		}, [user]);
+		}, [user, isCourseMode]);
 
-		// Cuando schoolId esté listo, cargar hilos
+		// Cuando participantId esté listo, cargar hilos
 		useEffect(() => {
-			if (!schoolId) return;
+			if (!participantId) return;
 			void loadThreads();
-		}, [schoolId, loadThreads, requestedThreadId]);
+		}, [participantId, loadThreads, requestedThreadId]);
 
 	useEffect(() => {
 		if (loadingThreads) return;
@@ -168,17 +183,45 @@ export default function SchoolMessagesSection() {
 		return () => clearInterval(interval);
 	}, [activeThreadId, loadMessages, loadingMessages, sending]);
 
+	const uniqueCourseIds = useMemo(() => {
+		const ids = new Map<string, string>();
+		threads.forEach((t) => {
+			if (t.courseId && t.courseName) ids.set(t.courseId, t.courseName);
+		});
+		return Array.from(ids.entries());
+	}, [threads]);
+
+	const [courseFilter, setCourseFilter] = useState<string | null>(null);
+
+	const filteredThreads = useMemo(() => {
+		let result = threads;
+		if (filter !== "all") {
+			result = result.filter((t) => t.type === filter);
+		}
+		if (courseFilter) {
+			result = result.filter((t) => t.courseId === courseFilter);
+		}
+		return result;
+	}, [threads, filter, courseFilter]);
+
 	const activeThread = useMemo(() => {
-		return threads.find((thread) => thread.publicUserId === activeThreadId) ?? null;
+		return threads.find((thread) => thread.id === activeThreadId) ?? null;
 	}, [activeThreadId, threads]);
 
 	const sendMessage = async () => {
 		const content = draft.trim();
-		if (!activeThreadId || !content || sending || !schoolId) return;
+		if (!activeThreadId || !content || sending || !participantId || !activeThread) return;
 
 		try {
 			setSending(true);
-			await messagesService.sendSchoolMessage(activeThreadId, content, schoolId);
+			const publicUserId = activeThread.publicUserId;
+			const targetId = activeThread.courseId || participantId;
+
+			if (activeThread.type === 'course') {
+				await messagesService.sendCourseMessage(publicUserId, content, targetId);
+			} else {
+				await messagesService.sendSchoolMessage(publicUserId, content, targetId);
+			}
 
 			await loadMessages(activeThreadId, true);
 			setDraft("");
@@ -208,12 +251,63 @@ export default function SchoolMessagesSection() {
 						<p className="mt-2 text-xs text-slate-500">Conversaciones con padres de familia.</p>
 					</header>
 
+					{!isCourseMode ? (
+						<div className="flex border-b border-slate-100/70 p-2 gap-1 bg-slate-50/50">
+							<button
+								onClick={() => { setFilter("all"); setCourseFilter(null); }}
+								className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${
+									filter === "all" ? `${accentBgClass} text-white shadow-sm` : "text-slate-500 hover:bg-slate-100"
+								}`}
+							>
+								Todos
+							</button>
+							<button
+								onClick={() => { setFilter("school"); setCourseFilter(null); }}
+								className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${
+									filter === "school" ? `${accentBgClass} text-white shadow-sm` : "text-slate-500 hover:bg-slate-100"
+								}`}
+							>
+								Escuela
+							</button>
+							<button
+								onClick={() => setFilter("course")}
+								className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${
+									filter === "course" ? `${accentBgClass} text-white shadow-sm` : "text-slate-500 hover:bg-slate-100"
+								}`}
+							>
+								Cursos
+							</button>
+						</div>
+					) : uniqueCourseIds.length > 1 ? (
+						<div className="flex border-b border-slate-100/70 p-2 gap-1 bg-slate-50/50 overflow-x-auto whitespace-nowrap no-scrollbar">
+							<button
+								onClick={() => setCourseFilter(null)}
+								className={`px-4 py-2 text-[9px] font-bold uppercase tracking-wider rounded-lg transition-all ${
+									!courseFilter ? `${accentBgClass} text-white shadow-sm` : "text-slate-500 hover:bg-slate-100"
+								}`}
+							>
+								Todos
+							</button>
+							{uniqueCourseIds.map(([id, name]) => (
+								<button
+									key={id}
+									onClick={() => setCourseFilter(id)}
+									className={`px-4 py-2 text-[9px] font-bold uppercase tracking-wider rounded-lg transition-all ${
+										courseFilter === id ? `${accentBgClass} text-white shadow-sm` : "text-slate-500 hover:bg-slate-100"
+									}`}
+								>
+									{name}
+								</button>
+							))}
+						</div>
+					) : null}
+
 					{loadingThreads ? (
 						<div className="px-5 py-4 text-sm text-slate-500">Cargando conversaciones...</div>
 					) : (
 						<div className="divide-y divide-slate-100/70">
 							{threads.map((thread) => {
-								const active = thread.publicUserId === activeThreadId;
+								const active = thread.id === activeThreadId;
 								const initials = thread.publicUserName
 									.split(" ")
 									.map((part) => part[0])
@@ -223,12 +317,12 @@ export default function SchoolMessagesSection() {
 
 								return (
 									<button
-										key={thread.publicUserId}
+										key={thread.id}
 										type="button"
 										className={`flex w-full items-center justify-between px-5 py-4 sm:px-6 sm:py-4 text-left transition-colors ${
 											active ? `${accentActiveBgClass} border-l-4 ${accentBorderClass}` : "hover:bg-slate-50"
 										}`}
-										onClick={() => setActiveThreadId(thread.publicUserId)}
+										onClick={() => setActiveThreadId(thread.id)}
 									>
 										<div className="flex items-center gap-3 sm:gap-4">
 											<div className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-extrabold ${
@@ -238,7 +332,14 @@ export default function SchoolMessagesSection() {
 											</div>
 											<div>
 												<p className="text-sm font-extrabold text-slate-900">{thread.publicUserName}</p>
-												<p className="mt-0.5 line-clamp-1 text-xs text-slate-500">{thread.lastMessage}</p>
+												<div className="flex items-center gap-1.5 mt-0.5">
+													<span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md ${
+														thread.type === 'course' ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700'
+													}`}>
+														{thread.type === 'course' ? `CH-CURSO: ${thread.courseName || '?'}` : 'CH-ESC'}
+													</span>
+													<p className="line-clamp-1 text-xs text-slate-500">{thread.lastMessage}</p>
+												</div>
 												{thread.threadHasUnread ? (
 													<p className="mt-1 text-[11px] font-bold text-amber-600">
 														{thread.unreadCount} sin leer
@@ -258,21 +359,38 @@ export default function SchoolMessagesSection() {
 								);
 							})}
 
-							{!threads.length ? (
-								<div className="px-5 py-8 text-sm text-slate-500">Aun no tienes conversaciones activas.</div>
+							{!filteredThreads.length ? (
+								<div className="px-5 py-12 text-center">
+									<p className="text-sm text-slate-400 font-medium">No hay conversaciones en esta categoría.</p>
+								</div>
 							) : null}
 						</div>
 					)}
 				</div>
 
 				<div className="flex flex-col min-h-140">
-					<header className="px-5 py-4 sm:px-6 sm:py-5 border-b border-slate-100/70">
-						<p className="text-sm sm:text-base font-extrabold text-slate-900">
-							{activeThread?.publicUserName ?? "Selecciona una conversacion"}
-						</p>
-						<p className="mt-1 text-[11px] font-bold uppercase tracking-wide text-slate-500">
-							Mensajeria directa
-						</p>
+					<header className="px-5 py-4 sm:px-6 sm:py-5 border-b border-slate-100/70 bg-white z-10">
+						<div className="flex items-center justify-between">
+							<div>
+								<p className="text-sm sm:text-base font-extrabold text-slate-900">
+									{activeThread?.publicUserName ?? "Selecciona una conversacion"}
+								</p>
+								<div className="flex items-center gap-2 mt-1">
+									<span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
+										activeThread?.type === 'course' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
+									}`}>
+										{activeThread?.type === 'course' ? `CH-CURSO-DETALLE: ${activeThread.courseName}` : 'CH-ESC-GENERAL'}
+									</span>
+								</div>
+							</div>
+							{activeThread?.leadStatus && (
+								<div className="hidden sm:block">
+									<span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
+										Lead: {activeThread.leadStatus}
+									</span>
+								</div>
+							)}
+						</div>
 					</header>
 
 					<div className="flex-1 px-5 py-4 sm:px-6 sm:py-6 space-y-4 bg-slate-50/40">
@@ -283,9 +401,7 @@ export default function SchoolMessagesSection() {
 						) : null}
 
 						{messages.map((message) => {
-							// Log temporal para depuración
-							console.log('[SchoolMessagesSection] message:', message, 'schoolId:', schoolId);
-							const isMine = message.senderType === "school" && message.senderId === schoolId;
+							const isMine = message.senderRole === "private";
 							return (
 								<div
 									key={message.id}
@@ -294,7 +410,7 @@ export default function SchoolMessagesSection() {
 									<div
 										className={`max-w-xl rounded-3xl px-4 py-3 text-sm sm:text-base shadow-sm ${
 											isMine
-												? "bg-violet-600 text-white rounded-br-none"
+												? `${accentBgClass} text-white rounded-br-none`
 												: "bg-white text-slate-800 ring-1 ring-slate-200 rounded-bl-none"
 										}`}
 									>
