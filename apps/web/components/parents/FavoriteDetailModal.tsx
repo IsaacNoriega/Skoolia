@@ -1,7 +1,7 @@
 'use client';
 import Image from 'next/image';
-import { X, MapPin, Star, ChevronLeft, ChevronRight, Users, Clock3, Languages, ImageIcon, ArrowUpRight } from 'lucide-react';
-import { JSX, useEffect, useState } from 'react';
+import { X, MapPin, Star, ChevronLeft, ChevronRight, Users, Clock3, Languages, ImageIcon, ArrowUpRight, Globe } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { messagesService } from '@/lib/services/services/messages.service';
@@ -29,6 +29,9 @@ type Item = {
   enrollmentYear?: number;
   monthlyPrice?: number;
   gallery?: string[];
+  address?: string;
+  city?: string;
+  onlineInstructions?: string;
 };
 
 export default function FavoriteDetailModal({
@@ -98,7 +101,7 @@ export default function FavoriteDetailModal({
 
   const numericPrice = typeof item.price === 'number' ? item.price : (typeof item.monthlyPrice === 'number' ? item.monthlyPrice : undefined);
   const priceValue = numericPrice != null
-    ? `$${numericPrice.toLocaleString()}`
+    ? `$${numericPrice.toLocaleString('es-MX')}`
     : (String(item.price).match(/\$\s?[\d,.]+/)?.[0] ?? String(item.price));
   const priceUnit = numericPrice != null ? 'MXN/mes' : (String(item.price).includes('MXN/mes') ? 'MXN/mes' : '');
 
@@ -233,7 +236,7 @@ export default function FavoriteDetailModal({
 
           <div className="mt-3 flex items-center gap-2 text-sm font-medium text-slate-400">
             <MapPin className="h-4 w-4 shrink-0 text-slate-300" />
-            <span>{item.location || 'Ubicación por definir'}</span>
+            <span>{item.address ? `${item.address}, ${item.city}` : (item.location || 'Ubicación por definir')}</span>
           </div>
 
           <div className="mt-10 space-y-12">
@@ -243,6 +246,15 @@ export default function FavoriteDetailModal({
                <p className="text-base leading-relaxed text-slate-600 font-medium">
                  {item.description || 'Explora una propuesta educativa de vanguardia diseñada para potenciar el talento y la curiosidad de los estudiantes en un entorno seguro y estimulante.'}
                </p>
+               {item.onlineInstructions && (
+                 <div className="mt-4 p-4 rounded-2xl bg-violet-50 border border-violet-100 flex items-start gap-3">
+                   <Globe className="h-5 w-5 text-violet-600 shrink-0 mt-0.5" />
+                   <div>
+                     <p className="text-[10px] font-bold uppercase tracking-widest text-violet-400">Instrucciones Online</p>
+                     <p className="text-sm font-medium text-violet-900">{item.onlineInstructions}</p>
+                   </div>
+                 </div>
+               )}
             </div>
 
             {/* Bento Grid Specs */}

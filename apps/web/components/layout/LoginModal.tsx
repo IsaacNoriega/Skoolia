@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { X, User, Building2 } from "lucide-react";
 import { authService } from "@/lib/services/services/auth.service";
 
+import { useAuth } from "@/contexts/AuthContext";
+
 type Props = {
   isOpen: boolean;
   onClose: () => void;
@@ -20,6 +22,7 @@ export default function LoginModal({
   onSwitchToRegister,
   prefill,
 }: Props) {
+  const { login } = useAuth();
   const [audience, setAudience] = useState<"parents" | "schools">("parents");
   const panelRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -133,12 +136,7 @@ export default function LoginModal({
               setLoading(true);
 
               try {
-                await authService.login({
-                  email,
-                  password,
-                });
-
-                // 🔐 cookies ya quedaron seteadas por el backend
+                const loggedInUser = await login(email, password);
 
                 try {
                   localStorage.setItem("skoolia:auth", audience);
@@ -146,7 +144,11 @@ export default function LoginModal({
 
                 onClose();
 
-                router.push(audience === "schools" ? "/schools" : "/parents");
+                if (audience === "schools") {
+                  router.push(loggedInUser.hasSchool ? "/schools" : "/courses");
+                } else {
+                  router.push("/parents");
+                }
               } catch (err: unknown) {
                 console.error(err);
                 setMessage("No se pudo iniciar sesión. Revisa tus datos.");

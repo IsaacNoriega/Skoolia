@@ -17,6 +17,7 @@ function SearchContent() {
   const level = searchParams.get("level") || "";
   const categoryId = searchParams.get("categoryId") || "";
   const schedule = searchParams.get("schedule") || "";
+  const modality = searchParams.get("modality") || "";
   const languages = searchParams.get("languages") || "";
   const minPrice = searchParams.get("minPrice") ? Number(searchParams.get("minPrice")) : undefined;
   const maxPrice = searchParams.get("maxPrice") ? Number(searchParams.get("maxPrice")) : undefined;
@@ -32,6 +33,7 @@ function SearchContent() {
     educationalLevel: level,
     categoryId,
     schedule,
+    modality,
     languages,
     minPrice,
     maxPrice,
@@ -50,6 +52,7 @@ function SearchContent() {
         level={level}
         categoryId={categoryId}
         schedule={schedule}
+        modality={modality}
         languages={languages}
         minPrice={minPrice}
         maxPrice={maxPrice}

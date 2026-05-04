@@ -27,7 +27,7 @@ export type AuthUser = {
 interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -75,14 +75,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
      LOGIN
   ========================= */
 
-  async function login(email: string, password: string) {
+  async function login(email: string, password: string): Promise<AuthUser> {
     await api("/auth/login", {
       method: "POST",
       body: { email, password },
     });
 
     // 🔥 después de login pedimos el user real
-    await refreshUser();
+    const data = await api<AuthUser>("/users/me", { retryOn401: false });
+    setUser(data);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(AUTH_USER_ID_KEY, data.id);
+    }
+    return data;
   }
 
   /* =========================

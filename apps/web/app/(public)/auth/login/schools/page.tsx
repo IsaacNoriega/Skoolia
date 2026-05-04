@@ -11,7 +11,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
 function SchoolsLoginPageContent() {
-  const { refreshUser } = useAuth();
+  const { login } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -27,17 +27,7 @@ function SchoolsLoginPageContent() {
       setLoading(true);
       setError(null);
 
-      await authService.login({
-        email,
-        password,
-      });
-
-      await refreshUser();
-
-      const me = await api<{
-        role: "public" | "private";
-        onboardingRequired: boolean;
-      }>("/users/me");
+      const me = await login(email, password);
 
       if (me.role === "private" && me.onboardingRequired) {
         router.push("/onboarding");

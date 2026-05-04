@@ -10,7 +10,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
 function LoginPageContent() {
-  const { refreshUser } = useAuth();
+  const { login } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -26,13 +26,7 @@ function LoginPageContent() {
       setLoading(true);
       setError(null);
 
-      await authService.login({
-        email,
-        password,
-      });
-
-      // backend setea cookies httponly
-      await refreshUser();
+      await login(email, password);
       router.push('/parents')
     } catch (err: unknown) {
       console.error(err);

@@ -2,7 +2,10 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
-import { X, Image as ImageIcon, Upload } from "lucide-react";
+import { X, Image as ImageIcon, Upload, MapPin, Globe, Loader2 } from "lucide-react";
+import { COURSE_MODALITIES } from "@/lib/constants";
+import { MEXICO_STATES } from "@/lib/mexico-states";
+import { geocodingService } from "@/lib/services/geocoding.service";
 
 import type { Course } from "@/lib/services/services/courses.service";
 
@@ -16,6 +19,12 @@ type CourseFormValues = {
 	endDate: string;
 	status: Course["status"];
 	isActive: boolean;
+	address: string;
+	city: string;
+	state: string;
+	onlineInstructions: string;
+	latitude: string;
+	longitude: string;
 };
 
 type Props = {
@@ -33,6 +42,12 @@ type Props = {
 		isActive: boolean;
 		coverImage?: File | null;
 		galleryImages?: File[];
+		address?: string;
+		city?: string;
+		state?: string;
+		onlineInstructions?: string;
+		latitude?: number;
+		longitude?: number;
 	}) => Promise<void>;
 	mode: "create" | "edit";
 	initialCourse?: Course | null;
@@ -55,6 +70,12 @@ function buildInitialValues(course?: Course | null): CourseFormValues {
 		endDate: toDateInput(course?.endDate),
 		status: course?.status ?? "draft",
 		isActive: course?.isActive ?? true,
+		address: course?.address ?? "",
+		city: course?.city ?? "",
+		state: course?.state ?? "",
+		onlineInstructions: course?.onlineInstructions ?? "",
+		latitude: course?.latitude ? String(course.latitude) : "",
+		longitude: course?.longitude ? String(course.longitude) : "",
 	};
 }
 
@@ -77,6 +98,7 @@ export default function CourseEditorModal({
 	const [coverImage, setCoverImage] = useState<File | null>(null);
 	const [galleryImages, setGalleryImages] = useState<File[]>([]);
 	const [error, setError] = useState<string | null>(null);
+	const [isGeocoding, setIsGeocoding] = useState(false);
 
 	const previewUrl = useMemo(() => {
 		if (coverImage) return URL.createObjectURL(coverImage);
@@ -115,6 +137,11 @@ export default function CourseEditorModal({
 			return;
 		}
 
+		if ((form.modality === "Presencial" || form.modality === "Híbrido") && (!form.address.trim() || !form.city.trim())) {
+			setError("La dirección y el estado son obligatorios para esta modalidad.");
+			return;
+		}
+
 		setError(null);
 
 		try {
@@ -128,6 +155,12 @@ export default function CourseEditorModal({
 				endDate: form.endDate || undefined,
 				status: form.status,
 				isActive: form.isActive,
+				address: form.address.trim() || undefined,
+				city: form.city.trim() || undefined,
+				state: form.city.trim() || undefined, // Mapeado a ciudad por ahora
+				onlineInstructions: form.onlineInstructions.trim() || undefined,
+				latitude: form.latitude ? Number(form.latitude) : undefined,
+				longitude: form.longitude ? Number(form.longitude) : undefined,
 				coverImage,
 				galleryImages,
 			});
@@ -295,13 +328,82 @@ export default function CourseEditorModal({
 							<label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">
 								Modalidad
 							</label>
-							<input
+							<select
 								value={form.modality}
 								onChange={(event) => setForm((current) => ({ ...current, modality: event.target.value }))}
-								placeholder="Presencial, híbrido, online"
 								className={`h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentColorClass}`}
-							/>
+							>
+								<option value="">Seleccionar modalidad</option>
+								{COURSE_MODALITIES.map(m => (
+									<option key={m} value={m}>{m}</option>
+								))}
+							</select>
 						</div>
+
+						{/* Sección Online */}
+						{form.modality === "En línea" && (
+							<div className="sm:col-span-2">
+								<label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400 flex items-center gap-2">
+									<Globe size={14} /> Instrucciones o Link
+								</label>
+								<input
+									value={form.onlineInstructions}
+									onChange={(event) => setForm((current) => ({ ...current, onlineInstructions: event.target.value }))}
+									placeholder="Ej. Link de Zoom, instrucciones de contacto..."
+									className={`h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentColorClass}`}
+								/>
+							</div>
+						)}
+
+						{/* Sección Presencial/Híbrido */}
+						{(form.modality === "Presencial" || form.modality === "Híbrido") && (
+							<>
+								<div className="sm:col-span-2">
+									<label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400 flex items-center gap-2">
+										<MapPin size={14} /> Dirección
+									</label>
+									<div className="flex gap-2">
+										<input
+											value={form.address}
+											onChange={(event) => setForm((current) => ({ ...current, address: event.target.value }))}
+											placeholder="Calle, número, colonia..."
+											className={`h-11 flex-1 rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentColorClass}`}
+										/>
+										<button
+											type="button"
+											disabled={isGeocoding || !form.city}
+											onClick={async () => {
+												setIsGeocoding(true);
+												const res = await geocodingService.geocodeAddressWithFallback(form.address, form.city);
+												setIsGeocoding(false);
+												if (res.success && res.data) {
+													setForm(c => ({ ...c, latitude: String(res.data.lat), longitude: String(res.data.lng) }));
+												}
+											}}
+											className={`h-11 px-4 rounded-2xl ${accentBgClass} text-white text-xs font-bold disabled:opacity-50 flex items-center gap-2`}
+										>
+											{isGeocoding ? <Loader2 className="animate-spin" size={14} /> : <MapPin size={14} />}
+											Geolocalizar
+										</button>
+									</div>
+								</div>
+								<div>
+									<label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">
+										Estado
+									</label>
+									<select
+										value={form.city}
+										onChange={(event) => setForm((current) => ({ ...current, city: event.target.value }))}
+										className={`h-11 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentColorClass}`}
+									>
+										<option value="">Seleccionar estado</option>
+										{MEXICO_STATES.map(s => (
+											<option key={s} value={s}>{s}</option>
+										))}
+									</select>
+								</div>
+							</>
+						)}
 
 						<div>
 							<label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">

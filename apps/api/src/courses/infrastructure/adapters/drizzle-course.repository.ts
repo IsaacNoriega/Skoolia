@@ -74,6 +74,7 @@ export class DrizzleCourseRepository implements CourseRepository {
     latitude?: number;
     longitude?: number;
     gallery?: string[];
+    onlineInstructions?: string;
   }): Promise<Course> {
     const [course] = await this.db
       .insert(courses)
@@ -94,6 +95,7 @@ export class DrizzleCourseRepository implements CourseRepository {
         latitude: params.latitude ?? null,
         longitude: params.longitude ?? null,
         gallery: params.gallery ?? [],
+        onlineInstructions: params.onlineInstructions ?? null,
       })
       .returning();
 
@@ -117,6 +119,12 @@ export class DrizzleCourseRepository implements CourseRepository {
         startDate: courses.startDate,
         endDate: courses.endDate,
         modality: courses.modality,
+        address: courses.address,
+        city: courses.city,
+        state: courses.state,
+        latitude: courses.latitude,
+        longitude: courses.longitude,
+        onlineInstructions: courses.onlineInstructions,
         averageRating: courses.averageRating,
         enrollmentsCount: courses.enrollmentsCount,
         status: courses.status,
@@ -162,6 +170,7 @@ export class DrizzleCourseRepository implements CourseRepository {
         state: courses.state,
         latitude: courses.latitude,
         longitude: courses.longitude,
+        onlineInstructions: courses.onlineInstructions,
         averageRating: courses.averageRating,
         enrollmentsCount: courses.enrollmentsCount,
         status: courses.status,
@@ -201,6 +210,7 @@ export class DrizzleCourseRepository implements CourseRepository {
         state: courses.state,
         latitude: courses.latitude,
         longitude: courses.longitude,
+        onlineInstructions: courses.onlineInstructions,
         averageRating: courses.averageRating,
         enrollmentsCount: courses.enrollmentsCount,
         status: courses.status,
@@ -235,6 +245,12 @@ export class DrizzleCourseRepository implements CourseRepository {
         startDate: courses.startDate,
         endDate: courses.endDate,
         modality: courses.modality,
+        address: courses.address,
+        city: courses.city,
+        state: courses.state,
+        latitude: courses.latitude,
+        longitude: courses.longitude,
+        onlineInstructions: courses.onlineInstructions,
         averageRating: courses.averageRating,
         enrollmentsCount: courses.enrollmentsCount,
         status: courses.status,

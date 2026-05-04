@@ -29,6 +29,14 @@ export interface OnboardingState {
     lng: number | null;
 
     categories: Category[];
+
+    // Para curso
+    cursoNombre: string;
+    cursoDescripcion: string;
+    cursoDuracion: string;
+    cursoModalidad: string;
+    onlineInstructions?: string;
+    tipoRegistro: "escuela" | "curso";
   };
 
   errors: Partial<Record<keyof OnboardingState["data"], string>>;
@@ -80,7 +88,7 @@ function validateStep(state: OnboardingState) {
         errors.cursoModalidad = "Selecciona la modalidad";
       }
       // Si modalidad es presencial o híbrido, dirección y estado obligatorios
-      if (state.data.cursoModalidad === "presencial" || state.data.cursoModalidad === "hibrido") {
+      if (state.data.cursoModalidad === "Presencial" || state.data.cursoModalidad === "Híbrido") {
         if (!state.data.address || !state.data.address.trim()) {
           errors.address = "La dirección es obligatoria";
         }
@@ -136,6 +144,9 @@ const initialState: OnboardingState = {
     // Para curso
     cursoNombre: "",
     cursoDescripcion: "",
+    cursoDuracion: "",
+    cursoModalidad: "",
+    onlineInstructions: "",
   },
   errors: {},
   canContinue: false,
@@ -262,7 +273,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   // Handler global para el paso 3 (geocodificación)
   const handleStep3Next = useCallback(async () => {
     // Usar dispatch directamente para evitar ReferenceError
-    value.validate();
+    dispatch({ type: "VALIDATE" });
     if (!state.canContinue) return;
     const address = state.data.address;
     const city = state.data.city;

@@ -43,7 +43,7 @@ export class UpdateCourseDto {
   endDate?: Date;
 
   @IsOptional()
-  @IsString()
+  @IsIn(['Presencial', 'En línea', 'Híbrido'])
   modality?: string;
 
   // Ubicación (opcional)
@@ -68,6 +68,10 @@ export class UpdateCourseDto {
   @Type(() => Number)
   @IsNumber()
   longitude?: number;
+
+  @IsOptional()
+  @IsString()
+  onlineInstructions?: string;
 
   @IsOptional()
   @IsIn(['draft', 'published', 'archived'])
