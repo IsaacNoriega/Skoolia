@@ -41,8 +41,15 @@ function SchoolsLoginPageContent() {
 
       if (me.role === "private" && me.onboardingRequired) {
         router.push("/onboarding");
+      } else if (me.role === "private") {
+        // Redirigir según si tiene escuela o solo cursos
+        if (me.hasSchool) {
+          router.push("/schools");
+        } else {
+          router.push("/courses");
+        }
       } else {
-        router.push("/schools");
+        router.push("/parents");
       }
     } catch (err: unknown) {
       console.error(err);

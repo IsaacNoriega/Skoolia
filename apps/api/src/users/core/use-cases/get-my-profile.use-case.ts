@@ -26,9 +26,11 @@ export class GetMyProfileUseCase {
     }
 
     let onboardingRequired = false;
+    let hasSchool = false;
 
     if (user.role === 'private') {
       const school = await this.schoolRepository.findByOwner(user.id);
+      hasSchool = !!school;
       const courses = await this.courseRepository.findByOwner(user.id);
       onboardingRequired = !school && (!courses || courses.length === 0);
     }
@@ -36,6 +38,7 @@ export class GetMyProfileUseCase {
     return {
       ...user,
       onboardingRequired,
+      hasSchool,
     };
   }
 }

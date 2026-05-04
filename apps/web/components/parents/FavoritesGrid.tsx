@@ -11,10 +11,10 @@ import { schoolsService } from "@/lib/services/services/schools.service";
 import { resolveSchoolCardImage } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-  X, 
-  ExternalLink, 
-  MapPin, 
-  DollarSign, 
+  X,
+  ExternalLink,
+  MapPin,
+  DollarSign,
   Star, 
   Clock, 
   Globe, 
@@ -23,7 +23,10 @@ import {
   AlertCircle,
   TrendingUp,
   CalendarCheck,
-  ArrowRight
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
+  ArrowLeft
 } from "lucide-react";
 
 type FavoriteItem = {
@@ -55,6 +58,7 @@ export default function FavoritesGrid() {
   const [compareDetails, setCompareDetails] = useState<Record<string, FavoriteItem>>({});
   const [loadingCompare, setLoadingCompare] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [activeCategory, setActiveCategory] = useState<'schools' | 'courses' | null>(null);
 
   const handleRatingUpdated = (schoolId: string, averageRating?: number) => {
     setItems((prev) =>
@@ -129,6 +133,9 @@ export default function FavoritesGrid() {
     };
   }, []);
 
+  const schoolItems = useMemo(() => items.filter(it => it.monthlyPrice !== undefined), [items]);
+  const courseItems = useMemo(() => items.filter(it => it.monthlyPrice === undefined), [items]);
+
   const openModal = (item: FavoriteItem) => {
     setSelected(item);
     setOpen(true);
@@ -136,26 +143,33 @@ export default function FavoritesGrid() {
     // Enriquecer datos del modal con detalles completos
     (async () => {
       try {
-        const full = await schoolsService.getById(item.id);
+        const isSchool = item.monthlyPrice !== undefined;
+        const full = isSchool 
+          ? await schoolsService.getById(item.id)
+          : await coursesService.getById(item.id);
+
         setSelected((prev) => (
           prev && prev.id === item.id
             ? {
                 ...prev,
                 description: full.description ?? prev.description,
-                rating: full.averageRating ?? prev.rating,
-                schedule: full.schedule ?? prev.schedule,
-                languages: full.languages ?? prev.languages,
-                studentsPerClass: full.maxStudentsPerClass ?? prev.studentsPerClass,
-                enrollmentOpen: full.enrollmentOpen ?? prev.enrollmentOpen,
-                enrollmentYear: full.enrollmentYear ?? prev.enrollmentYear,
-                monthlyPrice: full.monthlyPrice ?? prev.monthlyPrice,
-                imageUrl: resolveSchoolCardImage(item.id, full.coverImageUrl, full.logoUrl, prev.imageUrl),
-                location: full.city || full.address || prev.location,
+                rating: (full as any).averageRating ?? prev.rating,
+                schedule: (full as any).schedule ?? prev.schedule,
+                languages: (full as any).languages ?? prev.languages,
+                studentsPerClass: (full as any).maxStudentsPerClass ?? (full as any).capacity ?? prev.studentsPerClass,
+                enrollmentOpen: (full as any).enrollmentOpen ?? prev.enrollmentOpen,
+                enrollmentYear: (full as any).enrollmentYear ?? prev.enrollmentYear,
+                monthlyPrice: isSchool ? (full as any).monthlyPrice : undefined,
+                price: isSchool ? (full as any).monthlyPrice : (full as any).price,
+                imageUrl: isSchool 
+                  ? resolveSchoolCardImage(item.id, (full as any).coverImageUrl, (full as any).logoUrl, prev.imageUrl)
+                  : (full as any).coverImageUrl || prev.imageUrl,
+                location: (full as any).city || (full as any).address || prev.location,
               }
             : prev
         ));
       } catch (e) {
-        console.warn('No se pudo cargar detalle de la escuela', e);
+        console.warn('No se pudo cargar detalle del elemento favorito', e);
       }
     })();
   };
@@ -200,23 +214,31 @@ export default function FavoritesGrid() {
       const detailResults = await Promise.all(
         pendingIds.map(async (id) => {
           try {
-            const full = await schoolsService.getById(id);
+            const originalItem = items.find(it => it.id === id);
+            const isSchool = originalItem?.monthlyPrice !== undefined;
+            
+            const full = isSchool 
+              ? await schoolsService.getById(id)
+              : await coursesService.getById(id);
+
             return {
               id,
               data: {
                 id,
-                imageUrl: resolveSchoolCardImage(id, full.coverImageUrl, full.logoUrl),
+                imageUrl: isSchool 
+                  ? resolveSchoolCardImage(id, (full as any).coverImageUrl, (full as any).logoUrl)
+                  : (full as any).coverImageUrl,
                 title: full.name,
-                location: full.city || full.address || "",
-                price: full.monthlyPrice ?? "N/A",
+                location: (full as any).city || (full as any).address || "",
+                price: isSchool ? (full as any).monthlyPrice : (full as any).price ?? "N/A",
                 description: full.description ?? undefined,
-                rating: full.averageRating ?? undefined,
-                schedule: full.schedule ?? undefined,
-                languages: full.languages ?? undefined,
-                studentsPerClass: full.maxStudentsPerClass ?? undefined,
-                enrollmentOpen: full.enrollmentOpen,
-                enrollmentYear: full.enrollmentYear ?? undefined,
-                monthlyPrice: full.monthlyPrice ?? undefined,
+                rating: (full as any).averageRating ?? undefined,
+                schedule: (full as any).schedule ?? (full as any).startDate ? `Inicio: ${(full as any).startDate}` : undefined,
+                languages: (full as any).languages ?? undefined,
+                studentsPerClass: (full as any).maxStudentsPerClass ?? (full as any).capacity ?? undefined,
+                enrollmentOpen: (full as any).enrollmentOpen,
+                enrollmentYear: (full as any).enrollmentYear ?? undefined,
+                monthlyPrice: isSchool ? (full as any).monthlyPrice : undefined,
               } as FavoriteItem,
             };
           } catch {
@@ -238,21 +260,75 @@ export default function FavoritesGrid() {
     }
   };
 
-  const gridContent = useMemo(() => {
-    if (loading) {
-      return <p className="text-sm text-slate-600">Cargando favoritos…</p>;
-    }
-    if (!items.length) {
-      return <FavoritesEmptyState />;
-    }
-    return (
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        {items.map((item) => {
-          const isComparing = compareIds.includes(item.id);
+  const filteredItems = useMemo(() => {
+    if (activeCategory === 'schools') return schoolItems;
+    if (activeCategory === 'courses') return courseItems;
+    return [];
+  }, [activeCategory, schoolItems, courseItems]);
 
-          return (
-            <div key={item.id} className="relative">
+  const categoryTitle = activeCategory === 'schools' ? 'Instituciones Escolares' : 'Cursos Especializados';
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
+        <p className="text-sm font-black uppercase tracking-[0.2em] text-slate-400">Sincronizando favoritos...</p>
+      </div>
+    );
+  }
+
+  if (!items.length) {
+    return <FavoritesEmptyState />;
+  }
+
+  // VISTA DE CATEGORÍA DETALLADA
+  if (activeCategory) {
+    return (
+      <div className="space-y-8 pb-20">
+        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setActiveCategory(null)}
+              className="flex h-10 w-10 items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-100 transition-all active:scale-95 shadow-sm"
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <div>
+              <h3 className="text-2xl font-black text-slate-900">{categoryTitle}</h3>
+              <p className="text-xs font-bold text-slate-500 mt-1 uppercase tracking-widest">
+                {filteredItems.length} Elementos guardados
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 bg-white p-2 rounded-2xl border border-slate-100 shadow-sm">
+            <div className="px-4 py-2 border-r border-slate-100">
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Comparador</p>
+               <p className="text-sm font-black text-indigo-600">{compareIds.length} / 3</p>
+            </div>
+            <button
+              onClick={clearCompare}
+              disabled={!compareIds.length}
+              className="h-10 px-4 text-xs font-bold text-slate-500 hover:text-slate-900 disabled:opacity-30"
+            >
+              Limpiar
+            </button>
+            <button
+              onClick={() => void openCompareModal()}
+              disabled={compareIds.length < 2}
+              className="h-10 px-6 rounded-xl bg-indigo-600 text-white text-xs font-black shadow-lg shadow-indigo-100 hover:bg-indigo-700 disabled:opacity-50 disabled:shadow-none transition-all active:scale-95"
+            >
+              Comparar ahora
+            </button>
+          </div>
+        </header>
+
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-2">
+          {filteredItems.map((item) => {
+            const isComparing = compareIds.includes(item.id);
+            return (
               <CatalogCard
+                key={item.id}
                 imageSrc={item.imageUrl ?? undefined}
                 imageAlt={item.title}
                 typeLabel={item.monthlyPrice ? "ESCUELA" : "CURSO"}
@@ -279,83 +355,81 @@ export default function FavoritesGrid() {
                 }}
                 onAction={() => openModal(item)}
                 isFavorite={true}
-                className={isComparing ? "ring-2 ring-indigo-500" : ""}
                 onFavoriteToggle={async () => {
                   await favoritesService.toggle(item.id);
-                  if (user?.id) {
-                    await trackLead({
-                      targetId: item.id,
-                      originType: item.monthlyPrice ? "SCHOOL" : "COURSE",
-                      trigger: "FAVORITE",
-                      status: "INTERESADO",
-                    });
-                  }
-                  // optimistically remove from list
                   setItems((prev) => prev.filter((x) => x.id !== item.id));
                   setCompareIds((prev) => prev.filter((id) => id !== item.id));
-                  setCompareDetails((prev) => {
-                    if (!prev[item.id]) return prev;
-                    const next = { ...prev };
-                    delete next[item.id];
-                    return next;
-                  });
                 }}
-                planName={item.planName}
               />
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
+
+        <FavoriteDetailModal
+          open={open}
+          onClose={() => setOpen(false)}
+          onRatingUpdated={handleRatingUpdated}
+          item={
+            selected && {
+              id: selected.id,
+              imageUrl: selected.imageUrl ?? undefined,
+              badges: [],
+              level: selected.monthlyPrice ? "ESCUELA" : "CURSO",
+              title: selected.title,
+              location: selected.location,
+              price: typeof selected.price === "number" ? `$${selected.price.toLocaleString()}` : selected.price,
+              description: selected.description,
+              rating: selected.rating,
+              schedule: selected.schedule,
+              languages: selected.languages,
+              studentsPerClass: selected.studentsPerClass,
+              enrollmentOpen: selected.enrollmentOpen,
+              enrollmentYear: selected.enrollmentYear,
+              monthlyPrice: selected.monthlyPrice,
+            }
+          }
+        />
+
+        <SchoolCompareModal
+          open={compareOpen}
+          items={compareItems}
+          loading={loadingCompare}
+          onClose={() => setCompareOpen(false)}
+        />
       </div>
     );
-  }, [items, loading, compareIds]);
+  }
 
+  // DASHBOARD VIEW CON CAROUSELS
   return (
-    <>
-      {items.length ? (
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-[1.5rem] border border-indigo-100 bg-gradient-to-r from-indigo-50/50 to-white p-4 shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-200">
-              <TrendingUp className="h-6 w-6" />
-            </div>
-            <div>
-              <h4 className="text-sm font-black text-slate-900">Comparador de Escuelas</h4>
-              <p className="text-xs font-bold text-slate-500">
-                <span className={compareIds.length >= 2 ? "text-indigo-600" : "text-slate-400"}>
-                  {compareIds.length}
-                </span>
-                <span className="mx-1">/</span>
-                <span>3 seleccionadas</span>
-                <span className="ml-2 text-[10px] font-medium text-slate-400">
-                  (mínimo 2 para comparar)
-                </span>
-              </p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={clearCompare}
-              className="group flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-600 transition-all hover:bg-slate-50 hover:text-slate-900 active:scale-95"
-              disabled={!compareIds.length}
-            >
-              <X className="h-3.5 w-3.5 transition-transform group-hover:rotate-90" />
-              Limpiar
-            </button>
-            <button
-              type="button"
-              onClick={() => void openCompareModal()}
-              className="flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-2.5 text-xs font-black text-white shadow-lg shadow-indigo-100 transition-all hover:bg-indigo-700 hover:shadow-indigo-200 disabled:opacity-50 disabled:shadow-none active:scale-95"
-              disabled={compareIds.length < 2}
-            >
-              Comparar ahora
-              <ArrowRight className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        </div>
-      ) : null}
+    <div className="space-y-16 pb-20">
+      {/* SECCIÓN ESCUELAS */}
+      <CarouselSection
+        title="Escuelas Guardadas"
+        subtitle="Explora tus instituciones favoritas"
+        items={schoolItems}
+        onVerMas={() => setActiveCategory('schools')}
+        onOpenModal={openModal}
+        onFavoriteToggle={async (id) => {
+          await favoritesService.toggle(id);
+          setItems((prev) => prev.filter((x) => x.id !== id));
+          setCompareIds((prev) => prev.filter((x) => x !== id));
+        }}
+      />
 
-      {gridContent}
+      {/* SECCIÓN CURSOS */}
+      <CarouselSection
+        title="Cursos Especializados"
+        subtitle="Tus programas de formación guardados"
+        items={courseItems}
+        onVerMas={() => setActiveCategory('courses')}
+        onOpenModal={openModal}
+        onFavoriteToggle={async (id) => {
+          await favoritesService.toggle(id);
+          setItems((prev) => prev.filter((x) => x.id !== id));
+          setCompareIds((prev) => prev.filter((x) => x !== id));
+        }}
+      />
 
       <FavoriteDetailModal
         open={open}
@@ -366,7 +440,7 @@ export default function FavoritesGrid() {
             id: selected.id,
             imageUrl: selected.imageUrl ?? undefined,
             badges: [],
-            level: "INSTITUCIÓN",
+            level: selected.monthlyPrice ? "ESCUELA" : "CURSO",
             title: selected.title,
             location: selected.location,
             price: typeof selected.price === "number" ? `$${selected.price.toLocaleString()}` : selected.price,
@@ -381,14 +455,69 @@ export default function FavoritesGrid() {
           }
         }
       />
+    </div>
+  );
+}
 
-      <SchoolCompareModal
-        open={compareOpen}
-        items={compareItems}
-        loading={loadingCompare}
-        onClose={() => setCompareOpen(false)}
-      />
-    </>
+function CarouselSection({ 
+  title, 
+  subtitle, 
+  items, 
+  onVerMas, 
+  onOpenModal,
+  onFavoriteToggle
+}: { 
+  title: string; 
+  subtitle: string; 
+  items: FavoriteItem[]; 
+  onVerMas: () => void;
+  onOpenModal: (item: FavoriteItem) => void;
+  onFavoriteToggle: (id: string) => Promise<void>;
+}) {
+  if (items.length === 0) return null;
+
+  return (
+    <div className="space-y-6">
+      <header className="flex items-center justify-between px-2">
+        <div>
+          <h3 className="text-xl font-black text-slate-900">{title}</h3>
+          <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">{subtitle}</p>
+        </div>
+        <button
+          onClick={onVerMas}
+          className="group flex items-center gap-2 rounded-full bg-slate-50 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-indigo-600 border border-slate-100 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all active:scale-95"
+        >
+          Ver Todo
+          <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
+        </button>
+      </header>
+
+      <div className="relative group">
+        <div className="flex gap-6 overflow-x-auto pb-8 scrollbar-hide snap-x px-2 -mx-2">
+          {items.map((item) => (
+            <div key={item.id} className="min-w-[320px] max-w-[320px] snap-start">
+              <CatalogCard
+                imageSrc={item.imageUrl ?? undefined}
+                imageAlt={item.title}
+                typeLabel={item.monthlyPrice ? "ESCUELA" : "CURSO"}
+                title={item.title}
+                location={item.location}
+                priceLabel={item.monthlyPrice ? "MENSUALIDAD" : "PRECIO"}
+                price={typeof item.price === 'number' ? item.price : 0}
+                priceFormatted={typeof item.price === 'number' ? `$${item.price.toLocaleString()}` : String(item.price)}
+                description={item.description}
+                languages={item.languages}
+                studentsPerClass={item.studentsPerClass}
+                onCardClick={() => onOpenModal(item)}
+                onAction={() => onOpenModal(item)}
+                isFavorite={true}
+                onFavoriteToggle={() => onFavoriteToggle(item.id)}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 

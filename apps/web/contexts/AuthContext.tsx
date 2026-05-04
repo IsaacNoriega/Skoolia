@@ -21,6 +21,7 @@ export type AuthUser = {
   name?: string | null;
   role: "public" | "private";
   onboardingRequired: boolean;
+  hasSchool?: boolean;
 };
 
 interface AuthContextType {

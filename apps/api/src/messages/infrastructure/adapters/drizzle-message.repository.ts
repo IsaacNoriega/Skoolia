@@ -9,6 +9,7 @@ import { eq, and } from 'drizzle-orm';
 import { schools } from '../../../../drizzle/schemas/schools/school';
 import { publicUsers } from '../../../../drizzle/schemas/users/public-users';
 import { courses } from '../../../../drizzle/schemas/courses/courses';
+import { leads } from '../../../../drizzle/schemas/leads';
 
 @Injectable()
 export class DrizzleMessageRepository implements MessageRepository {
@@ -42,26 +43,49 @@ export class DrizzleMessageRepository implements MessageRepository {
         threadId: `${created.schoolId}_${created.publicUserId}`,
       };
     } else if (message.receiverType === 'parent') {
-      // Mensaje de escuela a padre
-      const [created] = await this.db
-        .insert(schoolMessages)
-        .values({
-          schoolId: message.senderId,
-          publicUserId: message.receiverId,
-          senderRole: 'private', // siempre escuela
-          content: message.content,
-        })
-        .returning();
-      return {
-        id: created.id,
-        content: created.content,
-        createdAt: created.createdAt,
-        senderId: created.schoolId,
-        senderType: 'school',
-        receiverId: created.publicUserId,
-        receiverType: 'parent',
-        threadId: `${created.schoolId}_${created.publicUserId}`,
-      };
+      // Mensaje de institución a padre
+      if (message.senderType === 'course') {
+        const [created] = await this.db
+          .insert(courseMessages)
+          .values({
+            courseId: message.senderId,
+            publicUserId: message.receiverId,
+            senderRole: 'private',
+            content: message.content,
+          })
+          .returning();
+        return {
+          id: created.id,
+          content: created.content,
+          createdAt: created.createdAt,
+          senderId: created.courseId,
+          senderType: 'course',
+          receiverId: created.publicUserId,
+          receiverType: 'parent',
+          threadId: `${created.courseId}_${created.publicUserId}`,
+        };
+      } else {
+        // Por defecto school
+        const [created] = await this.db
+          .insert(schoolMessages)
+          .values({
+            schoolId: message.senderId,
+            publicUserId: message.receiverId,
+            senderRole: 'private', // siempre escuela
+            content: message.content,
+          })
+          .returning();
+        return {
+          id: created.id,
+          content: created.content,
+          createdAt: created.createdAt,
+          senderId: created.schoolId,
+          senderType: 'school',
+          receiverId: created.publicUserId,
+          receiverType: 'parent',
+          threadId: `${created.schoolId}_${created.publicUserId}`,
+        };
+      }
     } else if (message.receiverType === 'course') {
       const [created] = await this.db
         .insert(courseMessages)
@@ -121,6 +145,7 @@ export class DrizzleMessageRepository implements MessageRepository {
           createdAt: msg.createdAt,
           senderId: isParent ? msg.publicUserId : msg.schoolId,
           senderType: isParent ? 'parent' as const : 'school' as const,
+          senderRole: msg.senderRole,
           receiverId: isParent ? msg.schoolId : msg.publicUserId,
           receiverType: isParent ? 'school' as const : 'parent' as const,
           threadId,
@@ -143,7 +168,8 @@ export class DrizzleMessageRepository implements MessageRepository {
         content: msg.content,
         createdAt: msg.createdAt,
         senderId: msg.senderRole === 'public' ? msg.publicUserId : msg.courseId,
-        senderType: msg.senderRole === 'public' ? 'parent' : 'school',
+        senderType: msg.senderRole === 'public' ? 'parent' : 'course',
+        senderRole: msg.senderRole,
         receiverId: msg.senderRole === 'public' ? msg.courseId : msg.publicUserId,
         receiverType: 'course',
         threadId,
@@ -213,40 +239,99 @@ export class DrizzleMessageRepository implements MessageRepository {
         })),
       );
     } else if (participantType === 'school') {
-          // Para escuelas: obtener todos los mensajes donde schoolId = participantId
-          // Agrupar por publicUserId y obtener el último mensaje de cada conversación, incluyendo el nombre del usuario
+          // 1. Obtener threads de la escuela
           const schoolRows = await this.db
             .select({
               schoolId: schoolMessages.schoolId,
-              schoolName: schools.name,
               publicUserId: schoolMessages.publicUserId,
               lastMessage: schoolMessages.content,
               lastMessageAt: schoolMessages.createdAt,
               lastSenderRole: schoolMessages.senderRole,
               publicUserName: publicUsers.name,
+              leadStatus: leads.status,
+              ownerId: schools.ownerId, // Necesitamos el owner para buscar sus cursos
             })
             .from(schoolMessages)
             .leftJoin(schools, eq(schoolMessages.schoolId, schools.id))
             .leftJoin(publicUsers, eq(schoolMessages.publicUserId, publicUsers.id))
-            .where(eq(schoolMessages.schoolId, participantId));
+            .leftJoin(
+              leads,
+              and(
+                eq(leads.userId, schoolMessages.publicUserId),
+                eq(leads.targetId, schoolMessages.schoolId),
+              ),
+            )
+            .where(eq(schools.ownerId, participantId));
 
-          // Agrupar por publicUserId y quedarnos con el mensaje más reciente de cada conversación
           const threadMap = new Map<string, any>();
+          let schoolOwnerId: string | null = null;
+
           for (const row of schoolRows) {
-            const key = row.publicUserId;
+            if (!schoolOwnerId) schoolOwnerId = row.ownerId;
+            const key = `school_${row.publicUserId}`;
             if (!threadMap.has(key) || threadMap.get(key).lastMessageAt < row.lastMessageAt) {
               threadMap.set(key, {
+                id: `${row.schoolId}_${row.publicUserId}`,
+                type: 'school',
                 publicUserId: row.publicUserId,
-                publicUserName: row.publicUserName || '',
+                publicUserName: row.publicUserName || 'Usuario Público',
                 lastMessage: row.lastMessage,
                 lastMessageAt: row.lastMessageAt,
                 lastSenderRole: row.lastSenderRole,
                 threadHasUnread: false,
                 unreadCount: 0,
+                leadStatus: row.leadStatus || 'NUEVO',
               });
             }
           }
-          threads = Array.from(threadMap.values());
+
+          // 2. Si tenemos el ownerId, obtener threads de sus cursos
+          if (schoolOwnerId) {
+            const courseOwnerRows = await this.db
+              .select({
+                courseId: courseMessages.courseId,
+                courseName: courses.name,
+                publicUserId: courseMessages.publicUserId,
+                publicUserName: publicUsers.name,
+                lastMessage: courseMessages.content,
+                lastMessageAt: courseMessages.createdAt,
+                lastSenderRole: courseMessages.senderRole,
+                leadStatus: leads.status,
+              })
+              .from(courseMessages)
+              .leftJoin(courses, eq(courseMessages.courseId, courses.id))
+              .leftJoin(publicUsers, eq(courseMessages.publicUserId, publicUsers.id))
+              .leftJoin(
+                leads,
+                and(
+                  eq(leads.userId, courseMessages.publicUserId),
+                  eq(leads.targetId, courseMessages.courseId),
+                ),
+              )
+              .where(eq(courses.ownerId, schoolOwnerId));
+
+            for (const row of courseOwnerRows) {
+              const key = `course_${row.courseId}_${row.publicUserId}`;
+              if (!threadMap.has(key) || threadMap.get(key).lastMessageAt < row.lastMessageAt) {
+                threadMap.set(key, {
+                  id: `${row.courseId}_${row.publicUserId}`,
+                  type: 'course',
+                  courseId: row.courseId,
+                  courseName: row.courseName,
+                  publicUserId: row.publicUserId,
+                  publicUserName: row.publicUserName || 'Usuario Público',
+                  lastMessage: row.lastMessage,
+                  lastMessageAt: row.lastMessageAt,
+                  lastSenderRole: row.lastSenderRole,
+                  threadHasUnread: false,
+                  unreadCount: 0,
+                  leadStatus: row.leadStatus || 'NUEVO',
+                });
+              }
+            }
+          }
+
+          return Array.from(threadMap.values());
     } else if (participantType === 'course') {
       // Buscar todos los cursos donde ownerId = participantId
       // y obtener los threads (conversaciones) con cada publicUserId
@@ -259,10 +344,18 @@ export class DrizzleMessageRepository implements MessageRepository {
           lastMessage: courseMessages.content,
           lastMessageAt: courseMessages.createdAt,
           lastSenderRole: courseMessages.senderRole,
+          leadStatus: leads.status,
         })
         .from(courseMessages)
         .leftJoin(courses, eq(courseMessages.courseId, courses.id))
         .leftJoin(publicUsers, eq(courseMessages.publicUserId, publicUsers.id))
+        .leftJoin(
+          leads,
+          and(
+            eq(leads.userId, courseMessages.publicUserId),
+            eq(leads.targetId, courseMessages.courseId),
+          ),
+        )
         .where(eq(courses.ownerId, participantId));
 
       // Agrupar por courseId + publicUserId para obtener el último mensaje de cada conversación
@@ -271,6 +364,8 @@ export class DrizzleMessageRepository implements MessageRepository {
         const key = `${row.courseId}_${row.publicUserId}`;
         if (!threadMap.has(key) || threadMap.get(key).lastMessageAt < row.lastMessageAt) {
           threadMap.set(key, {
+            id: `${row.courseId}_${row.publicUserId}`,
+            type: 'course',
             courseId: row.courseId,
             courseName: row.courseName,
             publicUserId: row.publicUserId,
@@ -280,26 +375,21 @@ export class DrizzleMessageRepository implements MessageRepository {
             lastSenderRole: row.lastSenderRole,
             threadHasUnread: false,
             unreadCount: 0,
+            leadStatus: row.leadStatus || 'NUEVO',
           });
         }
       }
       return Array.from(threadMap.values());
     }
-         // Solo agrupar para cursos y padres, no para escuelas (ya está agrupado arriba)
-         if (participantType === 'parent' || participantType === 'course') {
-           const threadMap = new Map<string, any>();
-           for (const t of threads) {
-             const id = t.schoolId || t.courseId;
-             if (
-               !threadMap.has(id) ||
-               threadMap.get(id).lastMessageAt < t.lastMessageAt
-             ) {
-               threadMap.set(id, t);
-             }
-           }
-           return Array.from(threadMap.values());
-         }
-         // Para escuelas, threads ya está agrupado correctamente
-         return threads;
+
+    // Para padres: agrupar por schoolId o courseId
+    const threadMap = new Map<string, any>();
+    for (const t of threads) {
+      const id = t.schoolId || t.courseId;
+      if (!threadMap.has(id) || threadMap.get(id).lastMessageAt < t.lastMessageAt) {
+        threadMap.set(id, t);
+      }
+    }
+    return Array.from(threadMap.values());
   }
 }

@@ -20,6 +20,7 @@ export interface ParentMessage {
 }
 
 export interface SchoolThread {
+  id: string;
   publicUserId: string;
   publicUserName: string;
   lastMessage: string;
@@ -27,29 +28,56 @@ export interface SchoolThread {
   lastSenderRole: 'public' | 'private';
   unreadCount: number;
   threadHasUnread: boolean;
+  leadStatus?: string;
+  courseId?: string;
+  courseName?: string;
+  type?: 'school' | 'course';
+}
+
+export type LeadStage = 'nuevo_contacto' | 'interesado' | 'visita' | 'inscrito';
+
+export function inferDefaultStage(thread: SchoolThread): LeadStage {
+	if (thread.leadStatus) {
+		const status = thread.leadStatus.toLowerCase();
+		if (status === "inscrito") return "inscrito";
+		if (status === "visita") return "visita";
+		if (status === "interesado") return "interesado";
+		if (status === "nuevo") return "nuevo_contacto";
+	}
+
+	if (thread.threadHasUnread) {
+		return "nuevo_contacto";
+	}
+
+	if (thread.lastSenderRole === "private") {
+		return "interesado";
+	}
+
+	return "nuevo_contacto";
 }
 
 export interface SchoolMessage {
   id: string;
   publicUserId: string;
   publicUserName: string;
+  senderId: string;
+  senderType: 'parent' | 'school' | 'course';
   senderRole: 'public' | 'private';
   content: string;
   createdAt: string;
 }
 
 export const messagesService = {
-  async sendParentMessage(schoolId: string, content: string, userId: string) {
-    // Usa el endpoint /messages (POST) con el body esperado por el backend
+  async sendParentMessage(targetId: string, content: string, userId: string, targetType: 'school' | 'course' = 'school') {
     return api<ParentMessage>(`/messages`, {
       method: 'POST',
       body: {
         content,
         senderId: userId,
         senderType: 'parent',
-        receiverId: schoolId,
-        receiverType: 'school',
-        threadId: `${schoolId}_${userId}`,
+        receiverId: targetId,
+        receiverType: targetType,
+        threadId: `${targetId}_${userId}`,
       },
     });
   },
@@ -59,25 +87,33 @@ export const messagesService = {
   },
 
   async listParentThreadMessages(schoolId: string, userId: string) {
-    // El threadId es schoolId_userId
     const threadId = `${schoolId}_${userId}`;
-    return api<ParentMessage[]>(`/messages/thread/${threadId}`);
+    return api<ParentMessage[]>(`/messages/threads/${threadId}`);
   },
 
   async listSchoolThreads(ownerId: string) {
-    // Usa el endpoint existente de threads con participantType=school
     return api<SchoolThread[]>(`/messages/threads?participantId=${ownerId}&participantType=school`);
   },
 
-  async listSchoolThreadMessages(publicUserId: string, ownerId: string) {
-    // El threadId es ownerId_publicUserId
-    const threadId = `${ownerId}_${publicUserId}`;
+  async listCourseThreadsByOwner(ownerId: string) {
+    return api<SchoolThread[]>(`/messages/courses/me/threads?ownerId=${ownerId}`);
+  },
+
+  async listSchoolThreadMessages(publicUserId: string, schoolId: string) {
+    const threadId = `${schoolId}_${publicUserId}`;
+    return api<SchoolMessage[]>(`/messages/thread/${threadId}`);
+  },
+
+  async listThreadMessages(threadId: string) {
+    return api<SchoolMessage[]>(`/messages/thread/${threadId}`);
+  },
+
+  async listCourseThreadMessagesByOwner(publicUserId: string, courseId: string) {
+    const threadId = `${courseId}_${publicUserId}`;
     return api<SchoolMessage[]>(`/messages/thread/${threadId}`);
   },
 
   async sendSchoolMessage(publicUserId: string, content: string, schoolId: string) {
-    // El threadId es schoolId_publicUserId
-    const threadId = `${schoolId}_${publicUserId}`;
     return api<SchoolMessage>(`/messages`, {
       method: 'POST',
       body: {
@@ -86,7 +122,21 @@ export const messagesService = {
         senderType: 'school',
         receiverId: publicUserId,
         receiverType: 'parent',
-        threadId,
+        threadId: `${schoolId}_${publicUserId}`,
+      },
+    });
+  },
+
+  async sendCourseMessage(publicUserId: string, content: string, courseId: string) {
+    return api<SchoolMessage>(`/messages`, {
+      method: 'POST',
+      body: {
+        content,
+        senderId: courseId,
+        senderType: 'course',
+        receiverId: publicUserId,
+        receiverType: 'parent',
+        threadId: `${courseId}_${publicUserId}`,
       },
     });
   },

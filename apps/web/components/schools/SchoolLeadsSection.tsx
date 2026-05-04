@@ -5,8 +5,10 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { CalendarClock, MessageCircle, User } from "lucide-react";
 
-import { messagesService, type SchoolThread } from "@/lib/services/services/messages.service";
+import { messagesService, type SchoolThread, type LeadStage, inferDefaultStage } from "@/lib/services/services/messages.service";
 import { updateLeadStatus } from "@/lib/services/leadsService";
+import { useAuth } from "@/contexts/AuthContext";
+
 // Toast minimalista para errores
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 	if (!message) return null;
@@ -17,9 +19,7 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 		</div>
 	);
 }
-import { useAuth } from "@/contexts/AuthContext";
 
-type LeadStage = "nuevo_contacto" | "interesado" | "visita" | "inscrito";
 type LeadsFilter = "today" | "week";
 type LeadStep = 1 | 2 | 3;
 
@@ -125,18 +125,6 @@ function readLeads(ownerId?: string): Record<string, LeadRecord> {
 function writeLeads(leads: Record<string, LeadRecord>, ownerId?: string) {
 	if (typeof window === "undefined") return;
 	localStorage.setItem(getStorageKey(ownerId), JSON.stringify(leads));
-}
-
-function inferDefaultStage(thread: SchoolThread): LeadStage {
-	if (thread.threadHasUnread) {
-		return "nuevo_contacto";
-	}
-
-	if (thread.lastSenderRole === "private") {
-		return "interesado";
-	}
-
-	return "nuevo_contacto";
 }
 
 function createDefaultLead(thread: SchoolThread): LeadRecord {

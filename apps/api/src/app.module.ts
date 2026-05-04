@@ -22,6 +22,7 @@ import { MessagesModule } from './messages/messages.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { LeadModule } from './leads/lead.module';
 import { PlansModule } from './plans/plans.module';
+import { EnrollmentsModule } from './enrollments/enrollments.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { PlansModule } from './plans/plans.module';
     SubscriptionsModule,
     LeadModule,
     PlansModule,
+    EnrollmentsModule,
   ],
   controllers: [AppController],
   providers: [AppService, AppResolver],
