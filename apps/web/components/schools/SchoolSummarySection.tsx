@@ -238,10 +238,18 @@ export default function SchoolSummarySection() {
 				</div>
 
 				<div className="mt-8 grid gap-3 border-t border-slate-200 pt-6 sm:grid-cols-2 xl:grid-cols-4">
-					<StatPill icon={Users} label="Prospectos" value={`${threads.length}`} detail={`${stats.unread} sin leer`} />
-					<StatPill icon={Layers3} label={isCourseMode ? "Cursos activos" : "Oferta activa"} value={`${stats.active}`} detail={`${courses.length} total`} />
-					<StatPill icon={MessageCircle} label="Mensajes hoy" value={`${stats.msgToday}`} detail={`${stats.pending} hilos activos`} />
-					<StatPill icon={ShieldCheck} label="Perfil" value={`${completion}%`} detail={school?.isVerified ? "Verificado" : "En revisión"} />
+					<Link href={isCourseMode ? "/courses/leads" : "/schools/leads"} className="block transition-transform hover:scale-[1.02] active:scale-[0.98]">
+						<StatPill icon={Users} label="Prospectos" value={`${threads.length}`} detail={`${stats.unread} sin leer`} />
+					</Link>
+					<Link href={isCourseMode ? "/courses/academic" : "/schools/courses"} className="block transition-transform hover:scale-[1.02] active:scale-[0.98]">
+						<StatPill icon={Layers3} label={isCourseMode ? "Cursos activos" : "Oferta activa"} value={`${stats.active}`} detail={`${courses.length} total`} />
+					</Link>
+					<Link href={isCourseMode ? "/courses/messages" : "/schools/messages"} className="block transition-transform hover:scale-[1.02] active:scale-[0.98]">
+						<StatPill icon={MessageCircle} label="Mensajes hoy" value={`${stats.msgToday}`} detail={`${stats.pending} hilos activos`} />
+					</Link>
+					<div className="block transition-transform hover:scale-[1.02]">
+						<StatPill icon={ShieldCheck} label="Perfil" value={`${completion}%`} detail={school?.isVerified ? "Verificado" : "En revisión"} />
+					</div>
 				</div>
 			</section>
 

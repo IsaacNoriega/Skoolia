@@ -70,7 +70,6 @@ export const schoolsFeedService = {
               favoritesCount
               isVerified
               monthlyPrice
-              gallery
             }
             cursor
           }
@@ -90,7 +89,17 @@ export const schoolsFeedService = {
 
     const normalizedFilters = params.filters
       ? {
-          ...params.filters,
+          search: params.filters.search,
+          city: params.filters.city,
+          educationalLevel: params.filters.educationalLevel,
+          categoryId: params.filters.categoryId,
+          schedule: params.filters.schedule,
+          languages: params.filters.languages,
+          minPrice: params.filters.minPrice,
+          maxPrice: params.filters.maxPrice,
+          onlyVerified: params.filters.onlyVerified,
+          latitude: params.filters.latitude,
+          longitude: params.filters.longitude,
           sortBy: params.filters.sortBy
             ? sortByMap[params.filters.sortBy]
             : undefined,
