@@ -223,7 +223,7 @@ export class DrizzleCourseRepository implements CourseRepository {
       .from(courses)
       .leftJoin(schools, eq(schools.id, courses.schoolId))
       .leftJoin(privateUsers, eq(privateUsers.id, courses.ownerId))
-      .where(and(eq(courses.schoolId, schoolId), eq(courses.isActive, true)));
+      .where(and(eq(courses.schoolId, schoolId), eq(courses.isActive, true), eq(courses.status, 'published')));
 
     return rows.map(r => ({ ...r, ownerId: r.ownerId ?? '' }));
   }
@@ -263,7 +263,7 @@ export class DrizzleCourseRepository implements CourseRepository {
       .from(courses)
       .leftJoin(schools, eq(schools.id, courses.schoolId))
       .leftJoin(privateUsers, eq(privateUsers.id, courses.ownerId))
-      .where(eq(courses.isActive, true));
+      .where(and(eq(courses.isActive, true), eq(courses.status, 'published')));
 
     return rows.map(r => ({ ...r, ownerId: r.ownerId ?? '' }));
   }

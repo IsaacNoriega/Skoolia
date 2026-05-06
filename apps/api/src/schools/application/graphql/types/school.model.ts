@@ -20,20 +20,19 @@ export class SchoolModel {
   @Field({ nullable: true })
   address?: string;
 
-
   @Field({ nullable: true })
   city?: string;
 
   @Field({ nullable: true })
   state?: string;
 
-  @Field(() => Float)
+  @Field(() => Float, { nullable: true })
   averageRating?: number;
 
-  @Field(() => Int)
+  @Field(() => Int, { nullable: true })
   favoritesCount?: number;
 
-  @Field()
+  @Field({ defaultValue: false })
   isVerified?: boolean;
 
   @Field(() => Int, { nullable: true })
@@ -42,3 +41,4 @@ export class SchoolModel {
   @Field(() => [String], { nullable: true })
   gallery?: string[];
 }
+

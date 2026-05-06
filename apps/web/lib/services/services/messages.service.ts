@@ -88,7 +88,7 @@ export const messagesService = {
 
   async listParentThreadMessages(schoolId: string, userId: string) {
     const threadId = `${schoolId}_${userId}`;
-    return api<ParentMessage[]>(`/messages/threads/${threadId}`);
+    return api<ParentMessage[]>(`/messages/thread/${threadId}`);
   },
 
   async listSchoolThreads(ownerId: string) {

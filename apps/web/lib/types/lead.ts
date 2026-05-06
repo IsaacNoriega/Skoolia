@@ -1,6 +1,6 @@
 export type LeadOriginType = "SCHOOL" | "COURSE";
 export type LeadStatus = "NUEVO" | "INTERESADO" | "VISITA" | "INSCRITO";
-export type LeadTrigger = "FAVORITE" | "INFO_REQUEST" | "CONTACT_MESSAGE" | "VISIT_SCHEDULE" | "VIEW";
+export type LeadTrigger = "FAVORITE" | "VIEW_MORE" | "SCHEDULE_VISIT" | "INFO_REQUEST" | "CONTACT" | "INSCRIBIRME";
 
 export interface LeadMetadata {
   notes?: string[];
