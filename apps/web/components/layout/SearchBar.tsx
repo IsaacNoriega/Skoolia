@@ -36,7 +36,7 @@ export default function SearchBar() {
               }`}
               onClick={() => setActiveTab("escuelas")}
             >
-              Ecuelas
+              Escuelas
             </button>
             <button
               className={`px-6 py-2 rounded-full font-bold text-sm transition ${
@@ -70,22 +70,23 @@ export default function SearchBar() {
                 {activeTab === "escuelas" ? (
                   <EducationInput value={query} onChange={setQuery} />
                 ) : (
-                  <div className="flex flex-col md:flex-row gap-2 w-full">
-                    <div className="flex items-center w-full px-4 py-3 rounded-xl transition focus-within:bg-neutral-50 bg-white border border-neutral-200">
+                  <div className="flex flex-1 items-center w-full">
+                    <div className="flex items-center flex-1 px-4 py-3 rounded-xl transition focus-within:bg-neutral-50">
                       <GraduationCap className="text-black mr-3" size={26} />
                       <input
                         value={query}
                         onChange={e => setQuery(e.target.value)}
-                        placeholder="Nombre del curso"
+                        placeholder="Nombre"
                         className="bg-transparent outline-none w-full text-base placeholder:text-black/56"
                       />
                     </div>
-                    <div className="flex items-center px-4 py-3 rounded-xl transition focus-within:bg-neutral-50 bg-white border border-neutral-200 min-w-[180px]">
-                      <svg width="22" height="22" fill="none" viewBox="0 0 24 24" className="text-black mr-3" style={{minWidth:22}}><rect width="22" height="22" fill="none"/><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" fill="#1973FC"/></svg>
+                    <div className="hidden md:block w-0.5 h-8 bg-[#d9d9d9] mx-1" />
+                    <div className="flex items-center px-4 py-3 rounded-xl transition focus-within:bg-neutral-50 min-w-[160px]">
+                      <svg width="22" height="22" fill="none" viewBox="0 0 24 24" className="text-black mr-2" style={{minWidth:22}}><rect width="22" height="22" fill="none"/><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" fill="#1973FC"/></svg>
                       <select
                         value={modality}
                         onChange={e => setModality(e.target.value)}
-                        className="bg-transparent outline-none text-base w-full placeholder:text-black/56"
+                        className="bg-transparent outline-none text-base w-full placeholder:text-black/56 font-medium cursor-pointer"
                       >
                         <option value="">Modalidad</option>
                         <option value="Presencial">Presencial</option>

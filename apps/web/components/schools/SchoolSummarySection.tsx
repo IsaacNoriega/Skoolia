@@ -132,7 +132,7 @@ export default function SchoolSummarySection() {
 
 	const stats = useMemo(() => {
 		const active = courses.filter(
-			(course) => course.isActive && course.status !== "archived",
+			(course) => course.isActive && course.status === "published",
 		).length;
 		const today = new Date().toDateString();
 		const msgToday = threads.filter(
