@@ -10,6 +10,9 @@ import {
 	Send,
 	Users,
 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { subscriptionsService, type SchoolActivePlan } from "@/lib/services/services/subscriptions.service";
+import { FeatureLock } from "./FeatureLock";
 
 type CampaignStatus = "PROGRAMADA" | "ENVIADA" | "BORRADOR";
 
@@ -75,10 +78,44 @@ function statusDot(status: CampaignStatus) {
 
 export default function SchoolBroadcastsSection() {
 	const pathname = usePathname();
+	const [activePlans, setActivePlans] = useState<SchoolActivePlan[]>([]);
+	const [loading, setLoading] = useState(true);
+
 	const isCourseMode = pathname.startsWith("/courses");
 	const accentBgClass = isCourseMode ? "bg-violet-600" : "bg-slate-950";
 	const accentHoverBgClass = isCourseMode ? "hover:bg-violet-700" : "hover:bg-slate-800";
 	const accentTextClass = isCourseMode ? "text-violet-600" : "text-slate-950";
+
+	useEffect(() => {
+		(async () => {
+			try {
+				const plans = await subscriptionsService.getActivePlans();
+				setActivePlans(plans);
+			} finally {
+				setLoading(false);
+			}
+		})();
+	}, []);
+
+	if (loading) {
+		return (
+			<div className="flex h-64 items-center justify-center">
+				<div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-slate-950" />
+			</div>
+		);
+	}
+
+	const hasAddon = activePlans.some(p => p.plan.name === "MASS_MESSAGE");
+
+	if (!hasAddon) {
+		return (
+			<FeatureLock
+				title="Envíos Masivos"
+				description="Comunícate con todos tus prospectos de forma masiva a través de email y notificaciones. Requiere el servicio de Mensajería Masiva."
+				requiredPlan="Mensajes Masivos"
+			/>
+		);
+	}
 
 	return (
 		<section className="rounded-[2rem] border border-slate-200 bg-white">

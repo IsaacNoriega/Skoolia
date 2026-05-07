@@ -379,21 +379,32 @@ export class DrizzleSchoolRepository implements SchoolRepository {
           .from(schools)
           .leftJoin(logoFile, eq(logoFile.id, schools.logoUrl))
           .leftJoin(coverFile, eq(coverFile.id, schools.coverImageUrl))
-          .innerJoin(sub, eq(sub.schoolId, schools.id))
-          .innerJoin(plan, eq(plan.id, sub.planId))
+          .innerJoin(sub, and(
+              eq(sub.schoolId, schools.id), 
+              eq(sub.status, 'active'),
+              sql`${sub.startDate} <= now()`,
+              sql`${sub.endDate} >= now()`
+          ))
+          .innerJoin(plan, and(
+              eq(plan.id, sub.planId),
+              eq(plan.type, 'subscription') // Solo unirse al plan base para evitar duplicados
+          ))
           .innerJoin(
             schoolCategories,
             eq(schoolCategories.schoolId, schools.id),
           )
       : queryBuilder
           .from(schools)
-          .innerJoin(sub, eq(sub.schoolId, schools.id))
-          .innerJoin(plan, eq(plan.id, sub.planId));
-
-    // Solo suscripción activa
-    whereConditions.push(eq(sub.status, 'active'));
-    whereConditions.push(sql`${sub.startDate} <= now()`);
-    whereConditions.push(sql`${sub.endDate} >= now()`);
+          .innerJoin(sub, and(
+              eq(sub.schoolId, schools.id), 
+              eq(sub.status, 'active'),
+              sql`${sub.startDate} <= now()`,
+              sql`${sub.endDate} >= now()`
+          ))
+          .innerJoin(plan, and(
+              eq(plan.id, sub.planId),
+              eq(plan.type, 'subscription') // Solo unirse al plan base para evitar duplicados
+          ));
 
     const whereBuilder =
       whereConditions.length > 0

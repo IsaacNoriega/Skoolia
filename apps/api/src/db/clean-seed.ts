@@ -77,6 +77,27 @@ async function cleanAndSeed() {
         price: 1500,
         features: ['Leads avanzados', 'Prioridad', 'Mapa destacado'],
       },
+      {
+        name: 'LEAD_INTEREST' as const,
+        type: 'lead' as const,
+        pricingModel: 'per_event' as const,
+        price: 200,
+        features: ['Pago por contacto calificado', 'Ideal para escuelas pequeñas'],
+      },
+      {
+        name: 'LEAD_ENROLLMENT' as const,
+        type: 'lead' as const,
+        pricingModel: 'variable' as const,
+        price: 1, // 1%
+        features: ['Comisión por inscrito', 'Sin costo inicial'],
+      },
+      {
+        name: 'MASS_MESSAGE' as const,
+        type: 'lead' as const,
+        pricingModel: 'per_event' as const,
+        price: 100,
+        features: ['Envío masivo a prospectos', 'Notificaciones push'],
+      },
     ]);
 
     // ======================

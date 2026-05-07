@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, eq, gte } from 'drizzle-orm';
+import { and, eq, gte, inArray } from 'drizzle-orm';
 import { plans, schoolSubscriptions, schools } from 'drizzle/schemas';
 
 import { DATABASE } from 'src/db/db.module';
@@ -28,9 +28,9 @@ export interface ChangePlanResult {
 export class SubscriptionsService {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
-  async getSchoolActivePlan(
+  async getSchoolActivePlans(
     schoolId: string,
-  ): Promise<SchoolActivePlan | null> {
+  ): Promise<SchoolActivePlan[]> {
     const now = new Date();
 
     const rows = await this.db
@@ -42,6 +42,7 @@ export class SubscriptionsService {
         endDate: schoolSubscriptions.endDate,
         planId: plans.id,
         planName: plans.name,
+        planType: plans.type,
         planPrice: plans.price,
         planFeatures: plans.features,
       })
@@ -53,16 +54,9 @@ export class SubscriptionsService {
           eq(schoolSubscriptions.status, 'active'),
           gte(schoolSubscriptions.endDate, now),
         ),
-      )
-      .limit(1);
+      );
 
-    const row = rows[0];
-
-    if (!row) {
-      return null;
-    }
-
-    return {
+    return rows.map((row) => ({
       subscriptionId: row.subscriptionId,
       schoolId: row.schoolId,
       status: row.status as any,
@@ -71,13 +65,14 @@ export class SubscriptionsService {
       plan: {
         id: row.planId,
         name: row.planName,
+        type: row.planType as any,
         price: row.planPrice,
         features: row.planFeatures,
       },
-    };
+    }));
   }
 
-  async getSchoolActivePlanByOwner(ownerId: string): Promise<SchoolActivePlan | null> {
+  async getSchoolActivePlansByOwner(ownerId: string): Promise<SchoolActivePlan[]> {
     const rows = await this.db
       .select({ id: schools.id })
       .from(schools)
@@ -86,27 +81,35 @@ export class SubscriptionsService {
 
     const school = rows[0];
     if (!school) {
-      return null;
+      return [];
     }
 
-    return this.getSchoolActivePlan(school.id);
+    return this.getSchoolActivePlans(school.id);
   }
 
   async changePlan(ownerId: string, planId: string): Promise<ChangePlanResult> {
-    const subscription = await this.db.transaction(async (tx) => {
-      const [school] = await tx
+    const schoolId = await this.db.transaction(async (tx) => {
+      let school = await tx
         .select({ id: schools.id })
         .from(schools)
         .where(eq(schools.ownerId, ownerId))
-        .limit(1);
+        .then(rows => rows[0]);
 
       if (!school) {
-        throw new NotFoundException('School not found for this owner');
+        // Si no tiene escuela (ej. curso independiente), le creamos una básica
+        const [newSchool] = await tx.insert(schools).values({
+            ownerId,
+            name: `Escuela de ${ownerId.slice(0, 8)}`,
+            description: 'Escuela creada automáticamente para gestión de planes.',
+        }).returning({ id: schools.id });
+        school = newSchool;
       }
 
       const [targetPlan] = await tx
         .select({
           id: plans.id,
+          name: plans.name,
+          type: plans.type,
         })
         .from(plans)
         .where(eq(plans.id, planId))
@@ -116,17 +119,43 @@ export class SubscriptionsService {
         throw new NotFoundException('Plan not found');
       }
 
+      // Definir la categoría del plan para saber qué reemplazar
+      let planCategory: 'subscription' | 'lead_model' | 'addon';
+      if (targetPlan.type === 'subscription') {
+          planCategory = 'subscription';
+      } else if (targetPlan.name.startsWith('LEAD_')) {
+          planCategory = 'lead_model';
+      } else {
+          planCategory = 'addon'; // Ej: MASS_MESSAGE
+      }
+
       const startDate = new Date();
       const endDate = new Date(startDate);
-      endDate.setMonth(endDate.getMonth() + 1); // Asumimos un mes
+      endDate.setMonth(endDate.getMonth() + 1);
 
-      const [existingSubscription] = await tx
-        .select({ id: schoolSubscriptions.id })
+      // Buscamos planes activos que pertenezcan a la misma categoría
+      const allActive = await tx
+        .select({ 
+          id: schoolSubscriptions.id,
+          planName: plans.name,
+          planType: plans.type
+        })
         .from(schoolSubscriptions)
-        .where(eq(schoolSubscriptions.schoolId, school.id))
-        .limit(1);
+        .innerJoin(plans, eq(plans.id, schoolSubscriptions.planId))
+        .where(and(
+          eq(schoolSubscriptions.schoolId, school.id),
+          eq(schoolSubscriptions.status, 'active')
+        ));
 
-      if (existingSubscription) {
+      const existingInSameCategory = allActive.filter(s => {
+          if (planCategory === 'subscription') return s.planType === 'subscription';
+          if (planCategory === 'lead_model') return s.planName.startsWith('LEAD_');
+          if (planCategory === 'addon') return !s.planName.startsWith('LEAD_') && s.planType !== 'subscription';
+          return false;
+      });
+
+      if (existingInSameCategory.length > 0) {
+        // Reemplazamos el primero que encontremos de esa categoría
         await tx
           .update(schoolSubscriptions)
           .set({
@@ -136,8 +165,18 @@ export class SubscriptionsService {
             endDate,
             updatedAt: new Date(),
           })
-          .where(eq(schoolSubscriptions.id, existingSubscription.id));
+          .where(eq(schoolSubscriptions.id, existingInSameCategory[0].id));
+        
+        // Si había más (limpieza), los cancelamos
+        if (existingInSameCategory.length > 1) {
+            const idsToCancel = existingInSameCategory.slice(1).map(s => s.id);
+            await tx
+                .update(schoolSubscriptions)
+                .set({ status: 'canceled', updatedAt: new Date() })
+                .where(inArray(schoolSubscriptions.id, idsToCancel));
+        }
       } else {
+        // Si no había nada en esa categoría, insertamos nuevo
         await tx.insert(schoolSubscriptions).values({
           schoolId: school.id,
           planId: targetPlan.id,
@@ -150,15 +189,13 @@ export class SubscriptionsService {
       return school.id;
     });
 
-    const activePlan = await this.getSchoolActivePlan(subscription);
-
-    if (!activePlan) {
-      throw new NotFoundException('Updated subscription could not be loaded');
-    }
+    const activePlans = await this.getSchoolActivePlans(schoolId);
+    // Retornamos el plan que acabamos de activar para cumplir con el contrato de la interfaz anterior si es necesario
+    const currentActivePlan = activePlans.find(p => p.plan.id === planId)!;
 
     return {
       message: 'Plan actualizado con éxito',
-      subscription: activePlan,
+      subscription: currentActivePlan,
     };
   }
 }
