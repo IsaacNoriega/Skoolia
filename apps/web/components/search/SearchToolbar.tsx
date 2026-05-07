@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ChevronLeft, Search, MapPin, SlidersHorizontal, Grid3X3, MoreHorizontal, X, Check, ArrowRight, Clock } from "lucide-react";
+import { ChevronLeft, Search, MapPin, SlidersHorizontal, Grid3X3, MoreHorizontal, X, Check, ArrowRight, Clock, Sparkles, GraduationCap, MessageSquare } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { BudgetSlider } from "@/components/ui/BudgetSlider";
 import { schoolCategoriesService, type Category } from "@/lib/services/services/schools-categories.service";
 import { MEXICO_STATES, resolveMexicanState } from "@/lib/mexico-states";
 import { useAuth } from "@/contexts/AuthContext";
@@ -61,8 +62,8 @@ export default function SearchToolbar({
   const [selectedCategoryId, setSelectedCategoryId] = useState(categoryId);
   const [scheduleFilter, setScheduleFilter] = useState(modality || schedule);
   const [languagesFilter, setLanguagesFilter] = useState(languages);
-  const [priceMin, setPriceMin] = useState(minPrice != null ? String(minPrice) : "");
-  const [priceMax, setPriceMax] = useState(maxPrice != null ? String(maxPrice) : "");
+  const [studentAge, setStudentAge] = useState("");
+  const [budgetRange, setBudgetRange] = useState<number[]>([minPrice ?? 1000, maxPrice ?? 20000]);
   const [sort, setSort] = useState<"favorites" | "rating" | "recent">(sortBy);
   const [onlyVerified, setOnlyVerified] = useState(verified);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -81,8 +82,7 @@ export default function SearchToolbar({
   useEffect(() => setSelectedCategoryId(categoryId), [categoryId]);
   useEffect(() => setScheduleFilter(modality || schedule), [modality, schedule]);
   useEffect(() => setLanguagesFilter(languages), [languages]);
-  useEffect(() => setPriceMin(minPrice != null ? String(minPrice) : ""), [minPrice]);
-  useEffect(() => setPriceMax(maxPrice != null ? String(maxPrice) : ""), [maxPrice]);
+  useEffect(() => setBudgetRange([minPrice ?? 1000, maxPrice ?? 20000]), [minPrice, maxPrice]);
   useEffect(() => setSort(sortBy), [sortBy]);
   useEffect(() => setOnlyVerified(verified), [verified]);
   useEffect(() => setNearMe(near || loc === "Cerca de mí"), [near, loc]);
@@ -174,8 +174,6 @@ export default function SearchToolbar({
     const normalizedLevel = educationalLevel.trim();
     const normalizedSchedule = scheduleFilter.trim();
     const normalizedLanguages = languagesFilter.trim();
-    const normalizedMinPrice = priceMin.trim();
-    const normalizedMaxPrice = priceMax.trim();
 
     if (normalizedQuery) params.set("q", normalizedQuery);
     if (normalizedLoc && normalizedLoc !== ALL_ZONES_LABEL && normalizedLoc !== "Cerca de mí") {
@@ -188,12 +186,9 @@ export default function SearchToolbar({
     if (selectedCategoryId) params.set("categoryId", selectedCategoryId);
     if (normalizedSchedule) params.set("modality", normalizedSchedule);
     if (normalizedLanguages) params.set("languages", normalizedLanguages);
-    if (normalizedMinPrice && !Number.isNaN(Number(normalizedMinPrice))) {
-      params.set("minPrice", normalizedMinPrice);
-    }
-    if (normalizedMaxPrice && !Number.isNaN(Number(normalizedMaxPrice))) {
-      params.set("maxPrice", normalizedMaxPrice);
-    }
+    if (studentAge) params.set("studentAge", studentAge);
+    if (budgetRange[0] > 1000) params.set("minPrice", String(budgetRange[0]));
+    if (budgetRange[1] < 20000) params.set("maxPrice", String(budgetRange[1]));
     if (sort !== "recent") params.set("sortBy", sort);
     if (onlyVerified) params.set("verified", "1");
 
@@ -409,8 +404,8 @@ export default function SearchToolbar({
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">$</span>
                         <input
                           type="number"
-                          value={priceMax}
-                          onChange={(e) => setPriceMax(e.target.value)}
+                          value={budgetRange[1]}
+                          onChange={(e) => setBudgetRange([budgetRange[0], Number(e.target.value) || 20000])}
                           placeholder="Ej. 15,000"
                           className="w-full rounded-2xl bg-slate-50 border-2 border-slate-50 pl-8 pr-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-violet-100 focus:bg-white transition-all"
                         />
@@ -464,24 +459,31 @@ export default function SearchToolbar({
                       </select>
                     </FilterGroup>
 
-                    <FilterGroup label="Rango de Precio" icon={<Sparkles size={14} />}>
-                      <div className="flex items-center gap-2">
-                        <div className="relative flex-1">
-                          <input
-                            value={priceMin}
-                            onChange={(e) => setPriceMin(e.target.value)}
-                            placeholder="Mín"
-                            className="w-full rounded-2xl bg-slate-50 border-2 border-slate-50 px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-indigo-100 focus:bg-white transition-all"
-                          />
-                        </div>
-                        <span className="text-slate-300">—</span>
-                        <div className="relative flex-1">
-                          <input
-                            value={priceMax}
-                            onChange={(e) => setPriceMax(e.target.value)}
-                            placeholder="Máx"
-                            className="w-full rounded-2xl bg-slate-50 border-2 border-slate-50 px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-indigo-100 focus:bg-white transition-all"
-                          />
+                    <FilterGroup label="Edad del Estudiante" icon={<GraduationCap size={14} />}>
+                      <select
+                        value={studentAge}
+                        onChange={(e) => setStudentAge(e.target.value)}
+                        className="w-full appearance-none rounded-2xl bg-slate-50 border-2 border-slate-50 px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-indigo-100 focus:bg-white transition-all"
+                      >
+                        <option value="">Cualquier edad</option>
+                        {Array.from({ length: 18 }, (_, i) => i + 1).map(age => (
+                          <option key={age} value={age}>{age} año{age !== 1 ? 's' : ''}</option>
+                        ))}
+                      </select>
+                    </FilterGroup>
+
+                    <FilterGroup label="Presupuesto Mensual" icon={<Sparkles size={14} />}>
+                      <div className="flex flex-col gap-4 pt-2">
+                        <BudgetSlider
+                          value={budgetRange}
+                          onValueChange={setBudgetRange}
+                          min={1000}
+                          max={20000}
+                          step={500}
+                        />
+                        <div className="flex justify-between text-xs font-bold text-slate-500">
+                          <span>${budgetRange[0].toLocaleString()}</span>
+                          <span>${budgetRange[1].toLocaleString()}{budgetRange[1] >= 20000 ? '+' : ''}</span>
                         </div>
                       </div>
                     </FilterGroup>
@@ -519,11 +521,11 @@ export default function SearchToolbar({
                 <button 
                   onClick={() => {
                     setEducationalLevel("");
+                    setStudentAge("");
                     setSelectedCategoryId("");
                     setScheduleFilter("");
                     setLanguagesFilter("");
-                    setPriceMin("");
-                    setPriceMax("");
+                    setBudgetRange([1000, 20000]);
                     setOnlyVerified(false);
                   }}
                   className="px-6 py-3 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors"
@@ -557,59 +559,4 @@ function FilterGroup({ label, icon, children }: { label: string, icon: React.Rea
   );
 }
 
-function MessageSquare({ size }: { size: number }) {
-  return (
-    <svg 
-      xmlns="http://www.w3.org/2000/svg" 
-      width={size} 
-      height={size} 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round" 
-    >
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-    </svg>
-  );
-}
 
-function GraduationCap({ size }: { size: number }) {
-  return (
-    <svg 
-      xmlns="http://www.w3.org/2000/svg" 
-      width={size} 
-      height={size} 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round" 
-    >
-      <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
-      <path d="M6 12v5c3 3 9 3 12 0v-5" />
-    </svg>
-  );
-}
-
-function Sparkles({ size }: { size: number }) {
-  return (
-    <svg 
-      xmlns="http://www.w3.org/2000/svg" 
-      width={size} 
-      height={size} 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round" 
-    >
-      <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
-      <path d="M5 3 4 5 2 6l2 1 1 2 1-2 2-1-2-1-1-2Z" />
-      <path d="M20 18l-1 2-2 1 2 1 1 2 1-2 2-1-2-1-1-2Z" />
-    </svg>
-  );
-}

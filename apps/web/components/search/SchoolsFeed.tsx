@@ -79,7 +79,7 @@ export default function SchoolsFeed(props: any) {
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {data.edges.map(({ node }) => (
+        {data.edges.map(({ node }: { node: any }) => (
           <CatalogCard
             key={node.id}
             imageSrc={resolveSchoolCardImage(node.id, node.coverImageUrl)}

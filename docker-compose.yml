@@ -47,6 +47,7 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
       API_SERVER_URL: http://api:8000
+      DATABASE_URL: postgresql://skoolia_user:skoolia_password@postgres:5432/skoolia
       PORT: 3000
     depends_on:
       - api

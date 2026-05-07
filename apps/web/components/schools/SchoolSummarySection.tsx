@@ -37,6 +37,8 @@ import {
 	subscriptionsService,
 	type SchoolActivePlan,
 } from "@/lib/services/services/subscriptions.service";
+import { DashboardMetrics } from "./DashboardMetrics";
+import { enrollmentService } from "@/lib/services/services/enrollment.service";
 
 function formatRelativeDate(isoDate: string) {
 	const date = new Date(isoDate);
@@ -82,6 +84,13 @@ export default function SchoolSummarySection() {
 	const [courses, setCourses] = useState<Course[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const [metrics, setMetrics] = useState({
+		qualifiedLeads: 0,
+		leadsFee: "$0",
+		successCommissions: "$0",
+		totalToPay: "$0",
+		conversionRate: "0%"
+	});
 
 	const { user } = useAuth();
 	const pathname = usePathname();
@@ -110,6 +119,16 @@ export default function SchoolSummarySection() {
 					setSchool(schoolData);
 					setCourses(coursesData);
 					setActivePlans(planData);
+
+					enrollmentService.getMyMetrics()
+						.then(data => mounted && setMetrics(data))
+						.catch(() => mounted && setMetrics({
+							qualifiedLeads: 0,
+							leadsFee: "$0.00",
+							successCommissions: "$0.00",
+							totalToPay: "$0.00",
+							conversionRate: "0%"
+						}));
 				}
 
 				if (user?.id) {
@@ -172,7 +191,7 @@ export default function SchoolSummarySection() {
 				.map((word) => word.charAt(0).toUpperCase())
 				.join("")
 		: "SC";
-	const activeSubscriptionPlan = activePlans.find(p => p.plan.type === "subscription");
+	const activeSubscriptionPlan = activePlans[0];
 	const planName = activeSubscriptionPlan
 		? activeSubscriptionPlan.plan.name.replace("_SUBSCRIPTION", "").replaceAll("_", " ")
 		: "Plan pendiente";
@@ -253,6 +272,12 @@ export default function SchoolSummarySection() {
 					</div>
 				</div>
 			</section>
+
+			{!isCourseMode && (
+				<section className="mt-8">
+					<DashboardMetrics metrics={metrics} />
+				</section>
+			)}
 
 			<section className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
 				<div className="min-w-0 space-y-7">
