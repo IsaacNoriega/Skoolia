@@ -3,7 +3,15 @@ import { LeadCard } from "@/components/leads/LeadCard";
 import type { Lead, LeadStatus } from "@/lib/types/lead";
 import { Search, Filter, Users, Sparkles, TrendingUp, CheckCircle } from "lucide-react";
 
-export function LeadsDashboard({ leads }: { leads: Lead[] }) {
+import type { SchoolActivePlan } from "@/lib/services/services/subscriptions.service";
+
+export function LeadsDashboard({ 
+  leads, 
+  activePlans = [] 
+}: { 
+  leads: Lead[], 
+  activePlans?: SchoolActivePlan[] 
+}) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<LeadStatus | "ALL">("ALL");
 
@@ -103,7 +111,7 @@ export function LeadsDashboard({ leads }: { leads: Lead[] }) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
           {filteredLeads.map((lead) => (
-            <LeadCard key={lead.id} lead={lead} />
+            <LeadCard key={lead.id} lead={lead} activePlans={activePlans} />
           ))}
         </div>
       )}

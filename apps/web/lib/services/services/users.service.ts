@@ -21,14 +21,14 @@ export const userService = {
   }): Promise<UserProfile> {
     return api<UserProfile>("/users/me", {
       method: "PATCH",
-      body: JSON.stringify(data),
+      body: data,
     });
   },
 
   async updateAvatar(fileId: string): Promise<UserProfile> {
     return api<UserProfile>("/users/me/image", {
       method: "PATCH",
-      body: JSON.stringify({ fileId }),
+      body: { fileId },
     });
   },
 };

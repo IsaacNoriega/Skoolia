@@ -17,8 +17,8 @@ export class SubscriptionsController {
   @Get('me')
   @UseGuards(AuthGuard, RolesGuard)
   @Roles('private')
-  async getMyActivePlan(@CurrentUser() user: JwtPayload) {
-    return this.subscriptionsService.getSchoolActivePlanByOwner(user.sub);
+  async getMyActivePlans(@CurrentUser() user: JwtPayload) {
+    return this.subscriptionsService.getSchoolActivePlansByOwner(user.sub);
   }
 
   @Patch('change')

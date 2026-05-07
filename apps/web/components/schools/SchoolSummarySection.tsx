@@ -77,7 +77,7 @@ function formatShortDate(value: string | null | undefined) {
 
 export default function SchoolSummarySection() {
 	const [school, setSchool] = useState<School | null>(null);
-	const [activePlan, setActivePlan] = useState<SchoolActivePlan | null>(null);
+	const [activePlans, setActivePlans] = useState<SchoolActivePlan[]>([]);
 	const [threads, setThreads] = useState<SchoolThread[]>([]);
 	const [courses, setCourses] = useState<Course[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -103,13 +103,13 @@ export default function SchoolSummarySection() {
 				const [schoolData, coursesData, planData] = await Promise.all([
 					schoolsService.getMySchool().catch(() => null),
 					coursesService.listMine(),
-					subscriptionsService.getActivePlan().catch(() => null),
+					subscriptionsService.getActivePlans().catch(() => []),
 				]);
 
 				if (mounted) {
 					setSchool(schoolData);
 					setCourses(coursesData);
-					setActivePlan(planData);
+					setActivePlans(planData);
 				}
 
 				if (user?.id) {
@@ -172,8 +172,9 @@ export default function SchoolSummarySection() {
 				.map((word) => word.charAt(0).toUpperCase())
 				.join("")
 		: "SC";
-	const planName = activePlan
-		? activePlan.plan.name.replace("_SUBSCRIPTION", "").replaceAll("_", " ")
+	const activeSubscriptionPlan = activePlans.find(p => p.plan.type === "subscription");
+	const planName = activeSubscriptionPlan
+		? activeSubscriptionPlan.plan.name.replace("_SUBSCRIPTION", "").replaceAll("_", " ")
 		: "Plan pendiente";
 
 	if (loading) {

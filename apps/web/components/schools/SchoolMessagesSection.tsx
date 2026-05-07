@@ -17,6 +17,8 @@ import {
 } from "@/lib/school-thread-events";
 import { LeadStatusBadge } from "@/components/leads/LeadStatusBadge";
 import type { LeadStatus } from "@/lib/types/lead";
+import { subscriptionsService, type SchoolActivePlan } from "@/lib/services/services/subscriptions.service";
+import { Lock } from "lucide-react";
 
 function formatDate(isoDate: string) {
 	const date = new Date(isoDate);
@@ -64,6 +66,17 @@ export default function SchoolMessagesSection() {
 	const [schoolId, setSchoolId] = useState<string | null>(null);
 	const [filter, setFilter] = useState<"all" | "school" | "course">("all");
 	const [searchTerm, setSearchTerm] = useState("");
+	const [activePlans, setActivePlans] = useState<SchoolActivePlan[]>([]);
+
+	const isUnlocked = activePlans.some(p => 
+		p.plan.name === "PREMIUM_SUBSCRIPTION" || 
+		p.plan.name === "LEAD_INTEREST" || 
+		p.plan.name === "LEAD_ENROLLMENT"
+	);
+
+	useEffect(() => {
+		subscriptionsService.getActivePlans().then(setActivePlans);
+	}, []);
 
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const { user } = useAuth();
@@ -346,8 +359,7 @@ export default function SchoolMessagesSection() {
 									<LeadStatusBadge status={activeThread.leadStatus.toUpperCase() as LeadStatus} />
 								)}
 							</header>
-
-							<div className="flex-1 overflow-y-auto px-8 py-8 space-y-8 no-scrollbar bg-slate-50/30">
+							<div className="flex-1 overflow-y-auto px-8 py-8 space-y-8 no-scrollbar bg-slate-50/30">
 								{messages.map((msg, idx) => {
 									const isMine = msg.senderRole === "private";
 									const showDate = idx === 0 || formatFullDate(messages[idx-1].createdAt) !== formatFullDate(msg.createdAt);
@@ -367,7 +379,7 @@ export default function SchoolMessagesSection() {
 														isMine 
 															? `${accentBgClass} text-white rounded-br-none shadow-lg shadow-indigo-500/10` 
 															: "bg-white text-slate-700 border border-slate-100 rounded-bl-none"
-													}`}>
+													} ${(activeThread.leadStatus && !isUnlocked && !isMine) ? "blur-[2px] select-none" : ""}`}>
 														{msg.content}
 													</div>
 													<div className={`flex items-center gap-1.5 px-2 text-[9px] font-bold uppercase tracking-widest text-slate-400 ${isMine ? "justify-end" : "justify-start"}`}>
@@ -383,28 +395,49 @@ export default function SchoolMessagesSection() {
 							</div>
 
 							<footer className="p-6 bg-white border-t border-slate-100">
-								<div className="relative flex items-center gap-3 p-2 bg-slate-100 rounded-[2rem] border border-slate-200/60 focus-within:bg-white focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all group">
-									<input 
-										type="text"
-										value={draft}
-										onChange={(e) => setDraft(e.target.value)}
-										onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
-										placeholder="Escribe tu respuesta aquí..."
-										className="flex-1 bg-transparent px-5 py-3 outline-none text-slate-700 placeholder-slate-400 font-medium"
-									/>
-									<button
-										onClick={sendMessage}
-										disabled={!draft.trim() || sending}
-										className={`p-4 rounded-full transition-all duration-300 ${
-											draft.trim() && !sending 
-												? `${accentBgClass} text-white shadow-lg shadow-indigo-500/30 scale-100` 
-												: "bg-slate-200 text-slate-400 scale-90"
-										}`}
-									>
-										<Send size={20} className={`stroke-[2.5px] ${sending ? "animate-pulse" : ""}`} />
-									</button>
-								</div>
+								{activeThread.leadStatus && !isUnlocked ? (
+									<div className={`flex flex-col items-center gap-4 p-8 rounded-3xl border-2 border-dashed ${isCourseMode ? "border-violet-200 bg-violet-50/50" : "border-indigo-200 bg-indigo-50/50"}`}>
+										<div className={`p-4 rounded-full bg-white shadow-xl ${accentTextClass}`}>
+											<Lock size={24} className="stroke-[2.5px]" />
+										</div>
+										<div className="text-center space-y-1">
+											<p className="text-sm font-black text-slate-900 uppercase tracking-tight">Comunicación protegida</p>
+											<p className="text-xs text-slate-500 font-medium max-w-xs">
+												Para responder a este prospecto y ver sus mensajes, activa un **Plan de Leads** o el **Plan Premium**.
+											</p>
+										</div>
+										<button 
+											onClick={() => window.location.href = isCourseMode ? "/courses/plans" : "/schools/plans"}
+											className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest text-white shadow-lg transition-transform hover:scale-105 active:scale-95 ${accentBgClass}`}
+										>
+											Desbloquear ahora
+										</button>
+									</div>
+								) : (
+									<div className="relative flex items-center gap-3 p-2 bg-slate-100 rounded-[2rem] border border-slate-200/60 focus-within:bg-white focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all group">
+										<input 
+											type="text"
+											value={draft}
+											onChange={(e) => setDraft(e.target.value)}
+											onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
+											placeholder="Escribe tu respuesta aquí..."
+											className="flex-1 bg-transparent px-5 py-3 outline-none text-slate-700 placeholder-slate-400 font-medium"
+										/>
+										<button
+											onClick={sendMessage}
+											disabled={!draft.trim() || sending}
+											className={`p-4 rounded-full transition-all duration-300 ${
+												draft.trim() && !sending 
+													? `${accentBgClass} text-white shadow-lg shadow-indigo-500/30 scale-100` 
+													: "bg-slate-200 text-slate-400 scale-90"
+											}`}
+										>
+											<Send size={20} className={`stroke-[2.5px] ${sending ? "animate-pulse" : ""}`} />
+										</button>
+									</div>
+								)}
 							</footer>
+
 						</>
 					) : (
 						<div className="flex-1 flex flex-col items-center justify-center p-12 bg-slate-50/20">

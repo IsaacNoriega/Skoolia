@@ -8,7 +8,22 @@ import { Calendar, User, MessageSquare, ExternalLink, ArrowRight } from "lucide-
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
-export function LeadCard({ lead }: { lead: Lead }) {
+import type { SchoolActivePlan } from "@/lib/services/services/subscriptions.service";
+import { Lock } from "lucide-react";
+
+export function LeadCard({ 
+    lead, 
+    activePlans = [] 
+}: { 
+    lead: Lead, 
+    activePlans?: SchoolActivePlan[] 
+}) {
+  const isUnlocked = activePlans.some(p => 
+    p.plan.name === "PREMIUM_SUBSCRIPTION" || 
+    p.plan.name === "LEAD_INTEREST" || 
+    p.plan.name === "LEAD_ENROLLMENT"
+  );
+
   const pathname = usePathname();
   const isSchoolDashboard = pathname.startsWith("/schools");
   const baseMessagePath = isSchoolDashboard ? "/schools/messages" : "/courses/messages";
@@ -39,7 +54,7 @@ export function LeadCard({ lead }: { lead: Lead }) {
             {lead.userName?.[0]?.toUpperCase() || <User size={28} />}
           </div>
           <div>
-            <h3 className="font-black text-slate-900 text-xl leading-none tracking-tight group-hover:text-indigo-600 transition-colors">
+            <h3 className={`font-black text-slate-900 text-xl leading-none tracking-tight group-hover:text-indigo-600 transition-colors ${!isUnlocked ? "blur-[3px] select-none" : ""}`}>
               {lead.userName || "Usuario anónimo"}
             </h3>
             <div className="flex items-center gap-2 mt-2">
@@ -86,8 +101,8 @@ export function LeadCard({ lead }: { lead: Lead }) {
       {/* Note/Interaction snippet */}
       {lead.metadata?.notes?.[0] && (
         <div className="relative bg-slate-50/50 rounded-2xl p-5 border border-slate-100/50 group-hover:bg-white group-hover:border-slate-200 transition-all duration-300">
-          <p className="text-sm text-slate-600 font-medium leading-relaxed">
-            "{lead.metadata.notes[0]}"
+          <p className={`text-sm text-slate-600 font-medium leading-relaxed ${!isUnlocked ? "blur-sm select-none" : ""}`}>
+            {isUnlocked ? `"${lead.metadata.notes[0]}"` : "Contenido de nota protegido por suscripción."}
           </p>
           <div className="absolute top-0 right-4 -translate-y-1/2 bg-white px-2 text-[9px] font-black text-slate-300 uppercase tracking-widest">
             Última nota
@@ -97,18 +112,33 @@ export function LeadCard({ lead }: { lead: Lead }) {
 
       {/* Footer Actions */}
       <div className="mt-auto pt-6 flex items-center justify-between gap-4 border-t border-slate-100">
-        <LeadMetadataEditor leadId={lead.id} initialMetadata={lead.metadata || {}} />
+        {isUnlocked ? (
+            <LeadMetadataEditor leadId={lead.id} initialMetadata={lead.metadata || {}} />
+        ) : (
+            <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <Lock size={12} /> Datos bloqueados
+            </div>
+        )}
         
-        <Link 
-          href={chatUrl}
-          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all duration-300 ${
-            lead.originType === "COURSE" 
-              ? "bg-violet-600 text-white hover:bg-violet-700 hover:shadow-lg hover:shadow-violet-500/30" 
-              : "bg-slate-900 text-white hover:bg-slate-800 hover:shadow-lg hover:shadow-slate-900/30"
-          }`}
-        >
-          Chat <ArrowRight size={14} className="stroke-[3px]" />
-        </Link>
+        {isUnlocked ? (
+            <Link 
+              href={chatUrl}
+              className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all duration-300 ${
+                lead.originType === "COURSE" 
+                  ? "bg-violet-600 text-white hover:bg-violet-700 hover:shadow-lg hover:shadow-violet-500/30" 
+                  : "bg-slate-900 text-white hover:bg-slate-800 hover:shadow-lg hover:shadow-slate-900/30"
+              }`}
+            >
+              Chat <ArrowRight size={14} className="stroke-[3px]" />
+            </Link>
+        ) : (
+            <Link 
+              href={isSchoolDashboard ? "/schools/plans" : "/courses/plans"}
+              className="flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-black uppercase tracking-widest bg-slate-100 text-slate-400 cursor-not-allowed"
+            >
+              Desbloquear <Lock size={14} className="stroke-[3px]" />
+            </Link>
+        )}
       </div>
 
       {/* Secret ID display on hover */}

@@ -43,8 +43,9 @@ export const schoolSubscriptions = pgTable(
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
   (table) => ({
-    schoolUnique: uniqueIndex('school_subscriptions_school_unique').on(
+    schoolPlanUnique: uniqueIndex('school_subscriptions_school_plan_unique').on(
       table.schoolId,
+      table.planId,
     ),
     schoolIdx: index('school_subscriptions_school_idx').on(table.schoolId),
     planIdx: index('school_subscriptions_plan_idx').on(table.planId),

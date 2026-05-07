@@ -7,6 +7,9 @@ import { CalendarClock, MessageCircle, User } from "lucide-react";
 
 import { messagesService, type SchoolThread, type LeadStage, inferDefaultStage } from "@/lib/services/services/messages.service";
 import { updateLeadStatus } from "@/lib/services/leadsService";
+import { subscriptionsService, type SchoolActivePlan } from "@/lib/services/services/subscriptions.service";
+import { FeatureLock } from "./FeatureLock";
+import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/contexts/AuthContext";
 
 // Toast minimalista para errores
@@ -156,6 +159,9 @@ export default function SchoolLeadsSection() {
 	const [search, setSearch] = useState("");
 	const [tagFilter, setTagFilter] = useState("");
 
+	const [activePlans, setActivePlans] = useState<SchoolActivePlan[]>([]);
+	const [loadingActivePlans, setLoadingActivePlans] = useState(true);
+
 	const isCourseMode = pathname.startsWith("/courses");
 	const accentBgClass = isCourseMode ? "bg-violet-600" : "bg-indigo-600";
 	const accentTextClass = isCourseMode ? "text-violet-600" : "text-indigo-600";
@@ -166,6 +172,15 @@ export default function SchoolLeadsSection() {
 
 	useEffect(() => {
 		setLeads(readLeads(user?.id));
+		
+		(async () => {
+			try {
+				const plans = await subscriptionsService.getActivePlans();
+				setActivePlans(plans);
+			} finally {
+				setLoadingActivePlans(false);
+			}
+		})();
 	}, [user?.id]);
 
 	useEffect(() => {
@@ -373,6 +388,26 @@ export default function SchoolLeadsSection() {
 			setReminderToast(msg);
 		}
 	}, [leads]);
+
+	if (loadingActivePlans) {
+		return (
+			<div className="flex h-64 items-center justify-center">
+				<div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-indigo-600" />
+			</div>
+		);
+	}
+
+	const hasPremium = activePlans.some(p => p.plan.name === "PREMIUM_SUBSCRIPTION");
+
+	if (!hasPremium) {
+		return (
+			<FeatureLock
+				title="Gestión de Prospectos"
+				description="Para acceder al pipeline de leads, seguimiento de pasos, etiquetas y análisis de conversión, necesitas el Plan Premium."
+				requiredPlan="Premium"
+			/>
+		);
+	}
 
 	return (
 		<section className="space-y-5 sm:space-y-6">

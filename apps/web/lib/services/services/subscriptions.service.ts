@@ -22,11 +22,11 @@ export interface ChangePlanResponse {
 }
 
 export const subscriptionsService = {
-  async getActivePlan(token?: string) {
+  async getActivePlans(token?: string) {
     const headers = token
       ? { Authorization: `Bearer ${token}` }
       : undefined;
-    return api<SchoolActivePlan | null>("/subscriptions/me", { headers });
+    return api<SchoolActivePlan[]>("/subscriptions/me", { headers });
   },
 
   async changePlan(planId: string, token?: string) {
@@ -37,7 +37,7 @@ export const subscriptionsService = {
     return api<ChangePlanResponse>("/subscriptions/change", {
       method: "PATCH",
       headers,
-      body: JSON.stringify({ planId }),
+      body: { planId },
     });
   },
 };

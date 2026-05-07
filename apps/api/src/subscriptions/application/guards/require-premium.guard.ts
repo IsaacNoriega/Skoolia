@@ -55,11 +55,13 @@ export class RequirePremiumGuard implements CanActivate {
       );
     }
 
-    const activePlan = await this.subscriptionsService.getSchoolActivePlan(
+    const activePlans = await this.subscriptionsService.getSchoolActivePlans(
       school.id,
     );
 
-    if (!activePlan || activePlan.plan.name.toLowerCase() === 'freemium') {
+    const hasPremium = activePlans.some(p => p.plan.name === 'PREMIUM_SUBSCRIPTION');
+
+    if (!hasPremium) {
       throw new ForbiddenException(
         'This feature requires an active Premium subscription.',
       );

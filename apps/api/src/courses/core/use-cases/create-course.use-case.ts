@@ -38,9 +38,10 @@ export class CreateCourseUseCase {
     latitude?: number;
     longitude?: number;
   }) {
-    const activePlan = await this.subscriptionsService.getSchoolActivePlanByOwner(params.ownerId);
+    const activePlans = await this.subscriptionsService.getSchoolActivePlansByOwner(params.ownerId);
+    const hasPremium = activePlans.some(p => p.plan.name === 'PREMIUM_SUBSCRIPTION');
       
-    if (activePlan && activePlan.plan.name.toLowerCase() === 'freemium') {
+    if (!hasPremium) {
       const courses = await this.courseRepository.findByOwner(params.ownerId);
       const activeCoursesCount = courses.filter(c => c.status !== 'archived').length;
       
