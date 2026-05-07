@@ -22,4 +22,19 @@ export class EnrollmentsController {
   async getByTarget(@Param('id') id: string) {
     return this.enrollmentsService.getEnrollmentsByTarget(id);
   }
+
+  @Get('my-metrics')
+  async getMyMetrics(@Request() req) {
+    return this.enrollmentsService.getUserMetrics(req.user.sub);
+  }
+
+  @Get('metrics/:schoolId')
+  async getSchoolMetrics(@Param('schoolId') schoolId: string) {
+    return this.enrollmentsService.getUserMetrics(schoolId); // Fallback por compatibilidad
+  }
+
+  @Post('trigger-followup')
+  async triggerFollowUp(@Body() body: { targetId: string; type: string }) {
+    return this.enrollmentsService.triggerAutomatedFollowUp(body.targetId, body.type);
+  }
 }

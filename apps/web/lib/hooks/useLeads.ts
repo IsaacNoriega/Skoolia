@@ -34,7 +34,7 @@ export function useLeads(targetId: string, originType: "SCHOOL" | "COURSE", part
       const interactionLeads = await fetchInteractionLeads();
 
       // Fetch message threads as additional leads
-      let messageThreads = [];
+      let messageThreads: any[] = [];
       const threadParticipantId = participantId || targetId;
       
       try {

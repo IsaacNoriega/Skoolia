@@ -26,8 +26,8 @@ const schools = pgTable("schools", {
 	id: uuid("id").primaryKey(),
 	name: text("name").notNull(),
 	description: text("description"),
-	logoUrl: uuid("logo_url"),
-	coverImageUrl: uuid("cover_image_url"),
+	logoUrl: text("logo_url"),
+	coverImageUrl: text("cover_image_url"),
 	address: text("address"),
 	city: text("city"),
 	latitude: doublePrecision("latitude"),
@@ -40,9 +40,9 @@ const schools = pgTable("schools", {
 	enrollmentYear: integer("enrollment_year"),
 	enrollmentOpen: boolean("enrollment_open"),
 	monthlyPrice: integer("monthly_price"),
-	averageRating: doublePrecision("average_rating"),
-	ratingsCount: integer("ratings_count"),
-	favoritesCount: integer("favorites_count"),
+	averageRating: doublePrecision("average_rating").default(0).notNull(),
+	ratingsCount: integer("ratings_count").default(0).notNull(),
+	favoritesCount: integer("favorites_count").default(0).notNull(),
 	rankingScore: doublePrecision("ranking_score"),
 	isFeatured: boolean("is_featured"),
 	isVerified: boolean("is_verified"),
@@ -81,6 +81,7 @@ type WebSchool = {
 	url?: string;
 	price?: string;
 	level?: string;
+	talentTags?: string[];
 };
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -177,6 +178,7 @@ function extractWebSchools(reply: string): WebSchool[] {
 				description?: string;
 				level?: string;
 				url?: string;
+				talentTags?: string[];
 			}>;
 		};
 
@@ -189,6 +191,7 @@ function extractWebSchools(reply: string): WebSchool[] {
 			description: s.description,
 			level: s.level,
 			url: normalizeExternalUrl(s.url),
+			talentTags: s.talentTags || [],
 		}));
 	} catch {
 		return [];
@@ -265,11 +268,20 @@ function buildSystemInstruction(
 		"",
 		"IMPORTANTE: Si devuelves escuelas o cursos encontrados en internet, SOLO incluye URLs oficiales de la plataforma de la escuela o curso (el sitio web institucional de la escuela o la página oficial del curso). NO incluyas enlaces a periódicos, blogs, directorios, Wikipedia, ni páginas informativas externas. Si no encuentras la URL oficial, deja el campo url vacío o no incluyas ese resultado.",
 		"",
+		"SEGMENTACIÓN DE TALENTOS (CRÍTICO): Al analizar las escuelas, DEBES clasificarlas y asignarles 'talentTags' según los siguientes 6 pilares, basándote en su oferta (ej. robótica, deportes, bilingüismo):",
+		"1. STEAM (Ciencia, Tecnología, Ingeniería, Artes, Matemáticas)",
+		"2. Deportes",
+		"3. Música",
+		"4. Idiomas",
+		"5. Artes",
+		"6. Liderazgo/Emprendimiento",
+		"Solo asigna etiquetas que sean altamente relevantes para la institución.",
+		"",
 		"AL FINAL DE TU RESPUESTA, si encontraste escuelas en internet, añade un bloque JSON así:",
 		"[WEB_SCHOOLS_JSON]",
 		"{",
 		'  "schools": [',
-		'    { "name": "Nombre Escuela", "city": "Ciudad", "description": "Breve desc", "level": "Primaria/Secundaria/etc", "url": "https://..."  },',
+		'    { "name": "Nombre Escuela", "city": "Ciudad", "description": "Breve desc", "level": "Primaria/Secundaria/etc", "url": "https://...", "talentTags": ["Deportes", "STEAM"]  },',
 		'    { ... }',
 		"  ]",
 		"}",

@@ -33,5 +33,23 @@ export const enrollmentService = {
 
   async getByTarget(targetId: string) {
     return api<Enrollment[]>(`/enrollments/target/${targetId}`);
+  },
+
+  async getMyMetrics() {
+    const response = await api<{
+      qualifiedLeads: number;
+      leadsFee: string;
+      successCommissions: string;
+      totalToPay: string;
+      conversionRate: string;
+    }>("/enrollments/my-metrics");
+    return response;
+  },
+
+  async triggerAutomatedFollowUp(targetId: string, type: EnrollmentTargetType) {
+    return api<{ success: boolean; message: string; followUpCount: number }>(`/enrollments/trigger-followup`, {
+      method: 'POST',
+      body: { targetId, type },
+    });
   }
 };

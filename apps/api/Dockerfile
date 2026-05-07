@@ -1,12 +1,15 @@
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 
 WORKDIR /app
-RUN corepack enable
+RUN npm install -g pnpm@latest
 
 FROM base AS deps
 
+RUN apk add --no-cache python3 make g++ git
+
 COPY apps/api/package.json apps/api/pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile --ignore-scripts
+RUN pnpm rebuild bcrypt
 
 FROM deps AS build
 

@@ -48,7 +48,6 @@
 		"cloudinary": "^2.9.0",
 		"cookie-parser": "^1.4.7",
 		"dotenv": "^17.3.1",
-		"drizzle": "^1.4.0",
 		"drizzle-orm": "^0.45.1",
 		"graphql": "^16.12.0",
 		"multer": "^2.0.2",
@@ -89,6 +88,21 @@
 		"tsconfig-paths": "^4.2.0",
 		"typescript": "^5.7.3",
 		"typescript-eslint": "^8.20.0"
+	},
+	"pnpm": {
+		"onlyBuiltDependencies": [
+			"@apollo/protobufjs",
+			"@nestjs/core",
+			"bcrypt",
+			"core-js",
+			"esbuild",
+			"keccak",
+			"scrypt",
+			"secp256k1",
+			"sha3",
+			"unrs-resolver",
+			"websocket"
+		]
 	},
 	"jest": {
 		"moduleFileExtensions": [
