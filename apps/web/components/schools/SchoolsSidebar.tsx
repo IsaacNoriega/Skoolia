@@ -275,13 +275,13 @@ export default function SchoolsSidebar({ active = "summary", mode = "school" }: 
         </div>
 
         <div className="mt-6 flex w-full flex-col items-center space-y-3">
-          <button
-            type="button"
+          <Link
+            href="/ayuda"
             title="Soporte"
             className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-950 transition hover:border-slate-400"
           >
             <Headphones size={16} />
-          </button>
+          </Link>
 
           <button
             onClick={logout}

@@ -1,8 +1,8 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, type JSX } from "react";
-import { ArrowUpRight, CreditCard, ShieldCheck, Zap, Loader2, Users, MessageSquare, CheckCircle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowUpRight, CreditCard, ShieldCheck, Zap, Loader2, Users, MessageSquare, CheckCircle, Sparkles } from "lucide-react";
 
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -27,6 +27,7 @@ export default function SchoolPlansSection() {
   const accentBorderClass = isCourseMode ? "border-violet-200" : "border-indigo-200";
   const accentRingClass = isCourseMode ? "ring-violet-500" : "ring-indigo-500";
   const accentHoverBgClass = isCourseMode ? "hover:bg-violet-700" : "hover:bg-indigo-700";
+  const settingsHref = isCourseMode ? "/courses/settings" : "/schools/settings";
 
 
   useEffect(() => {
@@ -187,14 +188,37 @@ export default function SchoolPlansSection() {
 
   return (
     <div className="space-y-6">
-      <section className="text-center">
-        <h1 className="text-2xl font-extrabold text-slate-900 sm:text-3xl">
-          {isCourseMode ? "Gestiona tu plan de instructor" : "Gestiona el plan de tu escuela"}
-        </h1>
-        <p className="mx-auto mt-2 max-w-2xl text-xs text-slate-600 sm:text-sm">
-          Cada perfil en Skoolia puede tener su propio nivel de visibilidad.
-          Elige el que mejor se adapte a tus objetivos de captación.
-        </p>
+      <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white">
+        <div className="bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.14),_transparent_42%),linear-gradient(180deg,_#ffffff_0%,_#f8fafc_100%)] px-6 py-8 sm:px-8">
+          <div className="flex flex-wrap items-start justify-between gap-5">
+            <div className="max-w-3xl">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                Planes y pagos
+              </p>
+              <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
+                {isCourseMode ? "Controla tu visibilidad como instructor" : "Escala el alcance de tu escuela con el plan correcto"}
+              </h1>
+              <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
+                Combina suscripción base y servicios por uso según el volumen de leads, mensajes o inscripciones que quieras activar.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => router.push(settingsHref)}
+              className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-white"
+            >
+              <Sparkles size={16} />
+              Actualizar datos de pago
+            </button>
+          </div>
+
+          <div className="mt-8 grid gap-3 sm:grid-cols-3">
+            <MetricCard label="Suscripciones activas" value={`${activePlans.filter((plan) => plan.plan.name.includes("SUBSCRIPTION")).length}`} />
+            <MetricCard label="Servicios por uso" value={`${activePlans.filter((plan) => !plan.plan.name.includes("SUBSCRIPTION")).length}`} />
+            <MetricCard label="Opciones disponibles" value={`${subscriptionPlans.length + addonPlans.length}`} accent accentClass={accentTextClass} />
+          </div>
+        </div>
       </section>
 
       <section className="space-y-4">
@@ -234,11 +258,35 @@ export default function SchoolPlansSection() {
         </div>
         <button
           type="button"
+          onClick={() => router.push(settingsHref)}
           className={`inline-flex items-center justify-center rounded-2xl border border-slate-900 bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-md transition ${accentHoverBgClass} hover:shadow-lg sm:text-sm`}
         >
           Configurar pagos
         </button>
       </section>
+    </div>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  accent = false,
+  accentClass = "text-slate-950",
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+  accentClass?: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+        {label}
+      </p>
+      <p className={`mt-3 text-2xl font-semibold ${accent ? accentClass : "text-slate-950"}`}>
+        {value}
+      </p>
     </div>
   );
 }

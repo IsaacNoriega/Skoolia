@@ -23,9 +23,12 @@ export default function Footer() {
               placeholder="Tu correo electrónico"
               className="flex-1 px-5 py-3 rounded-full bg-white/15 backdrop-blur-md placeholder:text-white/70 text-white outline-none border border-white/20"
             />
-            <button className="px-6 py-3 rounded-full bg-[#FF6B1A] hover:bg-[#ff7f3f] font-semibold transition shadow-lg">
+            <Link
+              href="/auth/register"
+              className="px-6 py-3 rounded-full bg-[#FF6B1A] hover:bg-[#ff7f3f] font-semibold transition shadow-lg text-center"
+            >
               Suscribirme
-            </button>
+            </Link>
           </div>
         </div>
       </div>
@@ -52,12 +55,12 @@ export default function Footer() {
         <div>
           <h5 className="font-semibold mb-4">Para Padres</h5>
           <ul className="space-y-2 text-white/80">
-            <li><Link href="#">Buscar Escuelas</Link></li>
-            <li><Link href="#">Comparador Inteligente</Link></li>
-            <li><Link href="#">Reseñas y Calificaciones</Link></li>
-            <li><Link href="#">Guía de Inscripciones</Link></li>
-            <li><Link href="#">Blog Educativo</Link></li>
-            <li><Link href="#">Becas y Apoyos</Link></li>
+            <li><Link href="/search?tab=escuelas">Buscar Escuelas</Link></li>
+            <li><Link href="/search?tab=escuelas&sortBy=rating">Comparador Inteligente</Link></li>
+            <li><Link href="/search?tab=escuelas&verified=1">Reseñas y Calificaciones</Link></li>
+            <li><Link href="/auth/login/parents">Guía de Inscripciones</Link></li>
+            <li><Link href="/ayuda">Blog Educativo</Link></li>
+            <li><Link href="/search?tab=escuelas&q=becas">Becas y Apoyos</Link></li>
           </ul>
         </div>
 
@@ -65,12 +68,12 @@ export default function Footer() {
         <div>
           <h5 className="font-semibold mb-4">Para Escuelas</h5>
           <ul className="space-y-2 text-white/80">
-            <li><Link href="#">Registra tu Escuela</Link></li>
-            <li><Link href="#">Panel de Administración</Link></li>
-            <li><Link href="#">Gestión de Leads</Link></li>
-            <li><Link href="#">Planes de Suscripción</Link></li>
-            <li><Link href="#">Estadísticas y Reportes</Link></li>
-            <li><Link href="#">Soporte Técnico</Link></li>
+            <li><Link href="/?audience=schools">Registra tu Escuela</Link></li>
+            <li><Link href="/auth/login/schools">Panel de Administración</Link></li>
+            <li><Link href="/auth/login/schools">Gestión de Leads</Link></li>
+            <li><Link href="/auth/register?role=private">Planes de Suscripción</Link></li>
+            <li><Link href="/auth/login/schools">Estadísticas y Reportes</Link></li>
+            <li><Link href="/ayuda">Soporte Técnico</Link></li>
           </ul>
         </div>
 
@@ -109,10 +112,10 @@ export default function Footer() {
           <span>© 2026 Skoolia. Todos los derechos reservados.</span>
 
           <div className="flex gap-6">
-            <Link href="#">Términos de Uso</Link>
-            <Link href="#">Política de Privacidad</Link>
-            <Link href="#">Cookies</Link>
-            <Link href="#">Ayuda</Link>
+            <Link href="/ayuda">Términos de Uso</Link>
+            <Link href="/ayuda">Política de Privacidad</Link>
+            <Link href="/ayuda">Cookies</Link>
+            <Link href="/ayuda">Ayuda</Link>
           </div>
 
           <span>Hecho con ❤️ en México</span>
