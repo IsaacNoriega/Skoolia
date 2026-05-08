@@ -9,14 +9,16 @@ import { ApiError } from "@/lib/services/api";
 import { WaveVector } from "@/lib/icons/WaveVector";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type Role = "public" | "private";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialRole = searchParams.get("role") === "private" ? "private" : "public";
 
-  const [role, setRole] = useState<Role>("public");
+  const [role, setRole] = useState<Role>(initialRole);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -242,14 +244,14 @@ export default function RegisterPage() {
                 >
                   Acepto los{" "}
                   <Link
-                    href="/terminos"
+                    href="/ayuda"
                     className="text-[#1973FC] underline hover:opacity-80"
                   >
                     Términos y condiciones
                   </Link>{" "}
                   y el{" "}
                   <Link
-                    href="/privacidad"
+                    href="/ayuda"
                     className="text-[#1973FC] underline hover:opacity-80"
                   >
                     Aviso de privacidad

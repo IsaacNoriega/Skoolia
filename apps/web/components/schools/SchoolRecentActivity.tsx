@@ -1,3 +1,7 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 
 const items = [
@@ -25,6 +29,10 @@ const items = [
 ];
 
 export default function SchoolRecentActivity() {
+	const pathname = usePathname();
+	const isCourseMode = pathname.startsWith("/courses");
+	const leadsHref = isCourseMode ? "/courses/leads" : "/schools/leads";
+
 	return (
 		<section className="surface rounded-4xl bg-white p-0 shadow-sm ring-1 ring-black/5 overflow-hidden">
 			<div className="flex items-center justify-between px-5 py-4 sm:px-6 sm:py-5">
@@ -36,9 +44,9 @@ export default function SchoolRecentActivity() {
 						Últimas familias y prospectos que interactuaron con tu institución.
 					</p>
 				</div>
-				<button className="text-xs sm:text-sm font-bold text-indigo-600 hover:text-indigo-700">
+				<Link href={leadsHref} className="text-xs sm:text-sm font-bold text-indigo-600 hover:text-indigo-700">
 					Ver todos
-				</button>
+				</Link>
 			</div>
 
 			<div className="divide-y divide-slate-100/70">

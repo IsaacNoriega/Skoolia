@@ -26,7 +26,7 @@ export default function HeroInstitutionSection() {
 
             <div className="mt-10">
               <Link
-                href="/registro"
+                href="/auth/register?role=private"
                 className="inline-flex items-center justify-center rounded-2xl bg-[#2A6EE8] px-8 py-4 text-base font-bold text-white shadow-md hover:bg-[#1f5ed1] transition"
               >
                 Regístrate gratis

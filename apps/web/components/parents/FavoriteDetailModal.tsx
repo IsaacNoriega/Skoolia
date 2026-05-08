@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 
 import { messagesService } from '@/lib/services/services/messages.service';
 import { courseMessagesService } from '@/lib/services/services/course-messages.service';
-import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLeadTracking } from '@/lib/hooks/useLeadTracking';
 import { sanitizeImageSrc } from '@/lib/utils';
@@ -44,11 +43,10 @@ export default function FavoriteDetailModal({
   onClose: () => void;
   item?: Item;
   onRatingUpdated?: (schoolId: string, averageRating?: number) => void;
-}): JSX.Element | null {
+}) {
   const router = useRouter();
   const { user } = useAuth();
   const { trackLead } = useLeadTracking({ userId: user?.id || "" });
-  const { showToast } = useToast();
   const [sending, setSending] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
@@ -109,14 +107,25 @@ export default function FavoriteDetailModal({
   const accentClass = isCourse ? 'text-violet-600' : 'text-indigo-600';
   const accentBgClass = isCourse ? 'bg-violet-50' : 'bg-indigo-50';
   const accentButtonClass = isCourse ? 'bg-violet-600 hover:bg-violet-700' : 'bg-indigo-600 hover:bg-indigo-700';
+  const locationLabel = item.address ? `${item.address}${item.city ? `, ${item.city}` : ''}` : (item.location || 'Ubicación por definir');
+  const infoRows = [
+    { icon: MapPin, label: 'Ubicación', value: locationLabel },
+    { icon: Clock3, label: 'Horario', value: item.schedule || 'Horario por confirmar' },
+    { icon: Users, label: 'Capacidad', value: item.studentsPerClass ? `${item.studentsPerClass} lugares` : 'Cupos disponibles' },
+    { icon: Languages, label: 'Idiomas', value: item.languages || (isCourse ? 'Según programa' : 'Por confirmar') },
+  ];
 
   const handleContact = async () => {
     if (!item.id || sending) return;
+    if (!user) {
+      onClose();
+      router.push('/auth/login');
+      return;
+    }
 
     try {
       setSending(true);
       if (isCourse) {
-        if (!user) throw new Error('Usuario no autenticado');
         await courseMessagesService.sendCourseMessage(item.id, 'Hola, me interesa conocer más información de este curso.', { id: user.id, role: user.role });
         await trackLead({
           targetId: item.id,
@@ -127,7 +136,6 @@ export default function FavoriteDetailModal({
         onClose();
         router.push(`/parents/messages/courses/${item.id}`);
       } else {
-        if (!user) throw new Error('Usuario no autenticado');
         await messagesService.sendParentMessage(item.id, 'Hola, me interesa conocer mas informacion de su escuela.', user.id);
         await trackLead({
           targetId: item.id,
@@ -138,30 +146,41 @@ export default function FavoriteDetailModal({
         onClose();
         router.push(`/parents/messages/${item.id}`);
       }
+    } catch {
+      return;
     } finally {
       setSending(false);
     }
   };
 
+  const handleViewMore = async () => {
+    if (!item.id) return;
+    if (user?.id) {
+      await trackLead({
+        targetId: item.id,
+        originType: isCourse ? "COURSE" : "SCHOOL",
+        trigger: "VIEW_MORE",
+        status: "INTERESADO",
+      });
+    }
+    onClose();
+    router.push(isCourse ? `/search/course/${item.id}` : `/search/institutions/${item.id}`);
+  };
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-md" onClick={onClose} />
+      <div className="absolute inset-0 bg-slate-950/35 backdrop-blur-sm" onClick={onClose} />
 
-      {/* Modal */}
-      <div className="relative z-[101] w-full max-w-6xl overflow-hidden rounded-[3.5rem] bg-white shadow-[0_50px_100px_-20px_rgba(0,0,0,0.25)] transition-all max-h-[90vh] flex flex-col md:flex-row">
-        
-        {/* Close Button */}
+      <div className="relative z-[101] flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-[2.5rem] border border-slate-200 bg-white shadow-[0_40px_100px_-35px_rgba(15,23,42,0.4)] md:grid md:grid-cols-[minmax(0,1.1fr)_420px]">
         <button
-          className="absolute right-8 top-8 z-50 grid h-12 w-12 place-items-center rounded-2xl bg-white/80 backdrop-blur-md text-slate-700 shadow-xl transition-all hover:scale-110 active:scale-95 hover:bg-white"
+          className="absolute right-5 top-5 z-50 grid h-10 w-10 place-items-center rounded-2xl bg-white/90 text-slate-700 shadow-md transition hover:bg-white"
           aria-label="Cerrar"
           onClick={onClose}
         >
-          <X className="h-6 w-6" />
+          <X className="h-5 w-5" />
         </button>
 
-        {/* Left Section: Media */}
-        <div className="relative h-72 w-full md:h-auto md:w-[50%] bg-slate-100 overflow-hidden">
+        <div className="relative min-h-[320px] bg-slate-100">
           {modalImages.length > 0 ? (
             <Image
               src={modalImages[currentImageIndex]}
@@ -178,34 +197,32 @@ export default function FavoriteDetailModal({
             </div>
           )}
 
-          {/* Navigation Controls */}
           {hasMultipleImages && (
             <>
-              <div className="absolute inset-x-6 top-1/2 flex -translate-y-1/2 justify-between pointer-events-none">
+              <div className="pointer-events-none absolute inset-x-5 top-1/2 flex -translate-y-1/2 justify-between">
                 <button
                   type="button"
                   onClick={goToPrevImage}
-                  className="pointer-events-auto grid h-12 w-12 place-items-center rounded-2xl bg-white/20 text-white shadow-lg backdrop-blur-md border border-white/30 transition-all hover:bg-white hover:text-slate-900 hover:scale-110 active:scale-95"
+                  className="pointer-events-auto grid h-10 w-10 place-items-center rounded-2xl bg-white/20 text-white backdrop-blur-md transition hover:bg-white hover:text-slate-900"
                 >
-                  <ChevronLeft className="h-6 w-6" />
+                  <ChevronLeft className="h-5 w-5" />
                 </button>
                 <button
                   type="button"
                   onClick={goToNextImage}
-                  className="pointer-events-auto grid h-12 w-12 place-items-center rounded-2xl bg-white/20 text-white shadow-lg backdrop-blur-md border border-white/30 transition-all hover:bg-white hover:text-slate-900 hover:scale-110 active:scale-95"
+                  className="pointer-events-auto grid h-10 w-10 place-items-center rounded-2xl bg-white/20 text-white backdrop-blur-md transition hover:bg-white hover:text-slate-900"
                 >
-                  <ChevronRight className="h-6 w-6" />
+                  <ChevronRight className="h-5 w-5" />
                 </button>
               </div>
 
-              {/* Progress Bar Dots */}
-              <div className="absolute bottom-10 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/20 px-4 py-2 backdrop-blur-xl border border-white/10">
+              <div className="absolute bottom-5 left-5 flex items-center gap-2 rounded-full bg-black/25 px-3 py-2 backdrop-blur-md">
                 {modalImages.map((_, index) => (
                   <button
                     key={`modal-dot-${index}`}
                     onClick={() => setCurrentImageIndex(index)}
-                    className={`h-1.5 transition-all duration-500 rounded-full ${
-                      currentImageIndex === index ? 'w-8 bg-white' : 'w-1.5 bg-white/40 hover:bg-white/70'
+                    className={`h-1.5 rounded-full transition ${
+                      currentImageIndex === index ? 'w-7 bg-white' : 'w-1.5 bg-white/45 hover:bg-white/70'
                     }`}
                   />
                 ))}
@@ -214,132 +231,97 @@ export default function FavoriteDetailModal({
           )}
         </div>
 
-        {/* Right Section: Content */}
-        <div className="flex flex-1 flex-col overflow-y-auto p-10 md:p-12 lg:p-16">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className={`rounded-full ${accentBgClass} px-4 py-1 text-[9px] font-bold uppercase tracking-widest ${accentClass} border border-transparent`}>
-                {item.level ?? (isCourse ? 'CURSO' : 'ESCUELA')}
+        <div className="flex flex-col overflow-y-auto p-7 sm:p-8">
+          <div className="flex flex-wrap items-center gap-2 pr-12">
+            <span className={`rounded-full ${accentBgClass} px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${accentClass}`}>
+              {item.level ?? (isCourse ? 'Curso' : 'Escuela')}
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1 text-[10px] font-semibold text-amber-700">
+              <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+              {typeof item.rating === 'number' ? item.rating.toFixed(1) : '5.0'}
+            </span>
+            {item.badges?.slice(0, 2).map((badge) => (
+              <span
+                key={badge}
+                className="rounded-full border border-slate-200 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500"
+              >
+                {badge}
               </span>
-              <div className="flex items-center gap-1 px-2 py-0.5 bg-amber-50 rounded-full border border-amber-100">
-                <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
-                <span className="text-[10px] font-black text-amber-700">
-                  {typeof item.rating === 'number' ? item.rating.toFixed(1) : '5.0'}
-                </span>
-              </div>
-            </div>
+            ))}
           </div>
 
-          <h2 className="mt-6 text-3xl md:text-4xl font-bold tracking-tight text-slate-900 leading-tight">
+          <h2 className="mt-5 text-3xl font-semibold tracking-tight text-slate-950">
             {item.title}
           </h2>
+          <p className="mt-3 text-sm leading-7 text-slate-600">
+            {item.description || 'Explora una propuesta educativa clara, directa y lista para comparar sin ruido visual.'}
+          </p>
 
-          <div className="mt-3 flex items-center gap-2 text-sm font-medium text-slate-400">
-            <MapPin className="h-4 w-4 shrink-0 text-slate-300" />
-            <span>{item.address ? `${item.address}, ${item.city}` : (item.location || 'Ubicación por definir')}</span>
-          </div>
-
-          <div className="mt-10 space-y-12">
-            {/* Description Section */}
-            <div className="space-y-3">
-               <h3 className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-300">Resumen</h3>
-               <p className="text-base leading-relaxed text-slate-600 font-medium">
-                 {item.description || 'Explora una propuesta educativa de vanguardia diseñada para potenciar el talento y la curiosidad de los estudiantes en un entorno seguro y estimulante.'}
-               </p>
-               {item.onlineInstructions && (
-                 <div className="mt-4 p-4 rounded-2xl bg-violet-50 border border-violet-100 flex items-start gap-3">
-                   <Globe className="h-5 w-5 text-violet-600 shrink-0 mt-0.5" />
-                   <div>
-                     <p className="text-[10px] font-bold uppercase tracking-widest text-violet-400">Instrucciones Online</p>
-                     <p className="text-sm font-medium text-violet-900">{item.onlineInstructions}</p>
-                   </div>
-                 </div>
-               )}
-            </div>
-
-            {/* Bento Grid Specs */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="group flex items-center gap-4 rounded-2xl bg-slate-50 p-5 border border-slate-100 transition-all hover:bg-white hover:shadow-lg hover:shadow-slate-50">
-                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${accentBgClass} ${accentClass} transition-transform group-hover:rotate-6`}>
-                  <Users className="h-5 w-5" />
+          {item.onlineInstructions && (
+            <div className="mt-6 rounded-[1.5rem] border border-violet-100 bg-violet-50 px-4 py-4">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 rounded-xl bg-white p-2 text-violet-600">
+                  <Globe className="h-4 w-4" />
                 </div>
                 <div>
-                  <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Capacidad</p>
-                  <p className="text-sm font-bold text-slate-900">{item.studentsPerClass || '25'} alumnos</p>
-                </div>
-              </div>
-
-              <div className="group flex items-center gap-4 rounded-2xl bg-slate-50 p-5 border border-slate-100 transition-all hover:bg-white hover:shadow-lg hover:shadow-slate-50">
-                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 transition-transform group-hover:-rotate-6`}>
-                  <Languages className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Idiomas</p>
-                  <p className="text-sm font-bold text-slate-900">{item.languages || 'Bilingüe'}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Community Experience (Simplified Ratings) */}
-            <div className="space-y-6 pt-4 border-t border-slate-50">
-              <h3 className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-300">Experiencia de la Comunidad</h3>
-              <div className="flex items-center gap-8">
-                <div className="text-center">
-                  <div className="text-3xl font-black text-slate-900">
-                    {typeof item.rating === 'number' ? item.rating.toFixed(1) : '5.0'}
-                  </div>
-                  <div className="flex justify-center gap-0.5 mt-1 text-amber-400">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} size={8} fill={i < (item.rating || 5) ? "currentColor" : "none"} />
-                    ))}
-                  </div>
-                </div>
-                <div className="flex-1 space-y-2">
-                  <p className="text-[11px] text-slate-500 italic leading-relaxed">
-                    "Excelente ambiente educativo y personal altamente calificado. Las instalaciones son de primer nivel."
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-violet-500">
+                    Indicaciones online
                   </p>
-                  <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">— Padre de familia</p>
+                  <p className="mt-1 text-sm leading-6 text-violet-950">
+                    {item.onlineInstructions}
+                  </p>
                 </div>
               </div>
             </div>
+          )}
+
+          <div className="mt-7 space-y-3">
+            {infoRows.map(({ icon: Icon, label, value }) => (
+              <div
+                key={label}
+                className="flex items-center justify-between gap-4 rounded-[1.25rem] border border-slate-200 bg-slate-50 px-4 py-4"
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`rounded-xl ${accentBgClass} p-2 ${accentClass}`}>
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                      {label}
+                    </p>
+                    <p className="mt-1 text-sm font-medium text-slate-900">{value}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
 
-          <div className="mt-auto pt-10 flex flex-col sm:flex-row items-center justify-between gap-6 border-t border-slate-100">
-            <div className="flex flex-col">
-              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-300">Inversión Estimada</p>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-3xl font-bold text-slate-900">{priceValue || '—'}</span>
-                <span className="text-[10px] font-bold text-slate-400">MXN/MES</span>
-              </div>
+          <div className="mt-7 rounded-[1.75rem] border border-slate-200 bg-white px-5 py-5 shadow-[0_20px_40px_-30px_rgba(15,23,42,0.4)]">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+              Inversión
+            </p>
+            <div className="mt-2 flex items-end gap-2">
+              <span className="text-3xl font-semibold text-slate-950">{priceValue || '—'}</span>
+              <span className="pb-1 text-xs font-medium uppercase tracking-[0.12em] text-slate-400">
+                {priceUnit || 'referencia'}
+              </span>
             </div>
 
-            <div className="flex w-full sm:w-auto items-center gap-3">
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
               <button
                 onClick={handleContact}
                 disabled={sending}
-                className={`flex-1 sm:flex-none h-14 px-8 rounded-xl ${accentButtonClass} text-white text-[11px] font-bold uppercase tracking-widest transition-all hover:shadow-xl hover:shadow-indigo-100 active:scale-95 disabled:opacity-50`}
+                className={`inline-flex h-12 flex-1 items-center justify-center rounded-2xl px-5 text-sm font-semibold text-white transition ${accentButtonClass} disabled:opacity-50`}
               >
-                {sending ? 'Enviando...' : 'Contactar'}
+                {sending ? 'Enviando...' : 'Solicitar información'}
               </button>
-              
+
               <button
-                onClick={async () => {
-                  if (!item.id) return;
-                  if (user?.id) {
-                    await trackLead({
-                      targetId: item.id,
-                      originType: isCourse ? "COURSE" : "SCHOOL",
-                      trigger: "VIEW_MORE",
-                      status: "INTERESADO",
-                    });
-                  }
-                  onClose();
-                  router.push(isCourse ? `/search/course/${item.id}` : `/search/institutions/${item.id}`);
-                }}
-                className="flex h-14 w-14 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-900 transition-all hover:bg-slate-50 hover:border-slate-300 active:scale-95 shadow-sm"
-                title="Ver perfil completo"
+                onClick={handleViewMore}
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-slate-50"
               >
-                <ArrowUpRight className="h-5 w-5" />
+                Ver ficha completa
+                <ArrowUpRight className="h-4 w-4" />
               </button>
             </div>
           </div>

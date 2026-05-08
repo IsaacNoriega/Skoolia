@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
 	ArrowUpRight,
 	CalendarDays,
@@ -78,6 +78,7 @@ function statusDot(status: CampaignStatus) {
 
 export default function SchoolBroadcastsSection() {
 	const pathname = usePathname();
+	const router = useRouter();
 	const [activePlans, setActivePlans] = useState<SchoolActivePlan[]>([]);
 	const [loading, setLoading] = useState(true);
 
@@ -85,6 +86,7 @@ export default function SchoolBroadcastsSection() {
 	const accentBgClass = isCourseMode ? "bg-violet-600" : "bg-slate-950";
 	const accentHoverBgClass = isCourseMode ? "hover:bg-violet-700" : "hover:bg-slate-800";
 	const accentTextClass = isCourseMode ? "text-violet-600" : "text-slate-950";
+	const basePath = isCourseMode ? "/courses" : "/schools";
 
 	useEffect(() => {
 		(async () => {
@@ -120,16 +122,22 @@ export default function SchoolBroadcastsSection() {
 	return (
 		<section className="rounded-[2rem] border border-slate-200 bg-white">
 			<div className="grid gap-0 lg:grid-cols-[minmax(0,1.2fr)_380px]">
-				<div className="border-b border-slate-200 p-6 sm:p-8 lg:border-b-0 lg:border-r">
+				<div className="border-b border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(15,23,42,0.08),_transparent_42%),linear-gradient(180deg,_#ffffff_0%,_#f8fafc_100%)] p-6 sm:p-8 lg:border-b-0 lg:border-r">
 					<p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
 						Envíos masivos
 					</p>
 					<h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
-						Campañas simples.
+						Mensajes masivos con menos fricción.
 					</h1>
 					<p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
-						Redacta un mensaje, elige a quién llega y mantén visible el historial sin convertir esta pantalla en una herramienta pesada.
+						Prepara campañas rápidas, filtra por segmento y salta al seguimiento sin perder de vista rendimiento, alcance y estado.
 					</p>
+
+					<div className="mt-8 grid gap-3 sm:grid-cols-3">
+						<StatTile label="Activas" value="02" />
+						<StatTile label="Contactos" value="740" />
+						<StatTile label="Apertura" value="64%" />
+					</div>
 
 					<div className="mt-8 space-y-5">
 						<div className="space-y-2">
@@ -177,13 +185,21 @@ export default function SchoolBroadcastsSection() {
 						</div>
 
 						<div className="flex flex-wrap items-center gap-3">
-							<button className={`inline-flex h-12 items-center gap-2 rounded-2xl ${accentBgClass} px-5 text-sm font-semibold text-white transition ${accentHoverBgClass}`}>
+							<button
+								type="button"
+								onClick={() => router.push(`${basePath}/messages`)}
+								className={`inline-flex h-12 items-center gap-2 rounded-2xl ${accentBgClass} px-5 text-sm font-semibold text-white transition ${accentHoverBgClass}`}
+							>
 								<Send size={16} />
-								Enviar ahora
+								Ir a mensajería
 							</button>
-							<button className="inline-flex h-12 items-center gap-2 rounded-2xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50">
+							<button
+								type="button"
+								onClick={() => router.push(`${basePath}/leads`)}
+								className="inline-flex h-12 items-center gap-2 rounded-2xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+							>
 								<CalendarDays size={16} />
-								Programar
+								Ver segmentos
 							</button>
 						</div>
 					</div>
@@ -197,7 +213,11 @@ export default function SchoolBroadcastsSection() {
 								Últimas campañas.
 							</p>
 						</div>
-						<button className="text-sm font-semibold text-slate-500 transition hover:text-slate-950">
+						<button
+							type="button"
+							onClick={() => router.push(`${basePath}/messages`)}
+							className="text-sm font-semibold text-slate-500 transition hover:text-slate-950"
+						>
 							Ver todo
 						</button>
 					</div>
@@ -206,6 +226,8 @@ export default function SchoolBroadcastsSection() {
 						{campaigns.map((campaign) => (
 							<button
 								key={campaign.id}
+								type="button"
+								onClick={() => router.push(`${basePath}/messages`)}
 								className="flex w-full items-start justify-between rounded-[1.5rem] border border-slate-200 px-4 py-4 text-left transition hover:border-slate-300 hover:bg-slate-50"
 							>
 								<div className="min-w-0">
@@ -247,8 +269,14 @@ export default function SchoolBroadcastsSection() {
 							<StatLine label="Última apertura" value="64%" />
 						</div>
 						<div className={`mt-5 inline-flex items-center gap-2 text-sm font-semibold ${accentTextClass}`}>
-							Ver rendimiento
-							<ArrowUpRight size={16} />
+							<button
+								type="button"
+								onClick={() => router.push(`${basePath}/leads`)}
+								className="inline-flex items-center gap-2"
+							>
+								Ver rendimiento
+								<ArrowUpRight size={16} />
+							</button>
 						</div>
 					</div>
 				</aside>
@@ -262,6 +290,17 @@ function StatLine({ label, value }: { label: string; value: string }) {
 		<div className="flex items-center justify-between text-sm">
 			<span className="text-slate-500">{label}</span>
 			<span className="font-semibold text-slate-950">{value}</span>
+		</div>
+	);
+}
+
+function StatTile({ label, value }: { label: string; value: string }) {
+	return (
+		<div className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
+			<p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+				{label}
+			</p>
+			<p className="mt-3 text-2xl font-semibold text-slate-950">{value}</p>
 		</div>
 	);
 }

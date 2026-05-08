@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowUpRight, Pencil, Plus, Trash2, Image as ImageIcon } from "lucide-react";
+import { Eye, Pencil, Plus, Sparkles, Trash2, Image as ImageIcon } from "lucide-react";
 
 import { coursesService, type Course } from "@/lib/services/services/courses.service";
 import { filesService } from "@/lib/services/services/files.service";
@@ -213,40 +213,53 @@ export default function SchoolCoursesSection() {
 	const stats = useMemo(() => {
 		const active = courses.filter((course) => course.isActive).length;
 		const published = courses.filter((course) => course.status === "published").length;
-		return { active, published, total: courses.length };
+		const drafts = courses.filter((course) => course.status === "draft").length;
+		return { active, published, drafts, total: courses.length };
 	}, [courses]);
 
 	return (
 		<>
-			<section className="rounded-[2rem] border border-slate-200 bg-white">
-				<div className="border-b border-slate-200 p-6 sm:p-8">
-					<div className="flex flex-wrap items-start justify-between gap-4">
-						<div>
-							<p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
+			<section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white">
+				<div className="border-b border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(25,115,253,0.12),_transparent_45%),linear-gradient(180deg,_#ffffff_0%,_#f8fafc_100%)] p-6 sm:p-8">
+					<div className="flex flex-wrap items-start justify-between gap-5">
+						<div className="max-w-3xl">
+							<p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
 								Oferta académica
 							</p>
 							<h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
-								Programas visibles.
+								Cursos más claros, acciones más rápidas.
 							</h1>
 							<p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
-								Gestiona tus cursos con una vista simple: nombre, modalidad, precio y estado.
+								Controla estado, precio, capacidad y visibilidad desde una vista más compacta. También puedes
+								previsualizar la ficha pública sin salir del panel.
 							</p>
 						</div>
 
-						<button
-							type="button"
-							onClick={openCreateModal}
-							className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 px-4 text-sm font-semibold text-slate-950 transition hover:border-slate-300 hover:bg-slate-50"
-						>
-							<Plus size={16} />
-							Agregar programa
-						</button>
+						<div className="flex flex-wrap gap-3">
+							<button
+								type="button"
+								onClick={openCreateModal}
+								className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
+							>
+								<Plus size={16} />
+								Nuevo programa
+							</button>
+							<button
+								type="button"
+								onClick={() => router.push(isCourseMode ? "/courses/settings" : "/schools/settings")}
+								className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-white"
+							>
+								<Sparkles size={16} />
+								Mejorar perfil
+							</button>
+						</div>
 					</div>
 
-					<div className="mt-8 grid gap-3 sm:grid-cols-3">
+					<div className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
 						<Metric label="Total" value={`${stats.total}`} />
 						<Metric label="Activos" value={`${stats.active}`} accent accentClass={accentTextClass} />
 						<Metric label="Publicados" value={`${stats.published}`} />
+						<Metric label="Borradores" value={`${stats.drafts}`} />
 					</div>
 				</div>
 
@@ -262,17 +275,15 @@ export default function SchoolCoursesSection() {
 					) : null}
 
 					{!loading && !error && courses.length ? (
-						<div className="space-y-3">
+						<div className="grid gap-4 xl:grid-cols-2">
 							{courses.map((course) => (
-								<div
+								<article
 									key={course.id}
-									className="rounded-[1.5rem] border border-slate-200 px-4 py-4 transition hover:border-slate-300"
+									className="rounded-[1.75rem] border border-slate-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_24px_60px_-45px_rgba(15,23,42,0.45)]"
 								>
 									<div className="flex items-start gap-4">
-										{/* Miniatura de imagen */}
-										<div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-100 sm:h-20 sm:w-20">
+										<div className="h-18 w-18 shrink-0 overflow-hidden rounded-[1.25rem] bg-slate-100 ring-1 ring-slate-100 sm:h-22 sm:w-22">
 											{course.coverImageUrl ? (
-												// eslint-disable-next-line @next/next/no-img-element
 												<img
 													src={course.coverImageUrl}
 													alt={course.name}
@@ -286,57 +297,65 @@ export default function SchoolCoursesSection() {
 										</div>
 
 										<div className="min-w-0 flex-1">
-											<div className="flex items-center gap-2">
+											<div className="flex flex-wrap items-center gap-2">
 												<span className={`h-2 w-2 rounded-full ${statusDot(course.status, course.isActive, accentColorClass)}`} />
 												<span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
 													{statusLabel(course.status)}
 												</span>
+												<span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+													{course.modality || "Modalidad pendiente"}
+												</span>
 											</div>
 
-											<p className="mt-3 truncate text-sm font-semibold text-slate-950 sm:text-base">
+											<p className="mt-3 text-lg font-semibold text-slate-950">
 												{course.name}
 											</p>
 
 											<div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-500">
-												<span>{course.modality || "Modalidad por definir"}</span>
-												<span className="h-1 w-1 rounded-full bg-slate-300" />
 												<span>{formatCurrency(course.price)}</span>
 												<span className="h-1 w-1 rounded-full bg-slate-300" />
 												<span>{course.capacity ? `${course.capacity} cupos` : "Cupos abiertos"}</span>
 											</div>
-										</div>
 
-										<div className="flex items-center gap-2">
+											<p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-500">
+												{course.description?.trim() || "Agrega una descripción breve para que la oferta pública se entienda mejor."}
+											</p>
+										</div>
+									</div>
+
+									<div className="mt-5 flex items-center justify-between gap-4 border-t border-slate-100 pt-4">
+										<span className="text-xs font-medium text-slate-400">
+											{course.isActive ? "Visible para familias" : "No visible"}
+										</span>
+										<div className="flex flex-wrap justify-end gap-2">
+											<button
+												type="button"
+												onClick={() => router.push(`/search/course/${course.id}`)}
+												className="inline-flex h-10 items-center gap-2 rounded-2xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+											>
+												<Eye size={15} />
+												Previsualizar
+											</button>
 											<button
 												type="button"
 												onClick={() => openEditModal(course)}
-												className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-950"
-												aria-label="Editar programa"
+												className="inline-flex h-10 items-center gap-2 rounded-2xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
 											>
-												<Pencil size={14} />
+												<Pencil size={15} />
+												Editar
 											</button>
 											<button
 												type="button"
 												onClick={() => void handleDelete(course)}
 												disabled={submitting}
-												className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-950 disabled:opacity-50"
-												aria-label="Eliminar programa"
+												className="inline-flex h-10 items-center gap-2 rounded-2xl border border-rose-200 px-4 text-sm font-semibold text-rose-600 transition hover:bg-rose-50 disabled:opacity-50"
 											>
-												<Trash2 size={14} />
+												<Trash2 size={15} />
+												Eliminar
 											</button>
 										</div>
 									</div>
-
-									<div className="mt-4 flex items-center justify-between gap-4 border-t border-slate-100 pt-4">
-										<span className="text-xs font-medium text-slate-400">
-											{course.isActive ? "Visible para familias" : "No visible"}
-										</span>
-										<span className="inline-flex items-center gap-1 text-sm font-semibold text-slate-950">
-											Ver detalle
-											<ArrowUpRight size={16} />
-										</span>
-									</div>
-								</div>
+								</article>
 							))}
 						</div>
 					) : null}

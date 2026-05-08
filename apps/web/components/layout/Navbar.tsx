@@ -2,8 +2,6 @@
 
 import {
   GraduationCap,
-  LogIn,
-  PlusCircle,
   ChevronDown,
   LogOut,
   LayoutDashboard,
@@ -15,8 +13,6 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { JSX, Suspense, useEffect, useState } from "react";
-import LoginModal from "./LoginModal";
-import RegisterModal from "./RegisterModal";
 import { useAuth } from "@/contexts/AuthContext";
 
 function NavbarContent(): JSX.Element {
@@ -28,8 +24,6 @@ function NavbarContent(): JSX.Element {
   const audience = searchParams.get("audience") ?? "parents";
 
   const [scrolled, setScrolled] = useState(false);
-  const [loginOpen, setLoginOpen] = useState(false);
-  const [registerOpen, setRegisterOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   useEffect(() => {
@@ -57,6 +51,9 @@ function NavbarContent(): JSX.Element {
   }
 
   const isWhite = pathname?.includes("login") || audience === "schools";
+  const loginHref = audience === "schools" ? "/auth/login/schools" : "/auth/login";
+  const registerHref = audience === "schools" ? "/auth/register?role=private" : "/auth/register";
+  const privateDashboardHref = user?.hasSchool ? "/schools" : "/courses";
 
   const displayName = user?.name ?? user?.email.split("@")[0] ?? "";
 
@@ -74,14 +71,14 @@ function NavbarContent(): JSX.Element {
         {/* ===== LEFT SIDE (LOGO + LINKS) ===== */}
         <div className="flex items-center gap-10">
           {/* LOGO */}
-          <div className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <div className="flex items-center justify-center w-12 h-12 bg-[#1973FC] rounded-xl">
               <GraduationCap size={28} className="text-white" />
             </div>
             <span className="font-extrabold text-2xl text-slate-800">
               Skoolia
             </span>
-          </div>
+          </Link>
 
           {/* LINKS */}
           <ul className="hidden md:flex gap-8 font-semibold text-base">
@@ -115,9 +112,9 @@ function NavbarContent(): JSX.Element {
 
                 <li>
                   <Link
-                    href="/?audience=help"
+                    href="/ayuda"
                     className={`font-medium ${
-                      pathname === "/" && audience === "help"
+                      pathname === "/ayuda"
                         ? "text-[#1973FC]"
                         : "text-[#2d2c2b] hover:text-black"
                     }`}
@@ -132,7 +129,7 @@ function NavbarContent(): JSX.Element {
               <>
                 <li>
                   <Link
-                    href="/?audience=parents"
+                    href="/search?tab=escuelas"
                     className="font-medium text-[#2d2c2b] hover:text-black"
                   >
                     Buscar escuelas
@@ -140,9 +137,9 @@ function NavbarContent(): JSX.Element {
                 </li>
                 <li>
                   <Link
-                    href="/?audience=help"
+                    href="/ayuda"
                     className={`font-medium ${
-                      pathname === "/" && audience === "help"
+                      pathname === "/ayuda"
                         ? "text-[#1973FC]"
                         : "text-[#2d2c2b] hover:text-black"
                     }`}
@@ -156,7 +153,7 @@ function NavbarContent(): JSX.Element {
             {user?.role === "private" && (
               <li>
                 <Link 
-                  href={user.hasSchool ? "/schools" : "/courses"} 
+                  href={privateDashboardHref} 
                   className="font-medium text-[#2d2c2b] hover:text-black"
                 >
                   Dashboard
@@ -170,14 +167,14 @@ function NavbarContent(): JSX.Element {
         {!user ? (
           <div className="flex gap-2">
             <button
-              onClick={() => router.push("/auth/login")}
+              onClick={() => router.push(loginHref)}
               className="px-5 py-2 text-slate-800 rounded-full font-medium flex items-center gap-2 cursor-pointer"
             >
               Iniciar sesión
             </button>
 
             <button
-              onClick={() => router.push("/auth/register")}
+              onClick={() => router.push(registerHref)}
               className="px-5 py-2 rounded-2xl bg-[#1973FC] text-white font-semibold flex items-center gap-2 transition shadow-xs cursor-pointer"
             >
               Regístrate gratis
@@ -206,7 +203,7 @@ function NavbarContent(): JSX.Element {
                 {user.role === "private" && (
                   <>
                     <Link
-                      href={user.hasSchool ? "/schools" : "/courses"}
+                      href={privateDashboardHref}
                       className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 rounded-lg text-sm"
                     >
                       <LayoutDashboard size={16} />
@@ -214,7 +211,7 @@ function NavbarContent(): JSX.Element {
                     </Link>
 
                     <Link
-                      href="/billing"
+                      href={user.hasSchool ? "/schools/plans" : "/courses/plans"}
                       className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 rounded-lg text-sm"
                     >
                       <Crown size={16} />
@@ -243,7 +240,7 @@ function NavbarContent(): JSX.Element {
                     </Link>
 
                     <Link
-                      href="/profile"
+                      href="/parents/settings"
                       className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 rounded-lg text-sm"
                     >
                       <User size={16} />

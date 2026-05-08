@@ -1,10 +1,11 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { schoolsService, type School } from "../../lib/services/services/schools.service";
 import { MEXICO_STATES, resolveMexicanState } from "@/lib/mexico-states";
 import { filesService } from "@/lib/services/services/files.service";
+import { ArrowUpRight, Images, MapPin, ShieldCheck } from "lucide-react";
 
 const EDUCATIONAL_LEVEL_OPTIONS = [
   "Kinder",
@@ -50,6 +51,7 @@ type FormState = {
 };
 
 export default function SchoolSettingsForm() {
+  const router = useRouter();
   const pathname = usePathname();
   const isCourseMode = pathname.startsWith("/courses");
   const accentBgClass = isCourseMode ? "bg-violet-600" : "bg-[#1973fd]";
@@ -93,6 +95,20 @@ export default function SchoolSettingsForm() {
     () => (coverFile ? URL.createObjectURL(coverFile) : school?.coverImageUrl || ""),
     [coverFile, school?.coverImageUrl],
   );
+  const completion = useMemo(() => {
+    const checks = [
+      form.name,
+      form.description,
+      form.address,
+      form.city,
+      form.languages,
+      form.schedule,
+      school?.logoUrl || logoFile,
+      school?.coverImageUrl || coverFile,
+    ];
+
+    return Math.round((checks.filter(Boolean).length / checks.length) * 100);
+  }, [coverFile, form.address, form.city, form.description, form.languages, form.name, form.schedule, logoFile, school?.coverImageUrl, school?.logoUrl]);
 
   useEffect(() => {
     let active = true;
@@ -239,15 +255,61 @@ export default function SchoolSettingsForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="w-full rounded-3xl bg-white p-8">
-      <div className="border-b border-slate-100 pb-6">
-        <h1 className="text-lg font-extrabold text-slate-900 sm:text-xl">
-          {isCourseMode ? "Configuración de perfil" : "Configuración de la escuela"}
-        </h1>
-        <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-slate-400">
-          {isCourseMode ? "Actualiza tus datos, imágenes y detalles de instructor." : "Actualiza datos generales, imágenes y detalles."}
-        </p>
-      </div>
+    <div className="space-y-6">
+      <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white">
+        <div className="bg-[radial-gradient(circle_at_top_left,_rgba(25,115,253,0.14),_transparent_42%),linear-gradient(180deg,_#ffffff_0%,_#f8fafc_100%)] p-8">
+          <div className="flex flex-wrap items-start justify-between gap-5">
+            <div className="max-w-3xl">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                Configuración
+              </p>
+              <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
+                {isCourseMode ? "Mantén tu perfil listo para convertir" : "Ajusta la ficha pública de tu escuela"}
+              </h1>
+              <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
+                Actualiza identidad visual, ubicación y datos clave sin salir del flujo operativo.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              {!isCourseMode && school?.id ? (
+                <button
+                  type="button"
+                  onClick={() => router.push(`/search/institutions/${school.id}`)}
+                  className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-white"
+                >
+                  Ver perfil público
+                  <ArrowUpRight size={16} />
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => router.push(isCourseMode ? "/courses/plans" : "/schools/plans")}
+                className={`inline-flex h-11 items-center gap-2 rounded-2xl ${accentBgClass} px-4 text-sm font-semibold text-white transition ${accentHoverBgClass}`}
+              >
+                <ShieldCheck size={16} />
+                Revisar plan
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-8 grid gap-3 sm:grid-cols-3">
+            <InfoMetric label="Perfil completo" value={`${completion}%`} />
+            <InfoMetric label="Galería actual" value={`${(school?.gallery?.length || 0) + galleryFiles.length}`} icon={Images} />
+            <InfoMetric label="Ubicación" value={form.city || "Pendiente"} icon={MapPin} />
+          </div>
+        </div>
+      </section>
+
+      <form onSubmit={onSubmit} className="w-full rounded-3xl bg-white p-8">
+        <div className="border-b border-slate-100 pb-6">
+          <h2 className="text-lg font-extrabold text-slate-900 sm:text-xl">
+            {isCourseMode ? "Configuración de perfil" : "Configuración de la escuela"}
+          </h2>
+          <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+            {isCourseMode ? "Actualiza tus datos, imágenes y detalles de instructor." : "Actualiza datos generales, imágenes y detalles."}
+          </p>
+        </div>
 
       {success && (
         <div className="mt-6 rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
@@ -563,7 +625,30 @@ export default function SchoolSettingsForm() {
         </div>
       )}
 
-      <div className="mt-10 flex gap-3">
+      <div className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-6">
+        <div className="flex flex-wrap gap-3">
+          {!isCourseMode && school?.id ? (
+            <button
+              type="button"
+              onClick={() => router.push(`/search/institutions/${school.id}`)}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-5 py-2 text-xs font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+            >
+              Vista pública
+              <ArrowUpRight size={14} />
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => {
+              setLogoFile(null);
+              setCoverFile(null);
+              setGalleryFiles([]);
+            }}
+            className="inline-flex items-center rounded-full border border-slate-200 px-5 py-2 text-xs font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+          >
+            Limpiar imágenes
+          </button>
+        </div>
         <button
           type="submit"
           className={`inline-flex items-center rounded-full bg-slate-900 px-6 py-2 text-xs font-bold text-white shadow ${accentHoverBgClass} disabled:opacity-60`}
@@ -572,6 +657,29 @@ export default function SchoolSettingsForm() {
           {saving ? "Guardando…" : "Guardar cambios"}
         </button>
       </div>
-    </form>
+      </form>
+    </div>
+  );
+}
+
+function InfoMetric({
+  label,
+  value,
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  icon?: typeof Images;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
+      <div className="flex items-center gap-2">
+        {Icon ? <Icon className="h-4 w-4 text-slate-400" /> : null}
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+          {label}
+        </p>
+      </div>
+      <p className="mt-3 text-2xl font-semibold text-slate-950">{value}</p>
+    </div>
   );
 }

@@ -1,28 +1,22 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import { Bell, PlusCircle, Search, UserCircle2, Zap } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Bell, BookOpen, Search, Settings2, UserCircle2, Zap } from "lucide-react";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { schoolsService } from "@/lib/services/services/schools.service";
 
-import RegisterProjectModal from "./RegisterProjectModal";
-import SchoolRegistrationWizard from "./SchoolRegistrationWizard";
-
 export default function SchoolsNavbar() {
-	const router = useRouter();
 	const pathname = usePathname();
 	const { user } = useAuth();
-	const [registerOpen, setRegisterOpen] = useState(false);
-	const [wizardOpen, setWizardOpen] = useState(false);
 	const [schoolName, setSchoolName] = useState<string | null>(null);
-	const [hasSchool, setHasSchool] = useState(false);
 
 	const sectionTitles: Record<string, { title: string; description: string }> = {
 		"/schools": {
 			title: "Vista general",
-			description: "Resumen operativo de tu panel escolar.",
+			description: "Resumen operativo de tu institución.",
 		},
 		"/schools/courses": {
 			title: "Oferta académica",
@@ -78,7 +72,7 @@ export default function SchoolsNavbar() {
 		},
 		"/schools/settings": {
 			title: "Configuración",
-			description: "Preferencias, datos base y ajustes del panel.",
+			description: "Preferencias, datos base e identidad institucional.",
 		},
 		"/courses/settings": {
 			title: "Configuración",
@@ -89,7 +83,9 @@ export default function SchoolsNavbar() {
 	const currentSection = sectionTitles[pathname] ?? sectionTitles["/schools"];
 	const isCourseMode = pathname.startsWith("/courses");
 	const accentBg = isCourseMode ? "bg-violet-600" : "bg-blue-600";
-	const accentHoverBg = isCourseMode ? "hover:bg-violet-700" : "hover:bg-blue-700";
+	const accentText = isCourseMode ? "text-violet-600" : "text-blue-600";
+	const offerHref = isCourseMode ? "/courses/academic" : "/schools/courses";
+	const settingsHref = isCourseMode ? "/courses/settings" : "/schools/settings";
 
 	useEffect(() => {
 		let active = true;
@@ -97,19 +93,15 @@ export default function SchoolsNavbar() {
 		(async () => {
 			try {
 				if (isCourseMode) {
-					// En modo curso independiente, quizás no mostramos nombre de escuela
 					if (active) setSchoolName(null);
 					return;
 				}
 				const school = await schoolsService.getMySchool();
 				if (active) {
 					setSchoolName(school?.name ?? null);
-					setHasSchool(Boolean(school?.id));
 				}
 			} catch {
-				if (active) {
-					setHasSchool(false);
-				}
+				return;
 			}
 		})();
 
@@ -124,6 +116,18 @@ export default function SchoolsNavbar() {
 				<div className="flex h-full items-center">
 					<div className="flex w-full items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
 						<div className="flex min-w-0 flex-1 items-center gap-4">
+							<div className="hidden min-w-0 lg:block">
+								<p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
+									{schoolName || (isCourseMode ? "Modo instructor" : "Cuenta escolar")}
+								</p>
+								<h1 className="mt-1 text-xl font-semibold text-slate-950">
+									{currentSection.title}
+								</h1>
+								<p className="mt-1 truncate text-sm text-slate-500">
+									{currentSection.description}
+								</p>
+							</div>
+
 							<div className="flex h-12 w-full max-w-md items-center gap-3 rounded-full border border-slate-200 bg-[#f8f8f4] px-4 text-slate-400">
 								<Search size={18} />
 								<input
@@ -132,37 +136,38 @@ export default function SchoolsNavbar() {
 									className="h-full w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
 								/>
 							</div>
-							<div className="hidden min-w-0 xl:block">
-								<p className="text-sm font-semibold text-slate-900">
-									{schoolName || (isCourseMode ? "Instructor Independiente" : "Mi escuela")}
-								</p>
-								<p className="truncate text-xs text-slate-500">
-									{currentSection.title}
-								</p>
-							</div>
 						</div>
 
 						<div className="flex items-center gap-3">
+							<div className="hidden items-center gap-2 xl:flex">
+								<Link
+									href={offerHref}
+									className="inline-flex h-10 items-center gap-2 rounded-full border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+								>
+									<BookOpen size={15} />
+									Oferta
+								</Link>
+								<Link
+									href={settingsHref}
+									className={`inline-flex h-10 items-center gap-2 rounded-full border border-slate-200 px-4 text-sm font-semibold transition hover:border-slate-300 hover:bg-slate-50 ${accentText}`}
+								>
+									<Settings2 size={15} />
+									Configuración
+								</Link>
+							</div>
 							<div className="hidden items-center gap-4 lg:flex">
 								<div className="flex items-center gap-1 text-sm font-semibold text-slate-500">
 									<Zap size={16} className="text-slate-400" />
 									<span>0</span>
 								</div>
-								<button
-									type="button"
+								<Link
+									href="/notifications"
 									className="flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100"
 									aria-label="Notificaciones"
 								>
 									<Bell size={18} />
-								</button>
+								</Link>
 							</div>
-							<button
-								onClick={() => setRegisterOpen(true)}
-								className={`inline-flex items-center gap-2 rounded-lg ${accentBg} px-4 py-2.5 text-sm font-semibold text-white transition ${accentHoverBg}`}
-							>
-								<PlusCircle size={16} />
-								<span>Registrar proyecto</span>
-							</button>
 							<div className="flex min-w-0 items-center gap-3 rounded-full py-1 pl-2 pr-1.5">
 								<div className="hidden min-w-0 text-right sm:block">
 									<p className="truncate text-sm font-semibold text-slate-900">
@@ -183,29 +188,6 @@ export default function SchoolsNavbar() {
 					</div>
 				</div>
 			</header>
-			<RegisterProjectModal
-				isOpen={registerOpen}
-				onClose={() => setRegisterOpen(false)}
-				onSelectType={(type) => {
-					if (type === "school") {
-						setWizardOpen(true);
-						return;
-					}
-
-					if (type === "course") {
-						if (!hasSchool) {
-							setWizardOpen(true);
-							return;
-						}
-
-						router.push("/schools/courses?create=1");
-					}
-				}}
-			/>
-			<SchoolRegistrationWizard
-				isOpen={wizardOpen}
-				onClose={() => setWizardOpen(false)}
-			/>
 		</>
 	);
 }
