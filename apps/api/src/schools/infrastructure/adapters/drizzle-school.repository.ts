@@ -279,11 +279,13 @@ export class DrizzleSchoolRepository implements SchoolRepository {
     };
   }): Promise<SchoolsConnection> {
     const { filters = {}, pagination } = params;
+    console.log('[DrizzleSchoolRepository] listForFeed filters:', JSON.stringify(filters));
 
     const whereConditions: SQL[] = [];
 
     // Si llegan lat/lng, filtrar por cercanía (50km)
     if (typeof filters.latitude === 'number' && typeof filters.longitude === 'number') {
+      console.log('[DrizzleSchoolRepository] Applying distance filter for:', filters.latitude, filters.longitude);
       // Haversine formula en SQL (Postgres)
       const earthRadiusKm = 6371;
       const radiusKm = 50;

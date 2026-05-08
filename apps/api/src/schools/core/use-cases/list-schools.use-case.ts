@@ -21,6 +21,8 @@ export class ListSchoolsFeedUseCase {
       sortBy?: 'favorites' | 'rating' | 'recent';
       onlyVerified?: boolean;
       state?: string;
+      latitude?: number;
+      longitude?: number;
     };
     pagination?: {
       first: number;

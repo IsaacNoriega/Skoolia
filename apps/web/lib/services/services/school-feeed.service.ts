@@ -32,6 +32,7 @@ export interface SchoolsConnection {
 export interface SchoolsFeedFilters {
   educationalLevel?: string;
   city?: string;
+  state?: string;
   categoryId?: string;
   schedule?: string;
   languages?: string;
@@ -66,6 +67,7 @@ export const schoolsFeedService = {
               coverImageUrl
               address
               city
+              state
               averageRating
               favoritesCount
               isVerified
@@ -91,6 +93,7 @@ export const schoolsFeedService = {
       ? {
           search: params.filters.search,
           city: params.filters.city,
+          state: params.filters.state,
           educationalLevel: params.filters.educationalLevel,
           categoryId: params.filters.categoryId,
           schedule: params.filters.schedule,

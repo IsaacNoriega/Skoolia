@@ -6,6 +6,7 @@ import SchoolsFeed from "@/components/search/SchoolsFeed";
 import CoursesFeed from "@/components/search/CoursesFeed";
 import SearchToolbar from "@/components/search/SearchToolbar";
 import { useAuth } from "@/contexts/AuthContext";
+import { resolveMexicanState } from "@/lib/mexico-states";
 
 function SearchContent() {
   const { user } = useAuth();
@@ -27,9 +28,13 @@ function SearchContent() {
   const lat = searchParams.get("lat") ? Number(searchParams.get("lat")) : undefined;
   const lon = searchParams.get("lon") ? Number(searchParams.get("lon")) : undefined;
 
+  const resolvedState = resolveMexicanState(loc);
+  const isSpecialLoc = loc === "Cerca de mí" || loc === "México (Todas las zonas)";
+
   const filters = {
     search: q,
-    city: loc,
+    city: !isSpecialLoc && !resolvedState ? loc : undefined,
+    state: resolvedState,
     educationalLevel: level,
     categoryId,
     schedule,

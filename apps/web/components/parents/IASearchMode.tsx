@@ -112,7 +112,7 @@ export function AISearchMode({ onClose }: AISearchModeProps) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ message: value }),
+        body: JSON.stringify({ message: value, userId: user?.id }),
       });
 
       const data = (await res.json()) as {
