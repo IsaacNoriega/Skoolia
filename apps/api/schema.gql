@@ -11,10 +11,11 @@ type SchoolModel {
   address: String
   city: String
   state: String
-  averageRating: Float!
-  favoritesCount: Int!
+  averageRating: Float
+  favoritesCount: Int
   isVerified: Boolean!
   monthlyPrice: Int
+  gallery: [String!]
 }
 
 type SchoolEdgeModel {

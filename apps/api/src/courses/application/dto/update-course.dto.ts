@@ -85,5 +85,10 @@ export class UpdateCourseDto {
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
+  categoryIds?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
   gallery?: string[];
 }

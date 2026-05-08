@@ -7,8 +7,9 @@ import { CourseRepository } from 'src/courses/core/ports/course.repository';
 import { Course } from 'src/courses/core/entities/course.types';
 import { DATABASE } from 'src/db/db.module';
 import * as dbTypes from 'src/db/db.types';
-import { files, schools, privateUsers } from 'drizzle/schemas';
+import { files, schools, privateUsers, courseCategories, categories } from 'drizzle/schemas';
 import { alias } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleCourseRepository implements CourseRepository {
@@ -63,7 +64,7 @@ export class DrizzleCourseRepository implements CourseRepository {
     name: string;
     description?: string;
     coverImageUrl?: string;
-    price: number;
+    price: number | null;
     capacity?: number;
     startDate?: Date;
     endDate?: Date;
@@ -75,29 +76,43 @@ export class DrizzleCourseRepository implements CourseRepository {
     longitude?: number;
     gallery?: string[];
     onlineInstructions?: string;
+    categoryIds?: string[];
   }): Promise<Course> {
-    const [course] = await this.db
-      .insert(courses)
-      .values({
-        schoolId: params.schoolId ?? null,
-        ownerId: params.ownerId,
-        name: params.name,
-        description: params.description ?? null,
-        coverImageUrl: params.coverImageUrl ?? null,
-        price: params.price ?? null,
-        capacity: params.capacity ?? null,
-        startDate: params.startDate ?? null,
-        endDate: params.endDate ?? null,
-        modality: params.modality ?? null,
-        address: params.address ?? null,
-        city: params.city ?? null,
-        state: params.state ?? null,
-        latitude: params.latitude ?? null,
-        longitude: params.longitude ?? null,
-        gallery: params.gallery ?? [],
-        onlineInstructions: params.onlineInstructions ?? null,
-      })
-      .returning();
+    const [course] = await this.db.transaction(async (tx) => {
+      const [inserted] = await tx
+        .insert(courses)
+        .values({
+          schoolId: params.schoolId ?? null,
+          ownerId: params.ownerId,
+          name: params.name,
+          description: params.description ?? null,
+          coverImageUrl: params.coverImageUrl ?? null,
+          price: params.price ?? null,
+          capacity: params.capacity ?? null,
+          startDate: params.startDate ?? null,
+          endDate: params.endDate ?? null,
+          modality: params.modality ?? null,
+          address: params.address ?? null,
+          city: params.city ?? null,
+          state: params.state ?? null,
+          latitude: params.latitude ?? null,
+          longitude: params.longitude ?? null,
+          gallery: params.gallery ?? [],
+          onlineInstructions: params.onlineInstructions ?? null,
+        })
+        .returning();
+
+      if (params.categoryIds?.length) {
+        await tx.insert(courseCategories).values(
+          params.categoryIds.map((cid) => ({
+            courseId: inserted.id,
+            categoryId: cid,
+          })),
+        );
+      }
+
+      return [inserted];
+    });
 
     return { ...course, ownerId: course.ownerId ?? '' };
   }
@@ -112,7 +127,7 @@ export class DrizzleCourseRepository implements CourseRepository {
         ownerId: courses.ownerId,
         name: courses.name,
         description: courses.description,
-        coverImageUrl: courses.coverImageUrl,
+        coverImageUrl: sql<string>`COALESCE(${coverFile.url}, ${courses.coverImageUrl})`,
         gallery: courses.gallery,
         price: courses.price,
         capacity: courses.capacity,
@@ -135,6 +150,7 @@ export class DrizzleCourseRepository implements CourseRepository {
         ownerName: privateUsers.name,
       })
       .from(courses)
+      .leftJoin(coverFile, eq(sql`${coverFile.id}::text`, courses.coverImageUrl))
       .leftJoin(schools, eq(schools.id, courses.schoolId))
       .leftJoin(privateUsers, eq(privateUsers.id, courses.ownerId))
       .where(eq(courses.id, id))
@@ -142,7 +158,24 @@ export class DrizzleCourseRepository implements CourseRepository {
 
     if (!rows.length) return null;
 
-    const course = { ...rows[0], ownerId: rows[0].ownerId ?? '' };
+    const courseData = rows[0];
+
+    // Fetch categories
+    const categoryRows = await this.db
+      .select({
+        id: categories.id,
+        name: categories.name,
+        slug: categories.slug,
+      })
+      .from(courseCategories)
+      .innerJoin(categories, eq(categories.id, courseCategories.categoryId))
+      .where(eq(courseCategories.courseId, id));
+
+    const course = { 
+      ...courseData, 
+      ownerId: courseData.ownerId ?? '',
+      categories: categoryRows 
+    };
     const subscription = await this.getActiveSubscription(id);
 
     return { ...course, subscription };
@@ -158,7 +191,7 @@ export class DrizzleCourseRepository implements CourseRepository {
         ownerId: courses.ownerId,
         name: courses.name,
         description: courses.description,
-        coverImageUrl: courses.coverImageUrl,
+        coverImageUrl: sql<string>`COALESCE(${coverFile.url}, ${courses.coverImageUrl})`,
         gallery: courses.gallery,
         price: courses.price,
         capacity: courses.capacity,
@@ -181,11 +214,31 @@ export class DrizzleCourseRepository implements CourseRepository {
         ownerName: privateUsers.name,
       })
       .from(courses)
+      .leftJoin(coverFile, eq(sql`${coverFile.id}::text`, courses.coverImageUrl))
       .leftJoin(schools, eq(schools.id, courses.schoolId))
       .leftJoin(privateUsers, eq(privateUsers.id, courses.ownerId))
       .where(eq(courses.ownerId, ownerId));
 
-    return rows.map(r => ({ ...r, ownerId: r.ownerId ?? '' }));
+    const courseList = rows.map(r => ({ ...r, ownerId: r.ownerId ?? '' }));
+    
+    if (!courseList.length) return [];
+
+    const courseIds = courseList.map(c => c.id);
+    const categoryRows = await this.db
+      .select({
+        courseId: courseCategories.courseId,
+        id: categories.id,
+        name: categories.name,
+        slug: categories.slug,
+      })
+      .from(courseCategories)
+      .innerJoin(categories, eq(categories.id, courseCategories.categoryId))
+      .where(sql`${courseCategories.courseId} IN ${courseIds}`);
+
+    return courseList.map(c => ({
+      ...c,
+      categories: categoryRows.filter(cat => cat.courseId === c.id)
+    }));
   }
 
   async findPublicBySchoolId(schoolId: string): Promise<Course[]> {
@@ -198,7 +251,7 @@ export class DrizzleCourseRepository implements CourseRepository {
         ownerId: courses.ownerId,
         name: courses.name,
         description: courses.description,
-        coverImageUrl: courses.coverImageUrl,
+        coverImageUrl: sql<string>`COALESCE(${coverFile.url}, ${courses.coverImageUrl})`,
         gallery: courses.gallery,
         price: courses.price,
         capacity: courses.capacity,
@@ -221,11 +274,31 @@ export class DrizzleCourseRepository implements CourseRepository {
         ownerName: privateUsers.name,
       })
       .from(courses)
+      .leftJoin(coverFile, eq(sql`${coverFile.id}::text`, courses.coverImageUrl))
       .leftJoin(schools, eq(schools.id, courses.schoolId))
       .leftJoin(privateUsers, eq(privateUsers.id, courses.ownerId))
       .where(and(eq(courses.schoolId, schoolId), eq(courses.isActive, true), eq(courses.status, 'published')));
 
-    return rows.map(r => ({ ...r, ownerId: r.ownerId ?? '' }));
+    const courseList = rows.map(r => ({ ...r, ownerId: r.ownerId ?? '' }));
+    
+    if (!courseList.length) return [];
+
+    const courseIds = courseList.map(c => c.id);
+    const categoryRows = await this.db
+      .select({
+        courseId: courseCategories.courseId,
+        id: categories.id,
+        name: categories.name,
+        slug: categories.slug,
+      })
+      .from(courseCategories)
+      .innerJoin(categories, eq(categories.id, courseCategories.categoryId))
+      .where(sql`${courseCategories.courseId} IN ${courseIds}`);
+
+    return courseList.map(c => ({
+      ...c,
+      categories: categoryRows.filter(cat => cat.courseId === c.id)
+    }));
   }
 
   async findAllPublic(): Promise<Course[]> {
@@ -238,7 +311,7 @@ export class DrizzleCourseRepository implements CourseRepository {
         ownerId: courses.ownerId,
         name: courses.name,
         description: courses.description,
-        coverImageUrl: courses.coverImageUrl,
+        coverImageUrl: sql<string>`COALESCE(${coverFile.url}, ${courses.coverImageUrl})`,
         gallery: courses.gallery,
         price: courses.price,
         capacity: courses.capacity,
@@ -261,24 +334,66 @@ export class DrizzleCourseRepository implements CourseRepository {
         ownerName: privateUsers.name,
       })
       .from(courses)
+      .leftJoin(coverFile, eq(sql`${coverFile.id}::text`, courses.coverImageUrl))
       .leftJoin(schools, eq(schools.id, courses.schoolId))
       .leftJoin(privateUsers, eq(privateUsers.id, courses.ownerId))
       .where(and(eq(courses.isActive, true), eq(courses.status, 'published')));
 
-    return rows.map(r => ({ ...r, ownerId: r.ownerId ?? '' }));
+    const courseList = rows.map(r => ({ ...r, ownerId: r.ownerId ?? '' }));
+    
+    if (!courseList.length) return [];
+
+    const courseIds = courseList.map(c => c.id);
+    const categoryRows = await this.db
+      .select({
+        courseId: courseCategories.courseId,
+        id: categories.id,
+        name: categories.name,
+        slug: categories.slug,
+      })
+      .from(courseCategories)
+      .innerJoin(categories, eq(categories.id, courseCategories.categoryId))
+      .where(sql`${courseCategories.courseId} IN ${courseIds}`);
+
+    return courseList.map(c => ({
+      ...c,
+      categories: categoryRows.filter(cat => cat.courseId === c.id)
+    }));
   }
 
-  async update(params: { courseId: string; data: Partial<Course> }) {
-    const [updated] = await this.db
-      .update(courses)
-      .set({
-        ...params.data,
-        updatedAt: new Date(),
-      })
-      .where(eq(courses.id, params.courseId))
-      .returning();
+  async update(params: { courseId: string; data: Partial<Course & { categoryIds?: string[] }> }) {
+    const { categoryIds, ...courseData } = params.data;
 
-    if (!updated) throw new Error('Course not found');
+    const updated = await this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(courses)
+        .set({
+          ...courseData,
+          price: (courseData.price !== undefined && courseData.price !== null) ? Math.round(courseData.price) : (courseData.price === null ? null : undefined),
+          updatedAt: new Date(),
+        })
+        .where(eq(courses.id, params.courseId))
+        .returning();
+
+      if (!row) throw new Error('Course not found');
+
+      if (categoryIds !== undefined) {
+        await tx
+          .delete(courseCategories)
+          .where(eq(courseCategories.courseId, params.courseId));
+
+        if (categoryIds.length > 0) {
+          await tx.insert(courseCategories).values(
+            categoryIds.map((cid) => ({
+              courseId: params.courseId,
+              categoryId: cid,
+            })),
+          );
+        }
+      }
+
+      return row;
+    });
 
     return { ...updated, ownerId: updated.ownerId ?? '' };
   }

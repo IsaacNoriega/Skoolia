@@ -142,6 +142,8 @@ export default function SchoolCoursesSection() {
 		isActive: boolean;
 		coverImage?: File | null;
 		galleryImages?: File[];
+		categoryIds?: string[];
+		gallery?: string[];
 	}) => {
 		try {
 			setSubmitting(true);
@@ -153,7 +155,7 @@ export default function SchoolCoursesSection() {
 				coverImageUrl = uploaded.url;
 			}
 
-			let gallery: string[] = selectedCourse?.gallery || [];
+			let gallery: string[] = values.gallery || selectedCourse?.gallery || [];
 			if (values.galleryImages && values.galleryImages.length > 0) {
 				const uploadedGallery = await Promise.all(values.galleryImages.map(f => filesService.upload(f)));
 				gallery = [...gallery, ...uploadedGallery.map(f => f.url)];
@@ -170,6 +172,7 @@ export default function SchoolCoursesSection() {
 					endDate: values.endDate,
 					coverImageUrl,
 					gallery,
+					categoryIds: values.categoryIds,
 				});
 				showToast({
 					title: "Oferta creada",
@@ -183,6 +186,7 @@ export default function SchoolCoursesSection() {
 					...updatePayload,
 					coverImageUrl,
 					gallery,
+					categoryIds: values.categoryIds,
 				});
 				showToast({
 					title: "Oferta actualizada",
@@ -305,6 +309,11 @@ export default function SchoolCoursesSection() {
 												<span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
 													{course.modality || "Modalidad pendiente"}
 												</span>
+												{course.categories?.map(cat => (
+													<span key={cat.id} className="rounded-full bg-indigo-50 border border-indigo-100/50 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-indigo-600">
+														{cat.name}
+													</span>
+												))}
 											</div>
 
 											<p className="mt-3 text-lg font-semibold text-slate-950">

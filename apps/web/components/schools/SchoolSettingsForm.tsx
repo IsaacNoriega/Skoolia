@@ -5,7 +5,23 @@ import { useEffect, useMemo, useState } from "react";
 import { schoolsService, type School } from "../../lib/services/services/schools.service";
 import { MEXICO_STATES, resolveMexicanState } from "@/lib/mexico-states";
 import { filesService } from "@/lib/services/services/files.service";
-import { ArrowUpRight, Images, MapPin, ShieldCheck } from "lucide-react";
+import { schoolCategoriesService, type Category } from "@/lib/services/services/schools-categories.service";
+import { motion, AnimatePresence } from "framer-motion";
+import { 
+  ArrowUpRight, 
+  Images, 
+  MapPin, 
+  ShieldCheck, 
+  Settings, 
+  Camera, 
+  Map as MapIcon, 
+  GraduationCap, 
+  CircleUser,
+  Save,
+  Loader2,
+  Trash2,
+  Plus
+} from "lucide-react";
 
 const EDUCATIONAL_LEVEL_OPTIONS = [
   "Kinder",
@@ -54,16 +70,18 @@ export default function SchoolSettingsForm() {
   const router = useRouter();
   const pathname = usePathname();
   const isCourseMode = pathname.startsWith("/courses");
-  const accentBgClass = isCourseMode ? "bg-violet-600" : "bg-[#1973fd]";
+  const accentColor = isCourseMode ? "violet" : "indigo";
+  const accentBgClass = isCourseMode ? "bg-violet-600" : "bg-indigo-600";
+  const accentTextClass = isCourseMode ? "text-violet-600" : "text-indigo-600";
   const accentHoverBgClass = isCourseMode ? "hover:bg-violet-700" : "hover:bg-indigo-700";
   const accentRingClass = isCourseMode ? "focus:ring-violet-500" : "focus:ring-indigo-500";
 
+  const [activeTab, setActiveTab] = useState<"general" | "multimedia" | "ubicacion" | "academico">("general");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [school, setSchool] = useState<School | null>(null);
-
 
   const [form, setForm] = useState<FormState>({
     name: "",
@@ -82,10 +100,15 @@ export default function SchoolSettingsForm() {
     monthlyPrice: "",
   });
 
-  // Local-only file previews (upload coming later)
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
+  const [logoError, setLogoError] = useState(false);
+  const [coverError, setCoverError] = useState(false);
+  
+  const [allCategories, setAllCategories] = useState<Category[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
 
   const logoPreview = useMemo(
     () => (logoFile ? URL.createObjectURL(logoFile) : school?.logoUrl || ""),
@@ -106,7 +129,6 @@ export default function SchoolSettingsForm() {
       school?.logoUrl || logoFile,
       school?.coverImageUrl || coverFile,
     ];
-
     return Math.round((checks.filter(Boolean).length / checks.length) * 100);
   }, [coverFile, form.address, form.city, form.description, form.languages, form.name, form.schedule, logoFile, school?.coverImageUrl, school?.logoUrl]);
 
@@ -135,16 +157,33 @@ export default function SchoolSettingsForm() {
           enrollmentOpen: !!me.enrollmentOpen,
           monthlyPrice: me.monthlyPrice != null ? String(me.monthlyPrice) : "",
         });
+
+        // Set initial categories
+        if (me.categories) {
+          setSelectedCategoryIds(me.categories.map((c: any) => c.id));
+        }
+
+        // Fetch all categories
+        setCategoriesLoading(true);
+        const cats = await schoolCategoriesService.getAllCategories();
+        setAllCategories(cats);
+        setCategoriesLoading(false);
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Error loading school data");
       } finally {
         setLoading(false);
       }
     })();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    setLogoError(false);
+  }, [logoPreview]);
+
+  useEffect(() => {
+    setCoverError(false);
+  }, [coverPreview]);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -161,31 +200,6 @@ export default function SchoolSettingsForm() {
       const maxStudentsPerClass = form.maxStudentsPerClass && !isNaN(Number(form.maxStudentsPerClass)) ? Number(form.maxStudentsPerClass) : undefined;
       const enrollmentYear = form.enrollmentYear && !isNaN(Number(form.enrollmentYear)) ? Number(form.enrollmentYear) : undefined;
       const monthlyPrice = form.monthlyPrice && !isNaN(Number(form.monthlyPrice)) ? Number(form.monthlyPrice) : undefined;
-
-      if (latitude != null && (!Number.isFinite(latitude) || latitude < -90 || latitude > 90)) {
-        setError("La latitud debe ser un número entre -90 y 90.");
-        return;
-      }
-
-      if (longitude != null && (!Number.isFinite(longitude) || longitude < -180 || longitude > 180)) {
-        setError("La longitud debe ser un número entre -180 y 180.");
-        return;
-      }
-
-      if (maxStudentsPerClass != null && (!Number.isInteger(maxStudentsPerClass) || maxStudentsPerClass < 1)) {
-        setError("La cantidad de alumnos por clase debe ser un entero mayor o igual a 1.");
-        return;
-      }
-
-      if (enrollmentYear != null && (!Number.isInteger(enrollmentYear) || enrollmentYear < 1900 || enrollmentYear > 2100)) {
-        setError("El año de inscripción debe ser un entero entre 1900 y 2100.");
-        return;
-      }
-
-      if (monthlyPrice != null && (!Number.isFinite(monthlyPrice) || monthlyPrice < 0)) {
-        setError("El precio mensual debe ser un número mayor o igual a 0.");
-        return;
-      }
 
       const payload = {
         name: form.name || undefined,
@@ -205,7 +219,6 @@ export default function SchoolSettingsForm() {
       };
 
       const updated = await schoolsService.update(payload);
-
       let latest = updated;
 
       if (logoFile) {
@@ -221,16 +234,21 @@ export default function SchoolSettingsForm() {
       if (galleryFiles.length > 0) {
         const uploadedGallery = await Promise.all(galleryFiles.map(file => filesService.upload(file)));
         const galleryUrls = uploadedGallery.map(file => file.url);
-        // Mezclamos con las existentes si queremos, o reemplazamos. El usuario pidió "añadir".
         const currentGallery = school?.gallery || [];
         latest = await schoolsService.update({ gallery: [...currentGallery, ...galleryUrls] });
       }
 
+      if (!isCourseMode && selectedCategoryIds.length >= 0) {
+        await schoolCategoriesService.assign(selectedCategoryIds);
+        // Refresh school data to get updated categories
+        latest = await schoolsService.getMySchool();
+      }
+
       setSchool(latest);
       setSuccess("Configuración guardada");
-
       setLogoFile(null);
       setCoverFile(null);
+      setGalleryFiles([]);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error al guardar cambios");
     } finally {
@@ -238,448 +256,389 @@ export default function SchoolSettingsForm() {
     }
   }
 
+  const tabs = [
+    { id: "general", label: "General", icon: Settings },
+    { id: "multimedia", label: "Multimedia", icon: Camera },
+    { id: "ubicacion", label: "Ubicación", icon: MapIcon },
+    { id: "academico", label: "Académico", icon: GraduationCap },
+    ...(!isCourseMode ? [{ id: "categorias", label: "Categorías", icon: Images }] : []),
+  ];
+
   if (loading) {
     return (
-      <div className="w-full rounded-3xl bg-white p-8 shadow">
-        Cargando configuración…
-      </div>
-    );
-  }
-
-  if (error && !school) {
-    return (
-      <div className="p-6 text-red-600">
-        {error}
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <Loader2 className={`h-12 w-12 animate-spin ${accentTextClass}`} />
+        <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Cargando configuración...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white">
-        <div className="bg-[radial-gradient(circle_at_top_left,_rgba(25,115,253,0.14),_transparent_42%),linear-gradient(180deg,_#ffffff_0%,_#f8fafc_100%)] p-8">
-          <div className="flex flex-wrap items-start justify-between gap-5">
-            <div className="max-w-3xl">
-              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
-                Configuración
-              </p>
-              <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
-                {isCourseMode ? "Mantén tu perfil listo para convertir" : "Ajusta la ficha pública de tu escuela"}
-              </h1>
-              <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
-                Actualiza identidad visual, ubicación y datos clave sin salir del flujo operativo.
-              </p>
+    <div className="max-w-[1400px] mx-auto space-y-12 pb-24">
+      {/* 🏙️ EXECUTIVE HEADER */}
+      <section className="bg-slate-50/50 border border-slate-100 p-10 lg:p-14 rounded-[3rem]">
+        <div className="flex flex-col xl:flex-row gap-12 items-start justify-between">
+          <div className="space-y-6 flex-1">
+            <div className={`text-[10px] font-black ${accentTextClass} uppercase tracking-[0.4em]`}>
+              Configuración del Perfil
             </div>
+            
+            <h1 className="text-4xl md:text-6xl font-black text-slate-950 tracking-tight leading-[1.1]">
+              {isCourseMode ? "Tu perfil público, <br /> tus reglas." : "Tu escuela, <br /> tu identidad."}
+            </h1>
+            
+            <p className="text-slate-500 text-lg font-medium max-w-xl">
+              Controla la identidad visual, datos operativos y presencia pública de tu institución en la plataforma.
+            </p>
 
-            <div className="flex flex-wrap gap-3">
-              {!isCourseMode && school?.id ? (
+            <div className="flex flex-wrap gap-4 pt-4">
+              {!isCourseMode && school?.id && (
                 <button
                   type="button"
                   onClick={() => router.push(`/search/institutions/${school.id}`)}
-                  className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-white"
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-white border border-slate-200 text-slate-900 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm"
                 >
-                  Ver perfil público
-                  <ArrowUpRight size={16} />
+                  Vista Pública <ArrowUpRight size={14} />
                 </button>
-              ) : null}
+              )}
               <button
                 type="button"
                 onClick={() => router.push(isCourseMode ? "/courses/plans" : "/schools/plans")}
-                className={`inline-flex h-11 items-center gap-2 rounded-2xl ${accentBgClass} px-4 text-sm font-semibold text-white transition ${accentHoverBgClass}`}
+                className={`inline-flex items-center gap-2 px-6 py-3 rounded-2xl ${accentBgClass} text-white text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-lg shadow-${accentColor}-500/20`}
               >
-                <ShieldCheck size={16} />
-                Revisar plan
+                <ShieldCheck size={14} /> Mi Plan Actual
               </button>
             </div>
           </div>
 
-          <div className="mt-8 grid gap-3 sm:grid-cols-3">
-            <InfoMetric label="Perfil completo" value={`${completion}%`} />
-            <InfoMetric label="Galería actual" value={`${(school?.gallery?.length || 0) + galleryFiles.length}`} icon={Images} />
-            <InfoMetric label="Ubicación" value={form.city || "Pendiente"} icon={MapPin} />
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 w-full xl:w-auto">
+            <MetricCard label="Completado" value={`${completion}%`} color={completion > 80 ? "text-emerald-600" : "text-amber-600"} />
+            <MetricCard label="Galería" value={`${(school?.gallery?.length || 0) + galleryFiles.length}/6`} color="text-indigo-600" />
+            <div className="hidden md:block">
+               <MetricCard label="Ubicación" value={form.city || "Pendiente"} color="text-slate-900" />
+            </div>
           </div>
         </div>
       </section>
 
-      <form onSubmit={onSubmit} className="w-full rounded-3xl bg-white p-8">
-        <div className="border-b border-slate-100 pb-6">
-          <h2 className="text-lg font-extrabold text-slate-900 sm:text-xl">
-            {isCourseMode ? "Configuración de perfil" : "Configuración de la escuela"}
-          </h2>
-          <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-slate-400">
-            {isCourseMode ? "Actualiza tus datos, imágenes y detalles de instructor." : "Actualiza datos generales, imágenes y detalles."}
-          </p>
-        </div>
-
-      {success && (
-        <div className="mt-6 rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          {success}
-        </div>
-      )}
-      {error && (
-        <div className="mt-6 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
-
-      {/* Nombre y descripción */}
-      <div className="mt-8 space-y-6">
-        <div>
-          <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Nombre</label>
-          <input
-            className={`h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentRingClass}`}
-            value={form.name}
-            onChange={(e) => set("name", e.target.value)}
-            placeholder={isCourseMode ? "Tu nombre público" : "Nombre de la escuela"}
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Descripción</label>
-          <textarea
-            className={`w-full rounded-2xl bg-slate-50 px-4 py-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentRingClass}`}
-            rows={4}
-            value={form.description}
-            onChange={(e) => set("description", e.target.value)}
-            placeholder="Descripción corta"
-          />
-        </div>
-      </div>
-
-      {/* Imágenes */}
-      <div className="mt-10 grid gap-6 md:grid-cols-2">
-        <div>
-          <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Logo</span>
-          <div className="mt-2 flex items-center gap-4">
-            {logoPreview ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={logoPreview} alt="Logo" className="h-16 w-16 rounded-2xl object-cover ring-1 ring-slate-200" />
-            ) : (
-              <div className="h-16 w-16 rounded-2xl bg-slate-100 ring-1 ring-slate-200" />
-            )}
-            <div className="flex-1 space-y-2">
-              <input
-                type="file"
-                accept="image/*"
-                className={`block w-full text-sm text-slate-600 file:mr-3 file:rounded-full file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:font-medium file:text-white hover:file:${accentBgClass}`}
-                onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
-              />
-              <p className="text-xs text-slate-500">
-                {logoFile ? `Archivo seleccionado: ${logoFile.name}` : "Selecciona un archivo para reemplazar el logo actual."}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div>
-          <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Imagen de portada</span>
-          <div className="mt-2 flex items-center gap-4">
-            {coverPreview ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={coverPreview} alt="Portada" className="h-16 w-28 rounded-2xl object-cover ring-1 ring-slate-200" />
-            ) : (
-              <div className="h-16 w-28 rounded-2xl bg-slate-100 ring-1 ring-slate-200" />
-            )}
-            <div className="flex-1 space-y-2">
-              <input
-                type="file"
-                accept="image/*"
-                className={`block w-full text-sm text-slate-600 file:mr-3 file:rounded-full file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:font-medium file:text-white hover:file:${accentBgClass}`}
-                onChange={(e) => setCoverFile(e.target.files?.[0] ?? null)}
-              />
-              <p className="text-xs text-slate-500">
-                {coverFile ? `Archivo seleccionado: ${coverFile.name}` : "Selecciona un archivo para reemplazar la portada actual."}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Galería */}
-      <div className="mt-10">
-        <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Galería de fotos (Máx. 5 adicionales)</span>
-        <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          {/* Existentes */}
-          {school?.gallery?.map((url, i) => (
-            <div key={i} className="relative aspect-square rounded-2xl overflow-hidden ring-1 ring-slate-100 group">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={url} alt={`Gallery ${i}`} className="h-full w-full object-cover" />
-              <button 
-                type="button"
-                onClick={async () => {
-                  const nextGallery = school.gallery?.filter((_, idx) => idx !== i) || [];
-                  const updated = await schoolsService.update({ gallery: nextGallery });
-                  setSchool(updated);
-                }}
-                className="absolute top-2 right-2 h-6 w-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-[10px]"
-              >
-                ×
-              </button>
-            </div>
-          ))}
-          {/* Nuevas */}
-          {galleryFiles.map((file, i) => (
-            <div key={`new-${i}`} className="relative aspect-square rounded-2xl overflow-hidden ring-1 ring-slate-200 bg-slate-50">
-               {/* eslint-disable-next-line @next/next/no-img-element */}
-               <img src={URL.createObjectURL(file)} alt="Preview" className="h-full w-full object-cover opacity-50" />
-               <button 
-                type="button"
-                onClick={() => setGalleryFiles(prev => prev.filter((_, idx) => idx !== i))}
-                className="absolute top-2 right-2 h-6 w-6 bg-slate-400 text-white rounded-full flex items-center justify-center text-[10px]"
-              >
-                ×
-              </button>
-            </div>
-          ))}
-          {/* Botón añadir */}
-          {(school?.gallery?.length || 0) + galleryFiles.length < 6 && (
-            <label className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 transition-colors">
-              <input 
-                type="file" 
-                multiple 
-                accept="image/*" 
-                className="hidden" 
-                onChange={(e) => {
-                  const files = Array.from(e.target.files || []);
-                  setGalleryFiles(prev => [...prev, ...files].slice(0, 5 - (school?.gallery?.length || 0)));
-                }}
-              />
-              <span className="text-xl text-slate-300 font-light">+</span>
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Añadir foto</span>
-            </label>
-          )}
-        </div>
-      </div>
-
-      {/* Ubicación */}
-      <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div>
-          <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Dirección</label>
-          <input
-            className={`h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentRingClass}`}
-            value={form.address}
-            onChange={(e) => set("address", e.target.value)}
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Estado</label>
-          <select
-            className={`h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentRingClass}`}
-            value={form.city}
-            onChange={(e) => set("city", e.target.value)}
-          >
-            <option value="">Selecciona un estado...</option>
-            {MEXICO_STATES.map((state) => (
-              <option key={state} value={state}>
-                {state}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Latitud</label>
-          <input
-            className={`h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentRingClass}`}
-            type="number"
-            min={-90}
-            max={90}
-            step="0.000001"
-            value={form.latitude}
-            onChange={(e) => set("latitude", e.target.value)}
-            placeholder="e.g., 20.6736"
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Longitud</label>
-          <input
-            className={`h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentRingClass}`}
-            type="number"
-            min={-180}
-            max={180}
-            step="0.000001"
-            value={form.longitude}
-            onChange={(e) => set("longitude", e.target.value)}
-            placeholder="e.g., -103.344"
-          />
-        </div>
-      </div>
-
-      {/* Académico */}
-      {!isCourseMode && (
-        <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Nivel educativo</label>
-            <select
-              className={`h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentRingClass}`}
-              value={form.educationalLevel}
-              onChange={(e) => set("educationalLevel", e.target.value)}
-            >
-              <option value="">Selecciona...</option>
-              {EDUCATIONAL_LEVEL_OPTIONS.map((option) => (
-                <option key={option} value={option}>{option}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Tipo de institución</label>
-            <select
-              className={`h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentRingClass}`}
-              value={form.institutionType}
-              onChange={(e) => set("institutionType", e.target.value)}
-            >
-              <option value="">Selecciona...</option>
-              {INSTITUTION_TYPE_OPTIONS.map((option) => (
-                <option key={option} value={option}>{option}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Horario</label>
-            <select
-              className={`h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentRingClass}`}
-              value={form.schedule}
-              onChange={(e) => set("schedule", e.target.value)}
-            >
-              <option value="">Selecciona...</option>
-              {SCHEDULE_OPTIONS.map((option) => (
-                <option key={option} value={option}>{option}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Idiomas</label>
-            <select
-              className={`h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentRingClass}`}
-              value={form.languages}
-              onChange={(e) => set("languages", e.target.value)}
-            >
-              <option value="">Selecciona...</option>
-              {LANGUAGE_OPTIONS.map((option) => (
-                <option key={option} value={option}>{option}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Máx. alumnos por clase</label>
-            <input
-              className={`h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentRingClass}`}
-              type="number"
-              min={1}
-              step={1}
-              value={form.maxStudentsPerClass}
-              onChange={(e) => set("maxStudentsPerClass", e.target.value)}
-              placeholder="e.g., 30"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Año de inscripción</label>
-            <input
-              className={`h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentRingClass}`}
-              type="number"
-              min={1900}
-              max={2100}
-              step={1}
-              value={form.enrollmentYear}
-              onChange={(e) => set("enrollmentYear", e.target.value)}
-              placeholder="e.g., 2026"
-            />
-          </div>
-          <label className="mt-2 flex items-center gap-3">
-            <input
-              type="checkbox"
-              checked={form.enrollmentOpen}
-              onChange={(e) => set("enrollmentOpen", e.target.checked)}
-              className={`h-4 w-4 rounded border-slate-300 ${isCourseMode ? "text-violet-600 focus:ring-violet-500" : "text-indigo-600 focus:ring-indigo-500"}`}
-            />
-            <span className="text-xs font-bold text-slate-600">Inscripciones abiertas</span>
-          </label>
-        </div>
-      )}
-
-      {isCourseMode && (
-        <div className="mt-10 space-y-6">
-          <label className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              checked={form.enrollmentOpen}
-              onChange={(e) => set("enrollmentOpen", e.target.checked)}
-              className={`h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500`}
-            />
-            <span className="text-xs font-bold text-slate-600">Perfil activo y visible</span>
-          </label>
-        </div>
-      )}
-
-      {!isCourseMode && (
-        <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Precio mensual</label>
-            <input
-              className={`h-12 w-full rounded-2xl bg-slate-50 px-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 ${accentRingClass}`}
-              type="number"
-              min={0}
-              step={1}
-              value={form.monthlyPrice}
-              onChange={(e) => set("monthlyPrice", e.target.value)}
-              placeholder="e.g., 2500"
-            />
-          </div>
-        </div>
-      )}
-
-      <div className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-6">
-        <div className="flex flex-wrap gap-3">
-          {!isCourseMode && school?.id ? (
+      <div className="flex flex-col lg:flex-row gap-12 items-start">
+        <nav className="w-full lg:w-72 flex lg:flex-col gap-2 p-2 bg-white border border-slate-200 rounded-[2.5rem] sticky top-8 z-30 overflow-x-auto no-scrollbar">
+          {tabs.map((tab) => (
             <button
-              type="button"
-              onClick={() => router.push(`/search/institutions/${school.id}`)}
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-5 py-2 text-xs font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex items-center gap-4 px-6 py-4 rounded-3xl text-sm font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                activeTab === tab.id
+                  ? `${accentBgClass} text-white shadow-xl shadow-${accentColor}-500/20`
+                  : "text-slate-400 hover:text-slate-900 hover:bg-slate-50"
+              }`}
             >
-              Vista pública
-              <ArrowUpRight size={14} />
+              <tab.icon size={18} className={activeTab === tab.id ? "" : "opacity-50"} />
+              <span className="hidden lg:inline">{tab.label}</span>
             </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => {
-              setLogoFile(null);
-              setCoverFile(null);
-              setGalleryFiles([]);
-            }}
-            className="inline-flex items-center rounded-full border border-slate-200 px-5 py-2 text-xs font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-          >
-            Limpiar imágenes
-          </button>
-        </div>
-        <button
-          type="submit"
-          className={`inline-flex items-center rounded-full bg-slate-900 px-6 py-2 text-xs font-bold text-white shadow ${accentHoverBgClass} disabled:opacity-60`}
-          disabled={saving}
-        >
-          {saving ? "Guardando…" : "Guardar cambios"}
-        </button>
+          ))}
+        </nav>
+
+        <form onSubmit={onSubmit} className="flex-1 w-full space-y-12">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="bg-white/70 backdrop-blur-xl border border-slate-200 rounded-[3rem] p-8 lg:p-12 shadow-[0_8px_30px_rgb(0,0,0,0.04)]"
+            >
+              <div className="flex items-center justify-between gap-4 mb-10 border-b border-slate-100 pb-8">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-900 tracking-tight capitalize">
+                    {tabs.find(t => t.id === activeTab)?.label}
+                  </h2>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mt-2">
+                    {activeTab === "general" && "Identidad y descripción pública"}
+                    {activeTab === "multimedia" && "Gestión de recursos visuales"}
+                    {activeTab === "ubicacion" && "Geolocalización y dirección física"}
+                    {activeTab === "academico" && "Detalles operativos y académicos"}
+                    {activeTab === "categorias" && "Clasificación y etiquetas del perfil"}
+                  </p>
+                </div>
+                {success && (
+                  <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="px-4 py-2 rounded-xl bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-widest border border-emerald-100 flex items-center gap-2">
+                    <Save size={12} /> Configuración Guardada
+                  </motion.div>
+                )}
+              </div>
+
+              <div className="space-y-8">
+                {activeTab === "general" && (
+                  <div className="space-y-8">
+                    <FormGroup label="Nombre Institucional">
+                      <input
+                        className={`h-14 w-full rounded-2xl bg-slate-50 px-6 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-4 focus:ring-${accentColor}-500/10 focus:border-${accentColor}-300 transition-all font-medium`}
+                        value={form.name}
+                        onChange={(e) => set("name", e.target.value)}
+                        placeholder={isCourseMode ? "Tu nombre público" : "Nombre de la escuela"}
+                      />
+                    </FormGroup>
+                    <FormGroup label="Descripción General">
+                      <textarea
+                        className={`w-full rounded-2xl bg-slate-50 px-6 py-6 text-sm text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-4 focus:ring-${accentColor}-500/10 focus:border-${accentColor}-300 transition-all font-medium resize-none`}
+                        rows={6}
+                        value={form.description}
+                        onChange={(e) => set("description", e.target.value)}
+                        placeholder="Describe tu institución, valores y oferta educativa..."
+                      />
+                    </FormGroup>
+                  </div>
+                )}
+
+                {activeTab === "multimedia" && (
+                  <div className="space-y-12">
+                    <div className="grid gap-10 md:grid-cols-2">
+                      <FormGroup label="Logotipo Oficial">
+                        <div className="flex flex-col gap-6">
+                           <div className="relative w-32 h-32 rounded-[2.5rem] overflow-hidden ring-4 ring-slate-100 group bg-slate-50">
+                            {logoPreview && !logoError ? (
+                              <img 
+                                src={logoPreview} 
+                                alt="Logo" 
+                                className="h-full w-full object-cover" 
+                                onError={() => setLogoError(true)}
+                              />
+                            ) : (
+                              <div className="h-full w-full flex flex-col items-center justify-center text-slate-300 gap-2">
+                                <Plus size={24} />
+                                <span className="text-[8px] font-black uppercase">Subir</span>
+                              </div>
+                            )}
+                            <label className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer backdrop-blur-sm">
+                              <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                                const file = e.target.files?.[0] ?? null;
+                                setLogoFile(file);
+                                if (file) setLogoError(false);
+                              }} />
+                              <Camera className="text-white" size={24} />
+                            </label>
+                           </div>
+                        </div>
+                      </FormGroup>
+                      <FormGroup label="Imagen de Portada">
+                        <div className="flex flex-col gap-6">
+                           <div className="relative w-full aspect-video rounded-[3rem] overflow-hidden ring-4 ring-slate-100 group bg-slate-50">
+                            {coverPreview && !coverError ? (
+                              <img 
+                                src={coverPreview} 
+                                alt="Portada" 
+                                className="h-full w-full object-cover" 
+                                onError={() => setCoverError(true)}
+                              />
+                            ) : (
+                              <div className="h-full w-full flex flex-col items-center justify-center text-slate-300 gap-3">
+                                <div className="h-16 w-16 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-300 shadow-sm">
+                                  <Plus size={32} />
+                                </div>
+                                <span className="text-[10px] font-black uppercase tracking-widest">Subir Imagen de Portada</span>
+                              </div>
+                            )}
+                            <label className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer backdrop-blur-sm">
+                              <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                                const file = e.target.files?.[0] ?? null;
+                                setCoverFile(file);
+                                if (file) setCoverError(false);
+                              }} />
+                              <Camera className="text-white" size={32} />
+                            </label>
+                           </div>
+                        </div>
+                      </FormGroup>
+                    </div>
+
+                    <FormGroup label={`Galería de Fotos (${(school?.gallery?.length || 0) + galleryFiles.length}/6)`}>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                        {school?.gallery?.map((url, i) => (
+                          <div key={i} className="relative aspect-square rounded-3xl overflow-hidden ring-1 ring-slate-100 group">
+                            <img src={url} alt={`Gallery ${i}`} className="h-full w-full object-cover" />
+                            <button type="button" onClick={async () => {
+                              const nextGallery = school.gallery?.filter((_, idx) => idx !== i) || [];
+                              const updated = await schoolsService.update({ gallery: nextGallery });
+                              setSchool(updated);
+                            }} className="absolute top-2 right-2 h-8 w-8 bg-white/90 backdrop-blur-md text-red-500 rounded-2xl opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center shadow-lg"><Trash2 size={14} /></button>
+                          </div>
+                        ))}
+                        {galleryFiles.map((file, i) => (
+                          <div key={`new-${i}`} className="relative aspect-square rounded-3xl overflow-hidden ring-1 ring-slate-200 bg-slate-50">
+                             <img src={URL.createObjectURL(file)} alt="Preview" className="h-full w-full object-cover opacity-50" />
+                             <button type="button" onClick={() => setGalleryFiles(prev => prev.filter((_, idx) => idx !== i))} className="absolute top-2 right-2 h-8 w-8 bg-white/90 backdrop-blur-md text-slate-400 rounded-2xl flex items-center justify-center"><Trash2 size={14} /></button>
+                          </div>
+                        ))}
+                        {(school?.gallery?.length || 0) + galleryFiles.length < 6 && (
+                          <label className="aspect-square rounded-3xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 transition-all group">
+                            <input type="file" multiple accept="image/*" className="hidden" onChange={(e) => {
+                              const files = Array.from(e.target.files || []);
+                              setGalleryFiles(prev => [...prev, ...files].slice(0, 6 - (school?.gallery?.length || 0)));
+                            }} />
+                            <Plus size={24} className="text-slate-300 group-hover:text-indigo-400 transition-colors" />
+                          </label>
+                        )}
+                      </div>
+                    </FormGroup>
+                  </div>
+                )}
+
+                {activeTab === "ubicacion" && (
+                  <div className="space-y-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <FormGroup label="Dirección Física">
+                        <input className={`h-14 w-full rounded-2xl bg-slate-50 px-6 text-sm text-slate-900 ring-1 ring-slate-200 focus:bg-white focus:ring-4 focus:ring-${accentColor}-500/10 focus:border-${accentColor}-300 transition-all font-medium outline-none`} value={form.address} onChange={(e) => set("address", e.target.value)} />
+                      </FormGroup>
+                      <FormGroup label="Estado / Ciudad">
+                        <select className={`h-14 w-full rounded-2xl bg-slate-50 px-6 text-sm text-slate-900 ring-1 ring-slate-200 focus:bg-white focus:ring-4 focus:ring-${accentColor}-500/10 focus:border-${accentColor}-300 transition-all font-medium outline-none appearance-none`} value={form.city} onChange={(e) => set("city", e.target.value)}>
+                          <option value="">Selecciona...</option>
+                          {MEXICO_STATES.map((state) => <option key={state} value={state}>{state}</option>)}
+                        </select>
+                      </FormGroup>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                       <FormGroup label="Latitud">
+                        <input className="h-14 w-full rounded-2xl bg-slate-50 px-6 text-sm outline-none ring-1 ring-slate-200 transition-all" type="number" step="0.000001" value={form.latitude} onChange={(e) => set("latitude", e.target.value)} />
+                      </FormGroup>
+                      <FormGroup label="Longitud">
+                        <input className="h-14 w-full rounded-2xl bg-slate-50 px-6 text-sm outline-none ring-1 ring-slate-200 transition-all" type="number" step="0.000001" value={form.longitude} onChange={(e) => set("longitude", e.target.value)} />
+                      </FormGroup>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === "academico" && (
+                  <div className="space-y-10">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      {!isCourseMode && (
+                        <>
+                          <FormGroup label="Nivel Educativo">
+                            <select className="h-14 w-full rounded-2xl bg-slate-50 px-6 text-sm outline-none ring-1 ring-slate-200 focus:bg-white transition-all appearance-none" value={form.educationalLevel} onChange={e => set("educationalLevel", e.target.value)}>
+                              <option value="">Selecciona...</option>
+                              {EDUCATIONAL_LEVEL_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                            </select>
+                          </FormGroup>
+                          <FormGroup label="Tipo de Institución">
+                            <select className="h-14 w-full rounded-2xl bg-slate-50 px-6 text-sm outline-none ring-1 ring-slate-200 focus:bg-white transition-all appearance-none" value={form.institutionType} onChange={e => set("institutionType", e.target.value)}>
+                              <option value="">Selecciona...</option>
+                              {INSTITUTION_TYPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                            </select>
+                          </FormGroup>
+                        </>
+                      )}
+                      <FormGroup label="Horario">
+                        <select className="h-14 w-full rounded-2xl bg-slate-50 px-6 text-sm outline-none ring-1 ring-slate-200 focus:bg-white transition-all appearance-none" value={form.schedule} onChange={e => set("schedule", e.target.value)}>
+                          <option value="">Selecciona...</option>
+                          {SCHEDULE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                      </FormGroup>
+                      <FormGroup label="Idiomas">
+                        <select className="h-14 w-full rounded-2xl bg-slate-50 px-6 text-sm outline-none ring-1 ring-slate-200 focus:bg-white transition-all appearance-none" value={form.languages} onChange={e => set("languages", e.target.value)}>
+                          <option value="">Selecciona...</option>
+                          {LANGUAGE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                      </FormGroup>
+                      {!isCourseMode && (
+                        <>
+                           <FormGroup label="Precio Mensual">
+                            <input className="h-14 w-full rounded-2xl bg-slate-50 px-6 text-sm outline-none ring-1 ring-slate-200 focus:bg-white transition-all" type="number" value={form.monthlyPrice} onChange={e => set("monthlyPrice", e.target.value)} />
+                          </FormGroup>
+                          <FormGroup label="Alumnos por Clase">
+                            <input className="h-14 w-full rounded-2xl bg-slate-50 px-6 text-sm outline-none ring-1 ring-slate-200 focus:bg-white transition-all" type="number" value={form.maxStudentsPerClass} onChange={e => set("maxStudentsPerClass", e.target.value)} />
+                          </FormGroup>
+                        </>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-4 p-6 rounded-3xl bg-slate-50 border border-slate-100">
+                       <input type="checkbox" checked={form.enrollmentOpen} onChange={(e) => set("enrollmentOpen", e.target.checked)} className={`h-5 w-5 rounded-lg border-slate-300 ${accentTextClass} focus:ring-${accentColor}-500 transition-all`} />
+                      <div>
+                        <p className="text-sm font-black text-slate-900 uppercase tracking-widest">{isCourseMode ? "Perfil Activo" : "Inscripciones Abiertas"}</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{isCourseMode ? "Visible en la plataforma" : "Mostrar banner de admisiones"}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === "categorias" && (
+                  <div className="space-y-10">
+                    <div className="bg-slate-50 border border-slate-100 p-8 rounded-[2.5rem] space-y-6">
+                      <div className="space-y-2">
+                        <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Etiquetas de la Institución</h3>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Selecciona las categorías que mejor describen tu oferta educativa.</p>
+                      </div>
+
+                      <div className="flex flex-wrap gap-3">
+                        {allCategories.map((cat) => {
+                          const isSelected = selectedCategoryIds.includes(cat.id);
+                          return (
+                            <button
+                              key={cat.id}
+                              type="button"
+                              onClick={() => {
+                                if (isSelected) {
+                                  setSelectedCategoryIds(prev => prev.filter(id => id !== cat.id));
+                                } else {
+                                  setSelectedCategoryIds(prev => [...prev, cat.id]);
+                                }
+                              }}
+                              className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                isSelected
+                                  ? `${accentBgClass} text-white shadow-lg shadow-${accentColor}-500/20`
+                                  : "bg-white border border-slate-200 text-slate-400 hover:text-slate-900 hover:border-slate-300"
+                              }`}
+                            >
+                              {cat.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="p-8 rounded-[2.5rem] bg-indigo-50/50 border border-indigo-100 flex gap-6 items-center">
+                      <div className="h-14 w-14 rounded-2xl bg-white flex items-center justify-center text-indigo-600 shadow-sm shrink-0">
+                        <ShieldCheck size={24} />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em]">Visibilidad Inteligente</p>
+                        <p className="text-slate-600 text-sm font-medium leading-relaxed">
+                          Las categorías ayudan a que los estudiantes encuentren tu institución más fácilmente mediante filtros avanzados de búsqueda.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-12 pt-8 border-t border-slate-100 flex items-center justify-between">
+                <button type="button" onClick={() => { setLogoFile(null); setCoverFile(null); setGalleryFiles([]); }} className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-red-500 transition-colors">Restablecer multimedia</button>
+                 <button type="submit" disabled={saving} className={`inline-flex items-center gap-3 px-8 py-4 rounded-2xl ${accentBgClass} text-white text-[10px] font-black uppercase tracking-[0.2em] shadow-xl shadow-${accentColor}-500/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50`}>
+                    {saving ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />}
+                    {saving ? "Guardando..." : "Guardar Cambios"}
+                 </button>
+              </div>
+            </motion.div>
+          </AnimatePresence>
+        </form>
       </div>
-      </form>
     </div>
   );
 }
 
-function InfoMetric({
-  label,
-  value,
-  icon: Icon,
-}: {
-  label: string;
-  value: string;
-  icon?: typeof Images;
-}) {
+function MetricCard({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
-      <div className="flex items-center gap-2">
-        {Icon ? <Icon className="h-4 w-4 text-slate-400" /> : null}
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-          {label}
-        </p>
-      </div>
-      <p className="mt-3 text-2xl font-semibold text-slate-950">{value}</p>
+    <div className="bg-white border border-slate-100 p-8 rounded-[2.5rem] min-w-[140px] text-center xl:text-left">
+      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4">{label}</p>
+      <p className={`text-3xl font-black ${color}`}>{value}</p>
+    </div>
+  );
+}
+
+function FormGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-3">
+      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">{label}</label>
+      {children}
     </div>
   );
 }

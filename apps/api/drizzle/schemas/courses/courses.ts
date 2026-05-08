@@ -67,6 +67,7 @@ export const courses = pgTable(
 
 
     averageRating: doublePrecision('average_rating').default(0).notNull(),
+    ratingsCount: integer('ratings_count').default(0).notNull(),
 
     favoritesCount: integer('favorites_count').default(0).notNull(),
 

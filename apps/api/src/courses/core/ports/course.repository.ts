@@ -19,6 +19,8 @@ export interface CourseRepository {
     latitude?: number;
     longitude?: number;
     gallery?: string[];
+    onlineInstructions?: string;
+    categoryIds?: string[];
   }): Promise<Course>;
 
   findByOwner(ownerId: string): Promise<Course[]>;
@@ -39,6 +41,8 @@ export interface CourseRepository {
       status?: 'draft' | 'published' | 'archived';
       isActive?: boolean;
       gallery?: string[];
+      onlineInstructions?: string;
+      categoryIds?: string[];
     };
   }): Promise<Course>;
 

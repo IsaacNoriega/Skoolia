@@ -2,6 +2,7 @@ import { DbModule } from 'src/db/db.module';
 import { ToggleFavoriteUseCase } from './core/use-cases/toggle-favorite.use-case';
 import { AddFavoriteUseCase } from './core/use-cases/add-favorite.use-case';
 import { ListFavoritesUseCase } from './core/use-cases/list-favorites.use-case';
+import { CheckFavoriteUseCase } from './core/use-cases/check-favorite.use-case';
 import { AuthModule } from 'src/auth/auth.module';
 import { FavoritesController } from './application/favorites.controller';
 import { DrizzleFavoritesRepository } from './infrastructure/adapters/drizzle-favorites.repository';
@@ -17,6 +18,7 @@ import { DrizzleCourseFavoritesRepository } from 'src/courses/infrastructure/ada
     AddFavoriteUseCase,
     ToggleFavoriteUseCase,
     ListFavoritesUseCase,
+    CheckFavoriteUseCase,
     DrizzleFavoritesRepository,
     DrizzleCourseFavoritesRepository,
     {
@@ -24,6 +26,6 @@ import { DrizzleCourseFavoritesRepository } from 'src/courses/infrastructure/ada
       useClass: DrizzleFavoritesRepository,
     },
   ],
-  exports: [FAVORITES_REPOSITORY, ListFavoritesUseCase, DrizzleCourseFavoritesRepository],
+  exports: [FAVORITES_REPOSITORY, ListFavoritesUseCase, CheckFavoriteUseCase, DrizzleCourseFavoritesRepository],
 })
 export class FavoritesModule {}

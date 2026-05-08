@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo, memo } from "react";
 import Link from "next/link";
 import { 
   MapContainer, 
@@ -32,22 +32,17 @@ type SchoolsMapProps = {
   draggable?: boolean;
   onLocationChange?: (lat: number, lng: number) => void;
 };
-
-export default function SchoolsMap({ schools, userLocation, height = 400, draggable = false, onLocationChange }: SchoolsMapProps) {
+function SchoolsMapComponent({ schools, userLocation, height = 400, draggable = false, onLocationChange }: SchoolsMapProps) {
   const [isMounted, setIsMounted] = useState(false);
-  const leafletInitialized = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const markerRef = useRef<any>(null);
 
-  // 3. Solución para los iconos de Leaflet (Fix para Next.js)
   useEffect(() => {
     setIsMounted(true);
-
-    if (leafletInitialized.current) return;
-    leafletInitialized.current = true;
-
-    const fixLeafletIcons = async () => {
+    
+    // Fix Leaflet Icons (Client side only)
+    const fixIcons = async () => {
       const L = await import("leaflet");
-      // @ts-ignore - Fix de iconos para que aparezcan en producción
       delete (L.Icon.Default.prototype as any)._getIconUrl;
       L.Icon.Default.mergeOptions({
         iconRetinaUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png",
@@ -55,17 +50,15 @@ export default function SchoolsMap({ schools, userLocation, height = 400, dragga
         shadowUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png",
       });
     };
-
-    fixLeafletIcons();
+    fixIcons();
   }, []);
 
-  // 4. Lógica de centro del mapa
   const center: [number, number] = useMemo(() => {
     if (userLocation) return [userLocation.lat, userLocation.lng];
     if (schools.length > 0 && typeof schools[0].lat === 'number' && typeof schools[0].lng === 'number') {
       return [schools[0].lat, schools[0].lng];
     }
-    return [20.607, -103.391]; // Default ITESO
+    return [20.607, -103.391];
   }, [userLocation, schools]);
 
   const eventHandlers = useMemo(
@@ -81,24 +74,36 @@ export default function SchoolsMap({ schools, userLocation, height = 400, dragga
     [onLocationChange],
   );
 
-  // Evitar errores de hidratación
-  if (!isMounted) return <div style={{ height, background: '#f8fafc' }} className="rounded-[3rem] animate-pulse" />;
+  // Fallback para SSR
+  if (!isMounted) {
+    return (
+      <div 
+        className="rounded-[3rem] bg-slate-50 animate-pulse flex items-center justify-center text-slate-200" 
+        style={{ height }}
+      >
+        Cargando mapa...
+      </div>
+    );
+  }
 
-  // Validar coordenadas mínimas para evitar errores de Leaflet
+  // Validar coordenadas
   const validCenter = center && typeof center[0] === 'number' && typeof center[1] === 'number';
-  if (!validCenter) return <div style={{ height, background: '#f8fafc' }} className="rounded-[3rem] flex items-center justify-center text-slate-300 text-[10px] font-bold uppercase tracking-widest">Mapa no disponible</div>;
+  if (!validCenter) return <div style={{ height }} className="rounded-[3rem] flex items-center justify-center bg-slate-50 text-slate-300">Coordenadas no válidas</div>;
 
   return (
     <div
-      className="rounded-[3rem] overflow-hidden relative w-full h-full"
-      style={{ height }}
+      ref={containerRef}
+      className="rounded-[3rem] overflow-hidden relative w-full h-full bg-slate-50"
+      style={{ height, minHeight: height }}
     >
       {draggable && (
-        <div className="absolute top-4 right-4 z-[1000] bg-white/80 backdrop-blur-md px-4 py-2 rounded-full shadow-lg text-[11px] font-bold text-slate-700 border border-white/20 pointer-events-none">
+        <div className="absolute top-4 right-4 z-[1000] bg-white/80 backdrop-blur-md px-4 py-2 rounded-full shadow-lg text-[11px] font-bold text-slate-700 border border-white/20">
           Mueve el pin para ajustar
         </div>
       )}
+      
       <MapContainer
+        key={schools[0]?.id || "default-map"}
         center={center}
         zoom={userLocation ? 14 : 15}
         scrollWheelZoom={false}
@@ -126,7 +131,7 @@ export default function SchoolsMap({ schools, userLocation, height = 400, dragga
                   {school.id !== "preview" && (
                     <Link
                       href={`/search/institutions/${school.id}`}
-                      className="mt-3 block w-full text-center px-4 py-2 rounded-xl bg-indigo-600 text-white text-[11px] font-black hover:bg-indigo-700 transition shadow-lg shadow-indigo-100"
+                      className="mt-3 block w-full text-center px-4 py-2 rounded-xl bg-indigo-600 text-white text-[11px] font-black hover:bg-indigo-700 transition"
                     >
                       Ver perfil
                     </Link>
@@ -165,3 +170,6 @@ export default function SchoolsMap({ schools, userLocation, height = 400, dragga
     </div>
   );
 }
+
+export const SchoolsMap = memo(SchoolsMapComponent);
+export default SchoolsMap;

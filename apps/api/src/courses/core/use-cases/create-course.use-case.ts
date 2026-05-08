@@ -37,6 +37,8 @@ export class CreateCourseUseCase {
     state?: string;
     latitude?: number;
     longitude?: number;
+    onlineInstructions?: string;
+    categoryIds?: string[];
   }) {
     const activePlans = await this.subscriptionsService.getSchoolActivePlansByOwner(params.ownerId);
     const hasPremium = activePlans.some(p => p.plan.name === 'PREMIUM_SUBSCRIPTION');
@@ -75,7 +77,7 @@ export class CreateCourseUseCase {
       name: params.name,
       description: params.description,
       coverImageUrl: params.coverImageUrl,
-      price: params.price ?? null,
+      price: params.price !== undefined && params.price !== null ? Math.round(params.price) : null,
       capacity: params.capacity,
       startDate: params.startDate,
       endDate: params.endDate,
@@ -86,6 +88,8 @@ export class CreateCourseUseCase {
       state: params.state,
       latitude: params.latitude,
       longitude: params.longitude,
+      onlineInstructions: params.onlineInstructions,
+      categoryIds: params.categoryIds,
     });
   }
 }

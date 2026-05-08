@@ -15,6 +15,7 @@ export interface Course {
   modality?: string | null;
   status: 'draft' | 'published' | 'archived';
   isActive: boolean;
+  schoolId?: string | null;
   schoolName?: string | null;
   ownerName?: string | null;
   address?: string | null;
@@ -23,6 +24,7 @@ export interface Course {
   latitude?: number | null;
   longitude?: number | null;
   onlineInstructions?: string | null;
+  categories?: { id: string; name: string; slug: string }[];
 }
 
 export const coursesService = {
@@ -54,6 +56,7 @@ export const coursesService = {
     latitude?: number;
     longitude?: number;
     onlineInstructions?: string;
+    categoryIds?: string[];
   }) {
     return api<Course>('/courses', {
       method: 'POST',
@@ -61,7 +64,7 @@ export const coursesService = {
     });
   },
 
-  async update(courseId: string, data: Partial<Course & { coverImage?: File; galleryImages?: File[] }>) {
+  async update(courseId: string, data: Partial<Course & { coverImage?: File; galleryImages?: File[]; categoryIds?: string[] }>) {
     return api<Course>(`/courses/${courseId}`, {
       method: 'PATCH',
       body: data,

@@ -78,10 +78,7 @@ export class CoursesController {
   }
 
   @Get(':id')
-  @UseGuards(AuthGuard, RolesGuard)
-  @Roles('private')
-  async getById(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
-    // Si quieres filtrar por ownerId, pásalo aquí
+  async getById(@Param('id') id: string) {
     return this.getCourseById.execute(id);
   }
 
@@ -108,6 +105,8 @@ export class CoursesController {
       latitude: dto.latitude,
       longitude: dto.longitude,
       gallery: dto.gallery,
+      onlineInstructions: dto.onlineInstructions,
+      categoryIds: dto.categoryIds,
     });
   }
 

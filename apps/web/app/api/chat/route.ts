@@ -693,8 +693,13 @@ export async function POST(request: Request) {
 				// @ts-ignore
 				coursesSchema = await import("../../../drizzle-schemas/courses");
 			} catch {
-				// @ts-ignore
-				coursesSchema = await import("../../../../../api/drizzle/schemas/courses/courses");
+				try {
+					// @ts-ignore
+					coursesSchema = await import("../../../../drizzle-schemas/courses");
+				} catch {
+					// @ts-ignore
+					coursesSchema = await import("../../../../../api/drizzle/schemas/courses/courses");
+				}
 			}
 			const { courses } = coursesSchema;
 			allCourses = await db

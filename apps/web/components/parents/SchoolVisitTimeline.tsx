@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { History, MapPin, ChevronRight, Clock, Calendar, Sparkles } from "lucide-react";
+import { History, MapPin, ChevronRight, Clock, Calendar, Sparkles, Building2, GraduationCap, Search, Filter } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 
@@ -123,7 +123,10 @@ export default function SchoolVisitTimeline() {
 
   const grouped = useMemo<GroupedVisits[]>(() => {
     const map = new Map<string, SchoolVisit[]>();
-    for (const item of items) {
+    // Sort items by date descending
+    const sorted = [...items].sort((a, b) => new Date(b.visitedAt).getTime() - new Date(a.visitedAt).getTime());
+    
+    for (const item of sorted) {
       const key = formatDayLabel(item.visitedAt);
       const bucket = map.get(key) ?? [];
       bucket.push(item);
@@ -144,94 +147,138 @@ export default function SchoolVisitTimeline() {
     <motion.section 
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
-      className="w-full rounded-4xl bg-white shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden"
+      className="w-full rounded-[2.5rem] bg-white shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-slate-100 overflow-hidden mb-20"
     >
-      <div className="px-8 py-10 border-b border-slate-50 bg-slate-50/30">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-white shadow-lg flex items-center justify-center">
-            <History size={28} className="text-indigo-600" />
+      {/* 🏙️ MODERN HEADER */}
+      <div className="relative px-8 py-12 border-b border-slate-50 bg-[radial-gradient(circle_at_top_right,_rgba(79,70,229,0.05),_transparent_40%)]">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-center gap-5">
+            <div className="w-16 h-16 rounded-[1.5rem] bg-indigo-600 shadow-xl shadow-indigo-100 flex items-center justify-center text-white">
+              <History size={32} />
+            </div>
+            <div>
+              <h3 className="text-3xl font-black tracking-tight text-slate-900">Historial de Visitas</h3>
+              <p className="text-slate-500 font-medium mt-1">Explora las instituciones que has consultado recientemente.</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-2xl font-black tracking-tight text-slate-900">Historial</h3>
-            <p className="text-sm font-medium text-slate-500">Escuelas que has visitado recientemente.</p>
+          
+          <div className="flex items-center gap-3">
+             <div className="relative group">
+                <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
+                <input 
+                  type="text" 
+                  placeholder="Buscar en historial..." 
+                  className="h-12 pl-11 pr-6 rounded-2xl bg-slate-50 border-none ring-1 ring-slate-100 focus:ring-2 focus:ring-indigo-500/20 focus:bg-white transition-all text-sm font-bold text-slate-900 placeholder:text-slate-300 w-full md:w-64"
+                />
+             </div>
+             <button className="h-12 w-12 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-white hover:border-indigo-100 transition-all shadow-sm">
+                <Filter size={18} />
+             </button>
           </div>
         </div>
       </div>
 
-      <div className="p-8">
+      <div className="p-8 lg:p-12">
         {!loaded ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-4">
-            <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
-            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Cargando...</p>
+          <div className="flex flex-col items-center justify-center py-20 gap-6">
+            <div className="relative">
+              <div className="h-16 w-16 rounded-full border-[3px] border-indigo-50" />
+              <div className="absolute inset-0 h-16 w-16 rounded-full border-[3px] border-indigo-600 border-t-transparent animate-spin" />
+            </div>
+            <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">Sincronizando historial...</p>
           </div>
         ) : (
-          <div className="space-y-12">
-            {grouped.map((group) => (
+          <div className="space-y-16">
+            {grouped.map((group, groupIdx) => (
               <div key={group.label} className="relative">
-                {/* Timeline Line */}
-                <div className="absolute left-6 top-10 bottom-0 w-0.5 bg-slate-100" />
+                {/* 🧵 TIMELINE LINE */}
+                <div className="absolute left-[1.125rem] top-12 bottom-0 w-0.5 bg-gradient-to-b from-slate-200 via-slate-100 to-transparent" />
                 
-                <div className="flex items-center gap-4 mb-8">
-                  <div className="relative z-10 w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center shadow-lg shadow-slate-200">
-                    <Calendar size={18} className="text-white" />
+                <div className="flex items-center gap-6 mb-10">
+                  <div className="relative z-10 w-9 h-9 rounded-[0.75rem] bg-slate-950 flex items-center justify-center shadow-lg shadow-slate-200 ring-4 ring-white">
+                    <Calendar size={16} className="text-white" />
                   </div>
-                  <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">{group.label}</h4>
+                  <div className="flex flex-col">
+                    <h4 className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-600 mb-0.5">{groupIdx === 0 ? "Actividad Reciente" : "Anteriormente"}</h4>
+                    <span className="text-sm font-black text-slate-900">{group.label}</span>
+                  </div>
                 </div>
 
-                <div className="ml-5 pl-8 space-y-4">
+                <div className="ml-10 space-y-6">
                   <AnimatePresence>
                     {group.items.map((item, idx) => {
                       const initial = item.name.trim().charAt(0).toUpperCase() || "E";
+                      const isCourse = item.location.toLowerCase().includes("curso") || item.name.toLowerCase().includes("curso");
                       
                       return (
                         <motion.div
                           key={`${item.id}-${item.visitedAt}`}
-                          initial={{ opacity: 0, x: -10 }}
+                          initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: idx * 0.05 }}
+                          transition={{ delay: idx * 0.05 + groupIdx * 0.1 }}
                         >
                           <button
                             type="button"
                             onClick={() => openModal(item)}
-                            className="group relative flex w-full items-center justify-between rounded-3xl border border-slate-100 bg-white p-5 text-left transition-all hover:border-indigo-200 hover:shadow-lg hover:shadow-indigo-50/50"
+                            className="group relative flex w-full flex-col sm:flex-row sm:items-center justify-between rounded-[2rem] border border-slate-100 bg-white p-6 text-left transition-all hover:border-indigo-200 hover:shadow-[0_20px_40px_rgba(79,70,229,0.06)] hover:translate-x-1"
                           >
-                            <div className="flex items-center gap-5 min-w-0">
+                            <div className="flex items-center gap-6 min-w-0">
+                              {/* 🖼️ IMAGE CONTAINER */}
                               <div className="relative shrink-0">
-                                <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-slate-50 font-black text-xl text-slate-300 group-hover:bg-indigo-50 group-hover:text-indigo-300 transition-colors shadow-sm">
+                                <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-[1.25rem] bg-slate-50 font-black text-2xl text-slate-300 group-hover:bg-indigo-50 group-hover:text-indigo-400 transition-all duration-500 shadow-inner">
                                   {item.imageSrc ? (
                                     <Image
                                       src={item.imageSrc}
                                       alt={item.name}
                                       fill
-                                      sizes="56px"
-                                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                                      sizes="64px"
+                                      className="object-cover transition-transform duration-700 group-hover:scale-110"
                                     />
                                   ) : (
                                     initial
                                   )}
                                 </div>
+                                <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-lg bg-white shadow-md flex items-center justify-center text-indigo-600 border border-slate-50">
+                                  {isCourse ? <GraduationCap size={12} /> : <Building2 size={12} />}
+                                </div>
                               </div>
 
                               <div className="min-w-0">
-                                <h5 className="truncate text-base font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                                <div className="flex items-center gap-2 mb-1">
+                                   <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${isCourse ? 'bg-amber-50 text-amber-600 border border-amber-100' : 'bg-indigo-50 text-indigo-600 border border-indigo-100'}`}>
+                                      {isCourse ? "Curso" : "Escuela"}
+                                   </span>
+                                   <div className="flex items-center gap-1 text-[10px] font-bold text-slate-300">
+                                      <Clock size={10} />
+                                      {formatTimeLabel(item.visitedAt)}
+                                   </div>
+                                </div>
+                                <h5 className="truncate text-lg font-black text-slate-900 group-hover:text-indigo-600 transition-colors tracking-tight">
                                   {item.name}
                                 </h5>
-                                <div className="mt-1.5 flex flex-wrap items-center gap-3">
-                                  <div className="flex items-center gap-1 text-[11px] font-bold text-slate-400">
-                                    <MapPin size={12} className="text-slate-300" />
-                                    {item.location}
-                                  </div>
-                                  <div className="flex items-center gap-1 text-[11px] font-bold text-slate-400">
-                                    <Clock size={12} className="text-slate-300" />
-                                    {formatTimeLabel(item.visitedAt)}
-                                  </div>
+                                <div className="mt-2 flex items-center gap-1 text-xs font-bold text-slate-400">
+                                  <MapPin size={12} className="text-slate-300" />
+                                  <span className="truncate">{item.location}</span>
                                 </div>
                               </div>
                             </div>
 
-                            <div className="shrink-0 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-300 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300">
-                              <ChevronRight size={18} />
+                            <div className="mt-4 sm:mt-0 shrink-0 flex items-center gap-4">
+                              <div className="hidden sm:flex flex-col items-end">
+                                 <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">Interés</span>
+                                 <div className="flex gap-0.5">
+                                    {[1,2,3,4,5].map(s => (
+                                      <div key={s} className={`w-3 h-1 rounded-full ${s <= 3 ? 'bg-indigo-400' : 'bg-slate-100'}`} />
+                                    ))}
+                                 </div>
+                              </div>
+                              <div className="h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-300 group-hover:bg-indigo-600 group-hover:text-white group-hover:rotate-45 transition-all duration-500 shadow-sm flex">
+                                <ChevronRight size={20} />
+                              </div>
                             </div>
+                            
+                            {/* ✨ GLOW EFFECT ON HOVER */}
+                            <div className="absolute inset-0 rounded-[2rem] bg-indigo-500/0 group-hover:bg-indigo-500/[0.02] transition-colors pointer-events-none" />
                           </button>
                         </motion.div>
                       );
@@ -242,6 +289,12 @@ export default function SchoolVisitTimeline() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* 🪄 BOTTOM INFO */}
+      <div className="bg-slate-50/50 p-8 border-t border-slate-50 flex items-center justify-center gap-3">
+         <Sparkles size={16} className="text-amber-400" />
+         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tu historial se sincroniza automáticamente entre dispositivos</p>
       </div>
     </motion.section>
 

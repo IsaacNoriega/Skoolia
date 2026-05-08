@@ -145,7 +145,7 @@ export default function LoginModal({
                 onClose();
 
                 if (audience === "schools") {
-                  router.push(loggedInUser.hasSchool ? "/schools" : "/courses");
+                  router.push(loggedInUser.hasSchool === true ? "/schools" : "/courses");
                 } else {
                   router.push("/parents");
                 }

@@ -8,6 +8,7 @@ import FavoritesEmptyState from "./FavoritesEmptyState";
 import FavoriteDetailModal from "./FavoriteDetailModal";
 import { favoritesService } from "@/lib/services/services/favorites.service";
 import { schoolsService } from "@/lib/services/services/schools.service";
+import { coursesService } from "@/lib/services/services/courses.service";
 import { resolveSchoolCardImage } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { 

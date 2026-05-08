@@ -167,8 +167,8 @@ export default function CatalogCard({
           </div>
           
           <div className="flex items-baseline gap-0.5">
-            <span className="text-sm font-bold text-slate-900">${price}</span>
-            <span className="text-[7px] font-bold text-slate-300 uppercase tracking-widest">/ mes</span>
+            <span className="text-sm font-black text-slate-900">{priceFormatted}</span>
+            <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">/ mes</span>
           </div>
         </div>
 
