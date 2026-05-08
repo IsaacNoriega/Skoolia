@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import CatalogCard from "../layout/CatalogCard";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,16 +11,16 @@ import { schoolsService } from "@/lib/services/services/schools.service";
 import { coursesService } from "@/lib/services/services/courses.service";
 import { resolveSchoolCardImage } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
+import {
   X,
   ExternalLink,
   MapPin,
   DollarSign,
-  Star, 
-  Clock, 
-  Globe, 
-  Users, 
-  CheckCircle2, 
+  Star,
+  Clock,
+  Globe,
+  Users,
+  CheckCircle2,
   AlertCircle,
   TrendingUp,
   CalendarCheck,
@@ -45,12 +45,15 @@ type FavoriteItem = {
   enrollmentYear?: number;
   monthlyPrice?: number;
   planName?: string;
+  gallery?: string[];
+  coverImageUrl?: string | null;
+  logoUrl?: string | null;
 };
 
 export default function FavoritesGrid() {
-    const router = useRouter();
-    const { user } = useAuth();
-    const { trackLead } = useLeadTracking({ userId: user?.id || "" });
+  const router = useRouter();
+  const { user } = useAuth();
+  const { trackLead } = useLeadTracking({ userId: user?.id || "" });
   const [open, setOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [items, setItems] = useState<FavoriteItem[]>([]);
@@ -66,9 +69,9 @@ export default function FavoritesGrid() {
       prev.map((item) =>
         item.id === schoolId
           ? {
-              ...item,
-              rating: averageRating,
-            }
+            ...item,
+            rating: averageRating,
+          }
           : item,
       ),
     );
@@ -76,9 +79,9 @@ export default function FavoritesGrid() {
     setSelected((prev) =>
       prev && prev.id === schoolId
         ? {
-            ...prev,
-            rating: averageRating,
-          }
+          ...prev,
+          rating: averageRating,
+        }
         : prev,
     );
   };
@@ -93,7 +96,7 @@ export default function FavoritesGrid() {
           if (fav.type === "SCHOOL") {
             return {
               id: fav.id,
-              imageUrl: resolveSchoolCardImage(fav.id, fav.coverImageUrl),
+              imageUrl: resolveSchoolCardImage(fav.id, fav.coverImageUrl, fav.logoUrl),
               title: fav.name,
               location: fav.city ?? "",
               price: fav.monthlyPrice ?? "N/A",
@@ -105,6 +108,8 @@ export default function FavoritesGrid() {
               enrollmentOpen: fav.enrollmentOpen,
               enrollmentYear: fav.enrollmentYear,
               monthlyPrice: fav.monthlyPrice,
+              coverImageUrl: fav.coverImageUrl,
+              logoUrl: fav.logoUrl,
             };
           } else {
             // COURSE
@@ -140,33 +145,36 @@ export default function FavoritesGrid() {
   const openModal = (item: FavoriteItem) => {
     setSelected(item);
     setOpen(true);
-    
+
     // Enriquecer datos del modal con detalles completos
     (async () => {
       try {
         const isSchool = item.monthlyPrice !== undefined;
-        const full = isSchool 
+        const full = isSchool
           ? await schoolsService.getById(item.id)
           : await coursesService.getById(item.id);
 
         setSelected((prev) => (
           prev && prev.id === item.id
             ? {
-                ...prev,
-                description: full.description ?? prev.description,
-                rating: (full as any).averageRating ?? prev.rating,
-                schedule: (full as any).schedule ?? prev.schedule,
-                languages: (full as any).languages ?? prev.languages,
-                studentsPerClass: (full as any).maxStudentsPerClass ?? (full as any).capacity ?? prev.studentsPerClass,
-                enrollmentOpen: (full as any).enrollmentOpen ?? prev.enrollmentOpen,
-                enrollmentYear: (full as any).enrollmentYear ?? prev.enrollmentYear,
-                monthlyPrice: isSchool ? (full as any).monthlyPrice : undefined,
-                price: isSchool ? (full as any).monthlyPrice : (full as any).price,
-                imageUrl: isSchool 
-                  ? resolveSchoolCardImage(item.id, (full as any).coverImageUrl, (full as any).logoUrl, prev.imageUrl)
-                  : (full as any).coverImageUrl || prev.imageUrl,
-                location: (full as any).city || (full as any).address || prev.location,
-              }
+              ...prev,
+              description: full.description ?? prev.description,
+              rating: (full as any).averageRating ?? prev.rating,
+              schedule: (full as any).schedule ?? prev.schedule,
+              languages: (full as any).languages ?? prev.languages,
+              studentsPerClass: (full as any).maxStudentsPerClass ?? (full as any).capacity ?? prev.studentsPerClass,
+              enrollmentOpen: (full as any).enrollmentOpen ?? prev.enrollmentOpen,
+              enrollmentYear: (full as any).enrollmentYear ?? prev.enrollmentYear,
+              monthlyPrice: isSchool ? (full as any).monthlyPrice : undefined,
+              price: isSchool ? (full as any).monthlyPrice : (full as any).price,
+              imageUrl: isSchool
+                ? resolveSchoolCardImage(item.id, (full as any).coverImageUrl, (full as any).logoUrl, prev.imageUrl)
+                : (full as any).coverImageUrl || prev.imageUrl,
+              location: (full as any).city || (full as any).address || prev.location,
+              gallery: (full as any).gallery,
+              coverImageUrl: (full as any).coverImageUrl,
+              logoUrl: (full as any).logoUrl,
+            }
             : prev
         ));
       } catch (e) {
@@ -217,8 +225,8 @@ export default function FavoritesGrid() {
           try {
             const originalItem = items.find(it => it.id === id);
             const isSchool = originalItem?.monthlyPrice !== undefined;
-            
-            const full = isSchool 
+
+            const full = isSchool
               ? await schoolsService.getById(id)
               : await coursesService.getById(id);
 
@@ -226,7 +234,7 @@ export default function FavoritesGrid() {
               id,
               data: {
                 id,
-                imageUrl: isSchool 
+                imageUrl: isSchool
                   ? resolveSchoolCardImage(id, (full as any).coverImageUrl, (full as any).logoUrl)
                   : (full as any).coverImageUrl,
                 title: full.name,
@@ -304,8 +312,8 @@ export default function FavoritesGrid() {
 
           <div className="flex items-center gap-3 bg-white p-2 rounded-2xl border border-slate-100 shadow-sm">
             <div className="px-4 py-2 border-r border-slate-100">
-               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Comparador</p>
-               <p className="text-sm font-black text-indigo-600">{compareIds.length} / 3</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Comparador</p>
+              <p className="text-sm font-black text-indigo-600">{compareIds.length} / 3</p>
             </div>
             <button
               onClick={clearCompare}
@@ -387,6 +395,9 @@ export default function FavoritesGrid() {
               enrollmentOpen: selected.enrollmentOpen,
               enrollmentYear: selected.enrollmentYear,
               monthlyPrice: selected.monthlyPrice,
+              gallery: selected.gallery,
+              coverImageUrl: selected.coverImageUrl ?? undefined,
+              logoUrl: selected.logoUrl ?? undefined,
             }
           }
         />
@@ -403,100 +414,170 @@ export default function FavoritesGrid() {
 
   // DASHBOARD VIEW CON CAROUSELS
   return (
-    <div className="space-y-16 pb-20">
-      {/* SECCIÓN ESCUELAS */}
-      <CarouselSection
-        title="Escuelas Guardadas"
-        subtitle="Explora tus instituciones favoritas"
-        items={schoolItems}
-        onVerMas={() => setActiveCategory('schools')}
-        onOpenModal={openModal}
-        onFavoriteToggle={async (id) => {
-          await favoritesService.toggle(id);
-          setItems((prev) => prev.filter((x) => x.id !== id));
-          setCompareIds((prev) => prev.filter((x) => x !== id));
-        }}
-      />
+    <div className="relative min-h-screen overflow-hidden">
+      {/* Background Decor */}
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-50/50 rounded-full blur-[120px] -mr-64 -mt-64" />
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-blue-50/50 rounded-full blur-[120px] -ml-64 -mb-64" />
+      </div>
 
-      {/* SECCIÓN CURSOS */}
-      <CarouselSection
-        title="Cursos Especializados"
-        subtitle="Tus programas de formación guardados"
-        items={courseItems}
-        onVerMas={() => setActiveCategory('courses')}
-        onOpenModal={openModal}
-        onFavoriteToggle={async (id) => {
-          await favoritesService.toggle(id);
-          setItems((prev) => prev.filter((x) => x.id !== id));
-          setCompareIds((prev) => prev.filter((x) => x !== id));
-        }}
-      />
+      <div className="relative z-10 space-y-20 pb-20 max-w-full">
+        {/* SECCIÓN ESCUELAS */}
+        <CarouselSection
+          title="Escuelas Guardadas"
+          subtitle="EXPLORA TUS INSTITUCIONES FAVORITAS"
+          items={schoolItems}
+          onVerMas={() => setActiveCategory('schools')}
+          onOpenModal={openModal}
+          onFavoriteToggle={async (id) => {
+            await favoritesService.toggle(id);
+            setItems((prev) => prev.filter((x) => x.id !== id));
+            setCompareIds((prev) => prev.filter((x) => x !== id));
+          }}
+        />
 
-      <FavoriteDetailModal
-        open={open}
-        onClose={() => setOpen(false)}
-        onRatingUpdated={handleRatingUpdated}
-        item={
-          selected && {
-            id: selected.id,
-            imageUrl: selected.imageUrl ?? undefined,
-            badges: [],
-            level: selected.monthlyPrice ? "ESCUELA" : "CURSO",
-            title: selected.title,
-            location: selected.location,
-            price: typeof selected.price === "number" ? `$${selected.price.toLocaleString()}` : selected.price,
-            description: selected.description,
-            rating: selected.rating,
-            schedule: selected.schedule,
-            languages: selected.languages,
-            studentsPerClass: selected.studentsPerClass,
-            enrollmentOpen: selected.enrollmentOpen,
-            enrollmentYear: selected.enrollmentYear,
-            monthlyPrice: selected.monthlyPrice,
+        {/* SECCIÓN CURSOS */}
+        <CarouselSection
+          title="Cursos Especializados"
+          subtitle="TUS PROGRAMAS DE FORMACIÓN GUARDADOS"
+          items={courseItems}
+          onVerMas={() => setActiveCategory('courses')}
+          onOpenModal={openModal}
+          onFavoriteToggle={async (id) => {
+            await favoritesService.toggle(id);
+            setItems((prev) => prev.filter((x) => x.id !== id));
+            setCompareIds((prev) => prev.filter((x) => x !== id));
+          }}
+        />
+
+        <FavoriteDetailModal
+          open={open}
+          onClose={() => setOpen(false)}
+          onRatingUpdated={handleRatingUpdated}
+          item={
+            selected && {
+              id: selected.id,
+              imageUrl: selected.imageUrl ?? undefined,
+              badges: [],
+              level: selected.monthlyPrice ? "ESCUELA" : "CURSO",
+              title: selected.title,
+              location: selected.location,
+              price: typeof selected.price === "number" ? `$${selected.price.toLocaleString()}` : selected.price,
+              description: selected.description,
+              rating: selected.rating,
+              schedule: selected.schedule,
+              languages: selected.languages,
+              studentsPerClass: selected.studentsPerClass,
+              enrollmentOpen: selected.enrollmentOpen,
+              enrollmentYear: selected.enrollmentYear,
+              monthlyPrice: selected.monthlyPrice,
+              gallery: selected.gallery,
+              coverImageUrl: selected.coverImageUrl ?? undefined,
+              logoUrl: selected.logoUrl ?? undefined,
+            }
           }
-        }
-      />
+        />
+      </div>
     </div>
   );
 }
 
-function CarouselSection({ 
-  title, 
-  subtitle, 
-  items, 
-  onVerMas, 
+function CarouselSection({
+  title,
+  subtitle,
+  items,
+  onVerMas,
   onOpenModal,
   onFavoriteToggle
-}: { 
-  title: string; 
-  subtitle: string; 
-  items: FavoriteItem[]; 
+}: {
+  title: string;
+  subtitle: string;
+  items: FavoriteItem[];
   onVerMas: () => void;
   onOpenModal: (item: FavoriteItem) => void;
   onFavoriteToggle: (id: string) => Promise<void>;
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+
   if (items.length === 0) return null;
 
+  const scroll = (direction: 'left' | 'right') => {
+    if (scrollRef.current) {
+      const { scrollLeft, clientWidth } = scrollRef.current;
+      // Desplazar exactamente el ancho visible para mostrar el siguiente grupo de 3
+      const scrollTo = direction === 'left' 
+        ? scrollLeft - clientWidth
+        : scrollLeft + clientWidth;
+      
+      scrollRef.current.scrollTo({ left: scrollTo, behavior: 'smooth' });
+    }
+  };
+
+  const handleScroll = () => {
+    if (scrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+      setCanScrollLeft(scrollLeft > 10);
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
+    }
+  };
+
+  useEffect(() => {
+    handleScroll();
+    window.addEventListener('resize', handleScroll);
+    return () => window.removeEventListener('resize', handleScroll);
+  }, [items]);
+
   return (
-    <div className="space-y-6">
-      <header className="flex items-center justify-between px-2">
-        <div>
-          <h3 className="text-xl font-black text-slate-900">{title}</h3>
-          <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">{subtitle}</p>
+    <div className="space-y-8 max-w-full">
+      <header className="flex items-end justify-between px-2">
+        <div className="space-y-1">
+          <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.3em] ml-0.5">{subtitle}</p>
+          <h3 className="text-3xl font-black text-slate-900 tracking-tight">{title}</h3>
         </div>
-        <button
-          onClick={onVerMas}
-          className="group flex items-center gap-2 rounded-full bg-slate-50 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-indigo-600 border border-slate-100 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all active:scale-95"
-        >
-          Ver Todo
-          <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
-        </button>
+        
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => scroll('left')}
+              disabled={!canScrollLeft}
+              className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white border-2 border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-600 disabled:opacity-20 disabled:cursor-not-allowed transition-all shadow-md active:scale-90"
+            >
+              <ChevronLeft size={24} />
+            </button>
+            <button
+              onClick={() => scroll('right')}
+              disabled={!canScrollRight}
+              className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white border-2 border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-600 disabled:opacity-20 disabled:cursor-not-allowed transition-all shadow-md active:scale-90"
+            >
+              <ChevronRight size={24} />
+            </button>
+          </div>
+
+          <button
+            onClick={onVerMas}
+            className="group hidden md:flex items-center gap-3 rounded-2xl bg-slate-900 px-6 py-3.5 text-[11px] font-black uppercase tracking-[0.1em] text-white hover:bg-indigo-600 transition-all duration-300 active:scale-95 shadow-lg shadow-slate-200"
+          >
+            Ver Todo
+            <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
+          </button>
+        </div>
       </header>
 
-      <div className="relative group">
-        <div className="flex gap-6 overflow-x-auto pb-8 scrollbar-hide snap-x px-2 -mx-2">
+      <div className="relative group overflow-hidden">
+        <div 
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="flex gap-6 overflow-x-auto pb-10 scrollbar-hide snap-x snap-mandatory px-2 -mx-2"
+        >
           {items.map((item) => (
-            <div key={item.id} className="min-w-[320px] max-w-[320px] snap-start">
+            <motion.div 
+              key={item.id} 
+              className="flex-shrink-0 w-full sm:w-[calc((100%-48px)/3)] snap-start"
+              whileHover={{ y: -5 }}
+              transition={{ duration: 0.3 }}
+            >
               <CatalogCard
                 imageSrc={item.imageUrl ?? undefined}
                 imageAlt={item.title}
@@ -513,8 +594,9 @@ function CarouselSection({
                 onAction={() => onOpenModal(item)}
                 isFavorite={true}
                 onFavoriteToggle={() => onFavoriteToggle(item.id)}
+                planName={item.planName}
               />
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>
@@ -617,16 +699,16 @@ function SchoolCompareModal({
                         </th>
                         {items.map((item) => (
                           <th key={item.id} className="sticky top-0 z-20 min-w-[280px] bg-white px-4 pb-6">
-                            <motion.div 
+                            <motion.div
                               initial={{ opacity: 0, y: 10 }}
                               animate={{ opacity: 1, y: 0 }}
                               className="group relative h-full rounded-2xl border border-slate-100 bg-slate-50/50 p-4 transition-all hover:border-indigo-200 hover:bg-indigo-50/30"
                             >
                               <div className="mb-3 aspect-video overflow-hidden rounded-xl bg-slate-200">
                                 {item.imageUrl ? (
-                                  <img 
-                                    src={item.imageUrl} 
-                                    alt={item.title} 
+                                  <img
+                                    src={item.imageUrl}
+                                    alt={item.title}
                                     className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                                   />
                                 ) : (
@@ -646,48 +728,48 @@ function SchoolCompareModal({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      <CompareRow 
+                      <CompareRow
                         icon={<DollarSign className="h-4 w-4" />}
-                        label="Inversión Mensual" 
-                        values={items.map((item) => formatMonthlyPrice(item))} 
+                        label="Inversión Mensual"
+                        values={items.map((item) => formatMonthlyPrice(item))}
                       />
-                      <CompareRow 
+                      <CompareRow
                         icon={<Star className="h-4 w-4 text-amber-500" />}
-                        label="Valoración" 
+                        label="Valoración"
                         values={items.map((item) => (
                           <div className="flex items-center gap-1.5" key={item.id}>
                             <span className="font-bold">{typeof item.rating === "number" ? item.rating.toFixed(1) : "—"}</span>
                             {typeof item.rating === "number" && (
                               <div className="flex gap-0.5">
                                 {[...Array(5)].map((_, i) => (
-                                  <Star 
-                                    key={i} 
-                                    className={`h-3 w-3 ${i < Math.round(item.rating) ? "fill-amber-400 text-amber-400" : "text-slate-200"}`} 
+                                  <Star
+                                    key={i}
+                                    className={`h-3 w-3 ${i < Math.round(item.rating) ? "fill-amber-400 text-amber-400" : "text-slate-200"}`}
                                   />
                                 ))}
                               </div>
                             )}
                           </div>
-                        ))} 
+                        ))}
                       />
-                      <CompareRow 
+                      <CompareRow
                         icon={<Clock className="h-4 w-4" />}
-                        label="Horario Académico" 
-                        values={items.map((item) => formatField(item.schedule))} 
+                        label="Horario Académico"
+                        values={items.map((item) => formatField(item.schedule))}
                       />
-                      <CompareRow 
+                      <CompareRow
                         icon={<Globe className="h-4 w-4" />}
-                        label="Idiomas" 
-                        values={items.map((item) => formatField(item.languages))} 
+                        label="Idiomas"
+                        values={items.map((item) => formatField(item.languages))}
                       />
-                      <CompareRow 
+                      <CompareRow
                         icon={<Users className="h-4 w-4" />}
-                        label="Ratio de Alumnos" 
-                        values={items.map((item) => formatField(item.studentsPerClass))} 
+                        label="Ratio de Alumnos"
+                        values={items.map((item) => formatField(item.studentsPerClass))}
                       />
-                      <CompareRow 
+                      <CompareRow
                         icon={<CalendarCheck className="h-4 w-4" />}
-                        label="Status Inscripciones" 
+                        label="Status Inscripciones"
                         values={items.map((item) => (
                           <div key={item.id} className="flex items-center gap-2">
                             {item.enrollmentOpen ? (
@@ -702,7 +784,7 @@ function SchoolCompareModal({
                               </div>
                             )}
                           </div>
-                        ))} 
+                        ))}
                       />
                       {/* Fila de acciones */}
                       <tr>
@@ -747,14 +829,14 @@ function SchoolCompareModal({
   );
 }
 
-function CompareRow({ 
-  label, 
-  values, 
-  icon 
-}: { 
-  label: string; 
-  values: (string | React.ReactNode)[]; 
-  icon?: React.ReactNode 
+function CompareRow({
+  label,
+  values,
+  icon
+}: {
+  label: string;
+  values: (string | React.ReactNode)[];
+  icon?: React.ReactNode
 }) {
   return (
     <tr className="group transition-colors hover:bg-slate-50/50">

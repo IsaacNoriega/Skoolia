@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { ChevronLeft, Search, MapPin, SlidersHorizontal, Grid3X3, MoreHorizontal, X, Check, ArrowRight, Clock, Sparkles, GraduationCap, MessageSquare } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { BudgetSlider } from "@/components/ui/BudgetSlider";
+import StyledSelect from "@/components/ui/StyledSelect";
 import { schoolCategoriesService, type Category } from "@/lib/services/services/schools-categories.service";
 import { MEXICO_STATES, resolveMexicanState } from "@/lib/mexico-states";
 import { useAuth } from "@/contexts/AuthContext";
@@ -62,7 +63,7 @@ export default function SearchToolbar({
   const [selectedCategoryId, setSelectedCategoryId] = useState(categoryId);
   const [scheduleFilter, setScheduleFilter] = useState(modality || schedule);
   const [languagesFilter, setLanguagesFilter] = useState(languages);
-  const [studentAge, setStudentAge] = useState("");
+  const [ageRange, setAgeRange] = useState<number[]>([0, 18]);
   const [budgetRange, setBudgetRange] = useState<number[]>([minPrice ?? 1000, maxPrice ?? 20000]);
   const [sort, setSort] = useState<"favorites" | "rating" | "recent">(sortBy);
   const [onlyVerified, setOnlyVerified] = useState(verified);
@@ -186,7 +187,8 @@ export default function SearchToolbar({
     if (selectedCategoryId) params.set("categoryId", selectedCategoryId);
     if (normalizedSchedule) params.set("modality", normalizedSchedule);
     if (normalizedLanguages) params.set("languages", normalizedLanguages);
-    if (studentAge) params.set("studentAge", studentAge);
+    if (ageRange[0] > 0) params.set("minAge", String(ageRange[0]));
+    if (ageRange[1] < 18) params.set("maxAge", String(ageRange[1]));
     if (budgetRange[0] > 1000) params.set("minPrice", String(budgetRange[0]));
     if (budgetRange[1] < 20000) params.set("maxPrice", String(budgetRange[1]));
     if (sort !== "recent") params.set("sortBy", sort);
@@ -307,28 +309,17 @@ export default function SearchToolbar({
             <MapPin size={22} className="text-slate-300" />
             <div className="flex flex-1 flex-col">
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-0.5">¿Dónde?</span>
-              <div className="relative">
-                <select
-                  value={location}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setLocation(value);
-                    setNearMe(value === "Cerca de mí");
-                  }}
-                  className="w-full appearance-none bg-transparent text-base font-bold text-slate-900 outline-none cursor-pointer pr-8"
-                >
-                  <option value={ALL_ZONES_LABEL}>{ALL_ZONES_LABEL}</option>
-                  <option value="Cerca de mí">📍 Cerca de mí</option>
-                  {MEXICO_STATES.map((state) => (
-                    <option key={state} value={state}>
-                      {state}
-                    </option>
-                  ))}
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center">
-                  <MoreHorizontal size={14} className="text-slate-300 rotate-90" />
-                </div>
-              </div>
+              <StyledSelect
+                value={location}
+                onChange={(val) => {
+                  setLocation(val);
+                  setNearMe(val === "Cerca de mí");
+                }}
+                options={[ALL_ZONES_LABEL, "Cerca de mí", ...MEXICO_STATES]}
+                placeholder="¿Dónde?"
+                variant="minimal"
+                showSearch
+              />
             </div>
           </div>
 
@@ -378,16 +369,14 @@ export default function SearchToolbar({
                 {activeTab === "cursos" ? (
                   <>
                     <FilterGroup label="Modalidad" icon={<Grid3X3 size={14} />}>
-                      <select
+                      <StyledSelect
                         value={scheduleFilter}
-                        onChange={(e) => setScheduleFilter(e.target.value)}
-                        className="w-full appearance-none rounded-2xl bg-slate-50 border-2 border-slate-50 px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-violet-100 focus:bg-white transition-all"
-                      >
-                        <option value="">Todas las modalidades</option>
-                        {COURSE_MODALITIES.map(m => (
-                          <option key={m} value={m}>{m}</option>
-                        ))}
-                      </select>
+                        onChange={setScheduleFilter}
+                        options={COURSE_MODALITIES}
+                        placeholder="Todas las modalidades"
+                        variant="outline"
+                        triggerClassName="w-full"
+                      />
                     </FilterGroup>
 
                     <FilterGroup label="Fecha sugerida" icon={<Clock size={14} />}>
@@ -395,7 +384,7 @@ export default function SearchToolbar({
                         type="date"
                         value={languagesFilter}
                         onChange={(e) => setLanguagesFilter(e.target.value)}
-                        className="w-full rounded-2xl bg-slate-50 border-2 border-slate-50 px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-violet-100 focus:bg-white transition-all"
+                        className="w-full h-14 rounded-2xl bg-slate-50 border-none ring-1 ring-slate-200 px-6 font-bold text-slate-900 outline-none focus:ring-2 focus:ring-violet-200 transition-all"
                       />
                     </FilterGroup>
 
@@ -413,63 +402,58 @@ export default function SearchToolbar({
                     </FilterGroup>
 
                     <FilterGroup label="Idioma" icon={<GraduationCap size={14} />}>
-                      <select
+                      <StyledSelect
                         value={educationalLevel}
-                        onChange={(e) => setEducationalLevel(e.target.value)}
-                        className="w-full appearance-none rounded-2xl bg-slate-50 border-2 border-slate-50 px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-violet-100 focus:bg-white transition-all"
-                      >
-                        <option value="">Todos los idiomas</option>
-                        <option value="Español">Español</option>
-                        <option value="Inglés">Inglés</option>
-                        <option value="Francés">Francés</option>
-                        <option value="Trilingüe">Trilingüe</option>
-                      </select>
+                        onChange={setEducationalLevel}
+                        options={["Español", "Inglés", "Francés", "Trilingüe"]}
+                        placeholder="Todos los idiomas"
+                        variant="outline"
+                        triggerClassName="w-full"
+                      />
                     </FilterGroup>
                   </>
                 ) : (
                   <>
                     <FilterGroup label="Nivel Educativo" icon={<GraduationCap size={14} />}>
-                      <select
+                      <StyledSelect
                         value={educationalLevel}
-                        onChange={(e) => setEducationalLevel(e.target.value)}
-                        className="w-full appearance-none rounded-2xl bg-slate-50 border-2 border-slate-50 px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-indigo-100 focus:bg-white transition-all"
-                      >
-                        <option value="">Todos los niveles</option>
-                        <option value="Maternal">Maternal</option>
-                        <option value="Preescolar">Preescolar</option>
-                        <option value="Primaria">Primaria</option>
-                        <option value="Secundaria">Secundaria</option>
-                        <option value="Preparatoria">Preparatoria</option>
-                        <option value="Universidad">Universidad</option>
-                      </select>
+                        onChange={setEducationalLevel}
+                        options={["Maternal", "Preescolar", "Primaria", "Secundaria", "Preparatoria", "Universidad"]}
+                        placeholder="Todos los niveles"
+                        variant="outline"
+                        triggerClassName="w-full"
+                      />
                     </FilterGroup>
 
                     <FilterGroup label="Categoría" icon={<Grid3X3 size={14} />}>
-                      <select
-                        value={selectedCategoryId}
-                        onChange={(e) => setSelectedCategoryId(e.target.value)}
-                        className="w-full appearance-none rounded-2xl bg-slate-50 border-2 border-slate-50 px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-indigo-100 focus:bg-white transition-all"
-                      >
-                        <option value="">Todas las categorías</option>
-                        {categories.map((category) => (
-                          <option key={category.id} value={category.id}>
-                            {category.name}
-                          </option>
-                        ))}
-                      </select>
+                      <StyledSelect
+                        value={categories.find(c => c.id === selectedCategoryId)?.name || ""}
+                        onChange={(val) => {
+                          const cat = categories.find(c => c.name === val);
+                          if (cat) setSelectedCategoryId(cat.id);
+                        }}
+                        options={categories.map(c => c.name)}
+                        placeholder="Todas las categorías"
+                        variant="outline"
+                        triggerClassName="w-full"
+                        showSearch
+                      />
                     </FilterGroup>
 
                     <FilterGroup label="Edad del Estudiante" icon={<GraduationCap size={14} />}>
-                      <select
-                        value={studentAge}
-                        onChange={(e) => setStudentAge(e.target.value)}
-                        className="w-full appearance-none rounded-2xl bg-slate-50 border-2 border-slate-50 px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-indigo-100 focus:bg-white transition-all"
-                      >
-                        <option value="">Cualquier edad</option>
-                        {Array.from({ length: 18 }, (_, i) => i + 1).map(age => (
-                          <option key={age} value={age}>{age} año{age !== 1 ? 's' : ''}</option>
-                        ))}
-                      </select>
+                      <div className="flex flex-col gap-4 pt-2">
+                        <BudgetSlider
+                          value={ageRange}
+                          onValueChange={setAgeRange}
+                          min={0}
+                          max={18}
+                          step={1}
+                        />
+                        <div className="flex justify-between text-xs font-bold text-slate-500">
+                          <span>{ageRange[0]} años</span>
+                          <span>{ageRange[1]} años</span>
+                        </div>
+                      </div>
                     </FilterGroup>
 
                     <FilterGroup label="Presupuesto Mensual" icon={<Sparkles size={14} />}>
@@ -489,17 +473,14 @@ export default function SearchToolbar({
                     </FilterGroup>
 
                     <FilterGroup label="Idiomas" icon={<MessageSquare size={14} />}>
-                      <select
+                      <StyledSelect
                         value={languagesFilter}
-                        onChange={(e) => setLanguagesFilter(e.target.value)}
-                        className="w-full appearance-none rounded-2xl bg-slate-50 border-2 border-slate-50 px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-indigo-100 focus:bg-white transition-all"
-                      >
-                        <option value="">Cualquier idioma</option>
-                        <option value="Español">Español</option>
-                        <option value="Inglés">Inglés</option>
-                        <option value="Francés">Francés</option>
-                        <option value="Trilingüe">Trilingüe</option>
-                      </select>
+                        onChange={setLanguagesFilter}
+                        options={["Español", "Inglés", "Francés", "Trilingüe"]}
+                        placeholder="Cualquier idioma"
+                        variant="outline"
+                        triggerClassName="w-full"
+                      />
                     </FilterGroup>
 
                     <div className="flex items-end pb-1">
@@ -521,7 +502,7 @@ export default function SearchToolbar({
                 <button 
                   onClick={() => {
                     setEducationalLevel("");
-                    setStudentAge("");
+                    setAgeRange([0, 18]);
                     setSelectedCategoryId("");
                     setScheduleFilter("");
                     setLanguagesFilter("");

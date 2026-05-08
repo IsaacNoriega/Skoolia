@@ -47,8 +47,9 @@ export class CreateCourseUseCase {
       const courses = await this.courseRepository.findByOwner(params.ownerId);
       const activeCoursesCount = courses.filter(c => c.status !== 'archived').length;
       
-      if (activeCoursesCount >= 1) {
-        throw new ForbiddenException('Has alcanzado el límite de cursos de tu plan. Necesitas el plan Premium para crear más cursos.');
+      // Permitimos hasta 5 cursos gratuitos para creadores independientes o plan base
+      if (activeCoursesCount >= 5) {
+        throw new ForbiddenException('Has alcanzado el límite de 5 cursos gratuitos. Necesitas el plan Premium para gestionar más programas.');
       }
     }
 

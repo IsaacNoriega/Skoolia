@@ -67,13 +67,11 @@ export default function CatalogCard({
   return (
     <article
       onClick={onCardClick}
-      className={`group relative flex flex-col overflow-hidden rounded-2xl bg-white border-2 transition-all duration-300 ${
-        isComparing 
-          ? 'border-indigo-600 shadow-xl shadow-indigo-100' 
+      className={`group relative flex flex-col overflow-hidden rounded-2xl bg-white border-2 transition-all duration-300 ${isComparing
+          ? 'border-indigo-600 shadow-xl shadow-indigo-100'
           : 'border-slate-100 hover:shadow-xl hover:shadow-indigo-50/50 hover:border-indigo-100'
-      } ${
-        onCardClick ? 'cursor-pointer' : ''
-      } ${className}`}
+        } ${onCardClick ? 'cursor-pointer' : ''
+        } ${className}`}
     >
       {/* Media Section */}
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-50">
@@ -101,7 +99,7 @@ export default function CatalogCard({
             </div>
           </div>
         )}
-        
+
         <div className="absolute right-3 top-3 z-20">
           <button
             type="button"
@@ -117,7 +115,7 @@ export default function CatalogCard({
 
         {/* Comparison Toggle Bar */}
         {onCompareToggle && (
-          <div 
+          <div
             onClick={(e) => {
               e.stopPropagation();
               onCompareToggle?.(e);
@@ -130,11 +128,10 @@ export default function CatalogCard({
                 {isComparing ? "Seleccionada" : "Comparar"}
               </span>
             </div>
-            <div className={`flex h-5 w-5 items-center justify-center rounded-md border transition-all ${
-              isComparing 
-                ? "bg-indigo-600 border-indigo-600 shadow-sm shadow-indigo-200" 
+            <div className={`flex h-5 w-5 items-center justify-center rounded-md border transition-all ${isComparing
+                ? "bg-indigo-600 border-indigo-600 shadow-sm shadow-indigo-200"
                 : "bg-white border-slate-200"
-            }`}>
+              }`}>
               {isComparing && <Check size={12} className="text-white stroke-[3px]" />}
             </div>
           </div>
@@ -142,9 +139,9 @@ export default function CatalogCard({
 
         {/* Level Badge */}
         <div className="absolute left-3 top-3 z-20 flex flex-col gap-2">
-           <span className="px-2.5 py-1 bg-white/90 backdrop-blur-md border border-slate-100 rounded-full text-[9px] font-bold text-indigo-600 uppercase tracking-widest">
-              {typeLabel}
-           </span>
+          <span className="px-2.5 py-1 bg-white/90 backdrop-blur-md border border-slate-100 rounded-full text-[9px] font-bold text-indigo-600 uppercase tracking-widest">
+            {typeLabel}
+          </span>
         </div>
       </div>
 
@@ -155,8 +152,8 @@ export default function CatalogCard({
             {title}
           </h3>
           <div className="flex items-center gap-1.5 text-slate-400">
-             <MapPin size={10} className="text-indigo-400" />
-             <span className="uppercase tracking-widest text-[8px] font-bold">{location}</span>
+            <MapPin size={10} className="text-indigo-400" />
+            <span className="uppercase tracking-widest text-[8px] font-bold">{location}</span>
           </div>
         </div>
 
@@ -165,7 +162,7 @@ export default function CatalogCard({
             <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
             <span className="text-[10px] font-bold text-slate-900">5.0</span>
           </div>
-          
+
           <div className="flex items-baseline gap-0.5">
             <span className="text-sm font-black text-slate-900">{priceFormatted}</span>
             <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">/ mes</span>

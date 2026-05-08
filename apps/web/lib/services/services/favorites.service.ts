@@ -13,8 +13,11 @@ export const favoritesService = {
       id: string;
       name: string;
       coverImageUrl: string | null;
+      logoUrl: string | null;
       city: string | null;
       monthlyPrice: number | null;
+      type: 'SCHOOL' | 'COURSE';
+      [key: string]: any;
     }>>('/favorites');
   },
   async isFavorite(schoolId: string) {

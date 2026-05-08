@@ -385,26 +385,75 @@ export default function CourseDetailsPage() {
         </div>
 
         {/* 🗺️ MAP - FULL WIDTH */}
-        {school && (
+        {/* 🗺️ UBICACIÓN O INSTRUCCIONES */}
+        {((course.latitude && course.longitude) || school || course.onlineInstructions) ? (
           <section className="mt-20 space-y-10">
              <div className="flex items-center gap-4">
-               <h2 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.4em]">Ubicación de impartición</h2>
+               <h2 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.4em]">
+                 {course.modality === 'En línea' ? 'Acceso al curso' : 'Ubicación de impartición'}
+               </h2>
                <div className="h-px flex-1 bg-slate-100" />
              </div>
-             <div className="relative h-[600px] rounded-[3rem] overflow-hidden border-8 border-white shadow-2xl">
-              <SchoolsMap 
-                height={600}
-                schools={[{ 
-                  id: school.id, 
-                  name: school.name, 
-                  lat: school.latitude || 19.4326, 
-                  lng: school.longitude || -99.1332, 
-                  level: school.educationalLevel || "Escuela" 
-                }]} 
-              />
-            </div>
+
+             {course.modality === 'En línea' && course.onlineInstructions ? (
+               <div className="bg-white border border-slate-100 p-10 lg:p-14 rounded-[3rem] shadow-[0_8px_30px_rgb(0,0,0,0.02)] space-y-6">
+                  <p className="text-xl lg:text-2xl text-slate-600 font-medium leading-relaxed">
+                    {course.onlineInstructions}
+                  </p>
+                  {/* Detectar si hay un link y mostrarlo más prominente si es necesario */}
+                  {course.onlineInstructions.includes('http') && (
+                    <div className="pt-4">
+                       <a 
+                        href={course.onlineInstructions.match(/https?:\/\/[^\s]+/)?.[0]} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-3 px-8 py-4 bg-violet-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-violet-100 hover:bg-violet-700 transition-all"
+                       >
+                         <ShieldCheck size={18} />
+                         Ir a la sesión en línea
+                       </a>
+                    </div>
+                  )}
+               </div>
+             ) : (
+               <div className="space-y-6">
+                {(course.address || school?.address) && (
+                  <div className="flex items-center gap-3 text-slate-500 font-medium px-4">
+                    <MapPin size={18} className="text-violet-500" />
+                    <span className="text-lg">
+                      {course.address || school?.address}, {course.city || school?.city}, {course.state || school?.state}
+                    </span>
+                  </div>
+                )}
+                
+                <div className="relative h-[600px] rounded-[3rem] overflow-hidden border-8 border-white shadow-2xl">
+                  <SchoolsMap 
+                    height={600}
+                    schools={[{ 
+                      id: course.id, 
+                      name: course.name, 
+                      lat: course.latitude || school?.latitude || 19.4326, 
+                      lng: course.longitude || school?.longitude || -99.1332, 
+                      level: school?.educationalLevel || "Curso" 
+                    }]} 
+                  />
+                </div>
+
+                <div className="flex justify-end pr-4">
+                  <a 
+                    href={`https://www.google.com/maps/search/?api=1&query=${course.latitude || school?.latitude || 19.4326},${course.longitude || school?.longitude || -99.1332}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-[10px] font-black text-slate-400 hover:text-violet-600 uppercase tracking-widest transition-colors"
+                  >
+                    <MapPin size={14} />
+                    Ver en Google Maps
+                  </a>
+                </div>
+              </div>
+             )}
           </section>
-        )}
+        ) : null}
 
           {/* 💬 REVIEWS & RATING FORM */}
           <section className="mt-32 space-y-12">

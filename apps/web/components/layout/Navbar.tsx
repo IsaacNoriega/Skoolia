@@ -129,7 +129,7 @@ function NavbarContent(): JSX.Element {
               <>
                 <li>
                   <Link
-                    href="/search?tab=escuelas"
+                    href="/"
                     className="font-medium text-[#2d2c2b] hover:text-black"
                   >
                     Buscar escuelas

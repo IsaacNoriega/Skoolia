@@ -82,7 +82,7 @@ export default function SchoolsFeed(props: any) {
         {data.edges.map(({ node }: { node: any }) => (
           <CatalogCard
             key={node.id}
-            imageSrc={resolveSchoolCardImage(node.id, node.coverImageUrl)}
+            imageSrc={resolveSchoolCardImage(node.id, node.coverImageUrl, node.logoUrl)}
             imageAlt={node.name}
             typeLabel="ESCUELA"
             title={node.name}
@@ -114,7 +114,9 @@ export default function SchoolsFeed(props: any) {
         item={
           selectedNode && {
             id: selectedNode.id,
-            imageUrl: resolveSchoolCardImage(selectedNode.id, selectedNode.coverImageUrl) || "",
+            imageUrl: resolveSchoolCardImage(selectedNode.id, selectedNode.coverImageUrl, selectedNode.logoUrl) || "",
+            coverImageUrl: selectedNode.coverImageUrl,
+            logoUrl: selectedNode.logoUrl,
             badges: [selectedNode.city, selectedNode.isVerified ? "VERIFICADA" : ""].filter(Boolean),
             level: "ESCUELA",
             title: selectedNode.name,
