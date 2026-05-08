@@ -81,6 +81,6 @@ export const schoolsService = {
   },
 
   async getNearbySchools(lat: number, lng: number, radius = 10) {
-    return api<School[]>(`/schools/nearby?lat=${lat}&lng=${lng}&radius=${radius}`);
+    return api<School[]>(`/schools/nearby/${lat}/${lng}`);
   },
 };
