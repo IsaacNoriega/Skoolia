@@ -23,6 +23,7 @@ async function cleanAndSeed() {
     await db.execute(sql`SET session_replication_role = 'replica'`);
 
     const tables = [
+      'course_ratings',
       'school_categories',
       'school_favorites',
       'school_ratings',

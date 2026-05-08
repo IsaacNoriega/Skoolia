@@ -53,4 +53,5 @@ export interface Course {
   updatedAt: Date;
 
   subscription?: CourseSubscription | null;
+  categories?: { id: string; name: string; slug: string }[];
 }

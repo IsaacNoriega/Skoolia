@@ -53,7 +53,7 @@ function NavbarContent(): JSX.Element {
   const isWhite = pathname?.includes("login") || audience === "schools";
   const loginHref = audience === "schools" ? "/auth/login/schools" : "/auth/login";
   const registerHref = audience === "schools" ? "/auth/register?role=private" : "/auth/register";
-  const privateDashboardHref = user?.hasSchool ? "/schools" : "/courses";
+  const privateDashboardHref = user?.hasSchool === true ? "/schools" : "/courses";
 
   const displayName = user?.name ?? user?.email.split("@")[0] ?? "";
 
@@ -211,7 +211,7 @@ function NavbarContent(): JSX.Element {
                     </Link>
 
                     <Link
-                      href={user.hasSchool ? "/schools/plans" : "/courses/plans"}
+                      href={user.hasSchool === true ? "/schools/plans" : "/courses/plans"}
                       className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 rounded-lg text-sm"
                     >
                       <Crown size={16} />

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { useOnboarding } from "@/contexts/OnBoardingContext";
 import { useToast } from "@/components/ui/toast";
@@ -8,13 +8,21 @@ import EducationalLevelSelect from "./EducationalLevelSelect";
 import { cityOptions, institutionTypeOptions } from "./onboarding-options";
 import SchoolsMap from "../SchoolsMap";
 import { geocodingService } from "@/lib/services/geocoding.service";
-import { MapPin, Loader2, Globe } from "lucide-react";
+import { MapPin, Loader2, Globe, Building2, Map as MapIcon, Layers } from "lucide-react";
 import { COURSE_MODALITIES } from "@/lib/constants";
+import OnboardingSelect from "./OnboardingSelect";
 
 export default function Step3() {
   const { state, setField, next, validate } = useOnboarding();
   const { showToast } = useToast();
   const [isGeocoding, setIsGeocoding] = useState(false);
+
+  // Auto-geocode when city changes and address is present
+  useEffect(() => {
+    if (state.data.address && state.data.city && !state.data.lat) {
+      handleGeocode();
+    }
+  }, [state.data.city]);
 
   const handleGeocode = async () => {
     const address = state.data.address;
@@ -110,26 +118,15 @@ export default function Step3() {
                 )}
               </div>
               {/* Tipo de institución */}
-              <div className="space-y-3">
-                <Label className="text-lg font-semibold">Tipo de institución</Label>
-                <select
-                  value={state.data.institutionType}
-                  onChange={(e) => setField("institutionType", e.target.value)}
-                  className="h-16 w-full rounded-full bg-[#f3f3f3] border-0 text-lg px-8 focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-0"
-                >
-                  <option value="">Selecciona un tipo</option>
-                  {institutionTypeOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-                {state.errors.institutionType && (
-                  <p className="text-sm text-red-500 px-2">
-                    {state.errors.institutionType}
-                  </p>
-                )}
-              </div>
+              <OnboardingSelect
+                label="Tipo de institución"
+                placeholder="Selecciona un tipo"
+                options={institutionTypeOptions}
+                value={state.data.institutionType || ""}
+                onChange={(val) => setField("institutionType", val)}
+                icon={Building2}
+                error={state.errors.institutionType}
+              />
             </div>
             {/* Dirección */}
             <div className="space-y-3">
@@ -165,29 +162,16 @@ export default function Step3() {
               )}
             </div>
             {/* Estado */}
-            <div className="space-y-3">
-              <Label className="text-lg font-semibold">Estado</Label>
-              <select
-                value={state.data.city || ""}
-                onChange={(e) => {
-                  setField("city", e.target.value);
-                }}
-                onBlur={() => {
-                   if (state.data.address && state.data.city) handleGeocode();
-                }}
-                className="h-16 w-full rounded-full bg-[#f3f3f3] border-0 text-lg px-8 focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-0"
-              >
-                <option value="">Selecciona un estado</option>
-                {cityOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-              {state.errors.city && (
-                <p className="text-sm text-red-500 px-2">{state.errors.city}</p>
-              )}
-            </div>
+            <OnboardingSelect
+              label="Estado"
+              placeholder="Selecciona un estado"
+              options={cityOptions}
+              value={state.data.city || ""}
+              onChange={(val) => setField("city", val)}
+              icon={MapIcon}
+              error={state.errors.city}
+              showSearch
+            />
             {/* MAPA DE UBICACIÓN */}
             {state.data.lat && state.data.lng && (
               <div className="mt-8">
@@ -221,19 +205,14 @@ export default function Step3() {
                 className="h-16 w-full rounded-full bg-[#f3f3f3] border-0 text-lg px-8 focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-0"
               />
             </div>
-            <div className="space-y-3">
-              <Label className="text-lg font-semibold">Modalidad</Label>
-              <select
-                value={state.data.cursoModalidad || ""}
-                onChange={e => setField("cursoModalidad", e.target.value)}
-                className="h-16 w-full rounded-full bg-[#f3f3f3] border-0 text-lg px-8 focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-0"
-              >
-                <option value="">Selecciona una modalidad</option>
-                {COURSE_MODALITIES.map(m => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
-            </div>
+            <OnboardingSelect
+              label="Modalidad"
+              placeholder="Selecciona una modalidad"
+              options={COURSE_MODALITIES}
+              value={state.data.cursoModalidad || ""}
+              onChange={(val) => setField("cursoModalidad", val)}
+              icon={Layers}
+            />
 
             {/* Instrucciones en línea solo si es En línea */}
             {state.data.cursoModalidad === "En línea" && (
@@ -285,29 +264,16 @@ export default function Step3() {
                     <p className="text-sm text-red-500 px-2">{state.errors.address}</p>
                   )}
                 </div>
-                <div className="space-y-3">
-                  <Label className="text-lg font-semibold">Estado</Label>
-                  <select
-                    value={state.data.city || ""}
-                    onChange={(e) => {
-                      setField("city", e.target.value);
-                    }}
-                    onBlur={() => {
-                      if (state.data.address && state.data.city) handleGeocode();
-                    }}
-                    className="h-16 w-full rounded-full bg-[#f3f3f3] border-0 text-lg px-8 focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-0"
-                  >
-                    <option value="">Selecciona un estado</option>
-                    {cityOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                  {state.errors.city && (
-                    <p className="text-sm text-red-500 px-2">{state.errors.city}</p>
-                  )}
-                </div>
+                <OnboardingSelect
+                  label="Estado"
+                  placeholder="Selecciona un estado"
+                  options={cityOptions}
+                  value={state.data.city || ""}
+                  onChange={(val) => setField("city", val)}
+                  icon={MapIcon}
+                  error={state.errors.city}
+                  showSearch
+                />
                 {/* MAPA DE UBICACIÓN */}
                 {state.data.lat && state.data.lng && (
                   <div className="mt-8">

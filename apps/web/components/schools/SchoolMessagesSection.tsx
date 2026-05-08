@@ -101,13 +101,16 @@ export default function SchoolMessagesSection() {
 			
 			if (requestedThreadId && data.some(t => t.id === requestedThreadId)) {
 				setActiveThreadId(requestedThreadId);
-			} else if (!activeThreadId && data.length > 0) {
-				setActiveThreadId(data[0].id);
+			} else {
+				setActiveThreadId(prev => {
+					if (prev && data.some(t => t.id === prev)) return prev;
+					return data.length > 0 ? data[0].id : null;
+				});
 			}
 		} catch (err) {
 			console.error("Error loading threads:", err);
 		}
-	}, [participantId, isCourseMode, activeThreadId, requestedThreadId]);
+	}, [participantId, isCourseMode, requestedThreadId]);
 
 	const loadMessages = useCallback(async (threadId: string, syncThreads = false) => {
 		if (!participantId) return;

@@ -20,10 +20,10 @@ type Item = {
   price: string | number;
   description?: string;
   rating?: number;
-  schedule?: string; // e.g., "7:30 AM - 2:30 PM"
-  studentsPerClass?: number | string; // e.g., 20
-  languages?: string; // e.g., "Bilingüe (Cert. Oxford)"
-  enrollmentStatus?: string; // e.g., "Abiertas 2026"
+  schedule?: string;
+  studentsPerClass?: number | string;
+  languages?: string;
+  enrollmentStatus?: string;
   enrollmentOpen?: boolean;
   enrollmentYear?: number;
   monthlyPrice?: number;
@@ -31,6 +31,7 @@ type Item = {
   address?: string;
   city?: string;
   onlineInstructions?: string;
+  institutionType?: string;
 };
 
 export default function FavoriteDetailModal({
@@ -49,9 +50,11 @@ export default function FavoriteDetailModal({
   const { trackLead } = useLeadTracking({ userId: user?.id || "" });
   const [sending, setSending] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
     setCurrentImageIndex(0);
+    setIsExpanded(false);
   }, [item?.id, open]);
 
   if (!open || !item) return null;
@@ -106,14 +109,6 @@ export default function FavoriteDetailModal({
   const isCourse = item.level === 'CURSO' || item.level === 'CURSOS' || item.level === 'CURSO ACADÉMICO' || item.level === 'ACADEMICO' || item.level === 'ACADÉMICO';
   const accentClass = isCourse ? 'text-violet-600' : 'text-indigo-600';
   const accentBgClass = isCourse ? 'bg-violet-50' : 'bg-indigo-50';
-  const accentButtonClass = isCourse ? 'bg-violet-600 hover:bg-violet-700' : 'bg-indigo-600 hover:bg-indigo-700';
-  const locationLabel = item.address ? `${item.address}${item.city ? `, ${item.city}` : ''}` : (item.location || 'Ubicación por definir');
-  const infoRows = [
-    { icon: MapPin, label: 'Ubicación', value: locationLabel },
-    { icon: Clock3, label: 'Horario', value: item.schedule || 'Horario por confirmar' },
-    { icon: Users, label: 'Capacidad', value: item.studentsPerClass ? `${item.studentsPerClass} lugares` : 'Cupos disponibles' },
-    { icon: Languages, label: 'Idiomas', value: item.languages || (isCourse ? 'Según programa' : 'Por confirmar') },
-  ];
 
   const handleContact = async () => {
     if (!item.id || sending) return;
@@ -153,34 +148,13 @@ export default function FavoriteDetailModal({
     }
   };
 
-  const handleViewMore = async () => {
-    if (!item.id) return;
-    if (user?.id) {
-      await trackLead({
-        targetId: item.id,
-        originType: isCourse ? "COURSE" : "SCHOOL",
-        trigger: "VIEW_MORE",
-        status: "INTERESADO",
-      });
-    }
-    onClose();
-    router.push(isCourse ? `/search/course/${item.id}` : `/search/institutions/${item.id}`);
-  };
-
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-950/35 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative z-[101] flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-[2.5rem] border border-slate-200 bg-white shadow-[0_40px_100px_-35px_rgba(15,23,42,0.4)] md:grid md:grid-cols-[minmax(0,1.1fr)_420px]">
-        <button
-          className="absolute right-5 top-5 z-50 grid h-10 w-10 place-items-center rounded-2xl bg-white/90 text-slate-700 shadow-md transition hover:bg-white"
-          aria-label="Cerrar"
-          onClick={onClose}
-        >
-          <X className="h-5 w-5" />
-        </button>
-
-        <div className="relative min-h-[320px] bg-slate-100">
+      <div className="relative z-[101] flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl md:flex-row">
+        {/* Left Section: Image Carousel */}
+        <div className="relative h-64 w-full bg-slate-100 md:h-auto md:w-1/2">
           {modalImages.length > 0 ? (
             <Image
               src={modalImages[currentImageIndex]}
@@ -192,136 +166,186 @@ export default function FavoriteDetailModal({
               unoptimized
             />
           ) : (
-            <div className="flex h-full items-center justify-center text-slate-200">
+            <div className="flex h-full items-center justify-center text-slate-300">
               <ImageIcon className="h-16 w-16" />
             </div>
           )}
 
           {hasMultipleImages && (
             <>
-              <div className="pointer-events-none absolute inset-x-5 top-1/2 flex -translate-y-1/2 justify-between">
+              <div className="absolute inset-x-4 top-1/2 flex -translate-y-1/2 justify-between">
                 <button
                   type="button"
                   onClick={goToPrevImage}
-                  className="pointer-events-auto grid h-10 w-10 place-items-center rounded-2xl bg-white/20 text-white backdrop-blur-md transition hover:bg-white hover:text-slate-900"
+                  className="grid h-10 w-10 place-items-center rounded-full bg-black/30 text-white backdrop-blur-md transition hover:bg-black/50"
                 >
-                  <ChevronLeft className="h-5 w-5" />
+                  <ChevronLeft className="h-6 w-6" />
                 </button>
                 <button
                   type="button"
                   onClick={goToNextImage}
-                  className="pointer-events-auto grid h-10 w-10 place-items-center rounded-2xl bg-white/20 text-white backdrop-blur-md transition hover:bg-white hover:text-slate-900"
+                  className="grid h-10 w-10 place-items-center rounded-full bg-black/30 text-white backdrop-blur-md transition hover:bg-black/50"
                 >
-                  <ChevronRight className="h-5 w-5" />
+                  <ChevronRight className="h-6 w-6" />
                 </button>
               </div>
 
-              <div className="absolute bottom-5 left-5 flex items-center gap-2 rounded-full bg-black/25 px-3 py-2 backdrop-blur-md">
+              <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-black/20 px-3 py-1.5 backdrop-blur-md">
                 {modalImages.map((_, index) => (
                   <button
                     key={`modal-dot-${index}`}
                     onClick={() => setCurrentImageIndex(index)}
-                    className={`h-1.5 rounded-full transition ${
-                      currentImageIndex === index ? 'w-7 bg-white' : 'w-1.5 bg-white/45 hover:bg-white/70'
+                    className={`h-1.5 rounded-full transition-all ${
+                      currentImageIndex === index ? 'w-6 bg-white' : 'w-1.5 bg-white/50 hover:bg-white/80'
                     }`}
                   />
                 ))}
               </div>
             </>
           )}
+
+          <button
+            className="absolute left-5 top-5 grid h-10 w-10 place-items-center rounded-full bg-white/90 text-slate-700 shadow-md transition hover:bg-white md:hidden"
+            onClick={onClose}
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
-        <div className="flex flex-col overflow-y-auto p-7 sm:p-8">
-          <div className="flex flex-wrap items-center gap-2 pr-12">
-            <span className={`rounded-full ${accentBgClass} px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${accentClass}`}>
-              {item.level ?? (isCourse ? 'Curso' : 'Escuela')}
+        {/* Right content */}
+        <div className="p-6 sm:p-10 flex flex-col h-full flex-1 overflow-y-auto">
+          <button
+            className="hidden md:grid absolute right-6 top-6 h-10 w-10 place-items-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-900"
+            onClick={onClose}
+          >
+            <X className="h-5 w-5" />
+          </button>
+
+          {/* Header */}
+          <div className="flex items-center gap-2 mb-3">
+            <span className={`rounded-full ${accentBgClass} px-3 py-1 text-[11px] font-extrabold tracking-widest ${accentClass}`}>
+              {item.level ?? (isCourse ? 'CURSO' : 'ESCUELA')}
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1 text-[10px] font-semibold text-amber-700">
-              <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-              {typeof item.rating === 'number' ? item.rating.toFixed(1) : '5.0'}
-            </span>
-            {item.badges?.slice(0, 2).map((badge) => (
-              <span
-                key={badge}
-                className="rounded-full border border-slate-200 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500"
-              >
-                {badge}
-              </span>
-            ))}
+            <span className="text-[11px] font-bold tracking-widest text-slate-400 uppercase">Skoolia Certified</span>
           </div>
 
-          <h2 className="mt-5 text-3xl font-semibold tracking-tight text-slate-950">
-            {item.title}
-          </h2>
-          <p className="mt-3 text-sm leading-7 text-slate-600">
-            {item.description || 'Explora una propuesta educativa clara, directa y lista para comparar sin ruido visual.'}
-          </p>
-
-          {item.onlineInstructions && (
-            <div className="mt-6 rounded-[1.5rem] border border-violet-100 bg-violet-50 px-4 py-4">
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5 rounded-xl bg-white p-2 text-violet-600">
-                  <Globe className="h-4 w-4" />
-                </div>
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-violet-500">
-                    Indicaciones online
-                  </p>
-                  <p className="mt-1 text-sm leading-6 text-violet-950">
-                    {item.onlineInstructions}
-                  </p>
-                </div>
-              </div>
+          <h2 className="text-2xl sm:text-3xl font-extrabold leading-tight text-slate-900 mb-2">{item.title}</h2>
+          
+          <div className="flex items-center gap-2 text-sm text-slate-600 mb-6">
+            <MapPin className="h-4 w-4 text-slate-400" />
+            <span>{item.location || 'Sin ubicación'}</span>
+            <div className="w-1 h-1 rounded-full bg-slate-300 mx-1" />
+            <div className="flex items-center gap-1">
+              <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
+              <span className="font-bold">{typeof item.rating === 'number' ? item.rating.toFixed(1) : '5.0'}</span>
             </div>
-          )}
-
-          <div className="mt-7 space-y-3">
-            {infoRows.map(({ icon: Icon, label, value }) => (
-              <div
-                key={label}
-                className="flex items-center justify-between gap-4 rounded-[1.25rem] border border-slate-200 bg-slate-50 px-4 py-4"
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`rounded-xl ${accentBgClass} p-2 ${accentClass}`}>
-                    <Icon className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                      {label}
-                    </p>
-                    <p className="mt-1 text-sm font-medium text-slate-900">{value}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
           </div>
 
-          <div className="mt-7 rounded-[1.75rem] border border-slate-200 bg-white px-5 py-5 shadow-[0_20px_40px_-30px_rgba(15,23,42,0.4)]">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-              Inversión
-            </p>
-            <div className="mt-2 flex items-end gap-2">
-              <span className="text-3xl font-semibold text-slate-950">{priceValue || '—'}</span>
-              <span className="pb-1 text-xs font-medium uppercase tracking-[0.12em] text-slate-400">
-                {priceUnit || 'referencia'}
-              </span>
+          {/* Descripción */}
+          <div className="mb-6">
+            <div className="relative">
+              <p className={`text-sm leading-relaxed text-slate-700 whitespace-pre-line ${!isExpanded && item.description && item.description.length > 280 ? "line-clamp-4" : ""}`}>
+                {item.description?.trim() ? item.description : 'Explora una propuesta educativa diseñada para potenciar el talento y la curiosidad en un entorno seguro y estimulante.'}
+              </p>
+              
+              {item.description && item.description.length > 280 && (
+                <button 
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="mt-2 text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-700 transition-colors"
+                >
+                  {isExpanded ? "Ver menos" : "Leer más"}
+                </button>
+              )}
             </div>
+          </div>
 
-            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+          {/* Grid de atributos */}
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            <div className="bg-slate-50 rounded-2xl p-4 flex items-center gap-3">
+              <Clock3 className="w-5 h-5 text-indigo-400 shrink-0" />
+              <div>
+                <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Horario</div>
+                <div className="text-xs font-extrabold text-slate-700 line-clamp-1">{item.schedule || '7:30 AM - 2:30 PM'}</div>
+              </div>
+            </div>
+            <div className="bg-slate-50 rounded-2xl p-4 flex items-center gap-3">
+              <Languages className="w-5 h-5 text-emerald-400 shrink-0" />
+              <div>
+                <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Idiomas</div>
+                <div className="text-xs font-extrabold text-slate-700 line-clamp-1">{item.languages || 'Bilingüe'}</div>
+              </div>
+            </div>
+            <div className="bg-slate-50 rounded-2xl p-4 flex items-center gap-3">
+              <Users className="w-5 h-5 text-pink-400 shrink-0" />
+              <div>
+                <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Capacidad</div>
+                <div className="text-xs font-extrabold text-slate-700">{item.studentsPerClass || '25'} alumnos</div>
+              </div>
+            </div>
+            <div className="bg-slate-50 rounded-2xl p-4 flex items-center gap-3">
+              <Globe className="w-5 h-5 text-blue-400 shrink-0" />
+              <div>
+                <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Tipo</div>
+                <div className="text-xs font-extrabold text-slate-700 line-clamp-1">{item.institutionType || 'Privada'}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Inscripciones */}
+          <div className="mb-8">
+            {item.enrollmentOpen ? (
+              <div className="flex items-center gap-3 bg-emerald-50 rounded-2xl px-5 py-3">
+                <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                <span className="text-xs font-bold text-emerald-700">Inscripciones abiertas</span>
+                {item.enrollmentYear && (
+                  <span className="ml-auto bg-emerald-100 text-emerald-800 rounded-full px-3 py-1 text-[10px] font-black">
+                    Ciclo {item.enrollmentYear}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 bg-slate-50 rounded-2xl px-5 py-3">
+                <div className="h-2 w-2 rounded-full bg-slate-300" />
+                <span className="text-xs font-bold text-slate-500">Inscripciones cerradas</span>
+              </div>
+            )}
+          </div>
+
+          {/* Footer: Precio y Botones */}
+          <div className="mt-auto flex flex-col sm:flex-row sm:items-center justify-between gap-6 border-t border-slate-100 pt-8">
+            <div>
+              <div className="text-[10px] font-black tracking-[0.15em] text-slate-400 uppercase">Mensualidad</div>
+              <div className="mt-1 flex items-baseline gap-1">
+                <span className="text-3xl font-black text-emerald-600">{priceValue || '—'}</span>
+                <span className="text-xs font-bold text-emerald-600/70">{priceUnit || 'MXN'}</span>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
               <button
+                className="flex-1 sm:flex-none rounded-full bg-slate-900 px-8 py-3.5 text-xs font-black text-white shadow-lg transition hover:bg-indigo-600 active:scale-95 disabled:opacity-50"
                 onClick={handleContact}
                 disabled={sending}
-                className={`inline-flex h-12 flex-1 items-center justify-center rounded-2xl px-5 text-sm font-semibold text-white transition ${accentButtonClass} disabled:opacity-50`}
               >
-                {sending ? 'Enviando...' : 'Solicitar información'}
+                {sending ? 'Enviando...' : 'CONTACTAR'}
               </button>
-
               <button
-                onClick={handleViewMore}
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-slate-50"
+                className="group flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 transition-all hover:border-slate-300 hover:text-slate-900 active:scale-95"
+                onClick={async () => {
+                  if (!item.id) return;
+                  if (user?.id) {
+                    await trackLead({
+                      targetId: item.id,
+                      originType: isCourse ? "COURSE" : "SCHOOL",
+                      trigger: "VIEW_MORE",
+                      status: "INTERESADO",
+                    });
+                  }
+                  onClose();
+                  router.push(isCourse ? `/search/course/${item.id}` : `/search/institutions/${item.id}`);
+                }}
               >
-                Ver ficha completa
-                <ArrowUpRight className="h-4 w-4" />
+                <ArrowUpRight className="h-5 w-5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </button>
             </div>
           </div>

@@ -34,6 +34,7 @@ export class UpdateCourseUseCase {
       state?: string;
       latitude?: number;
       longitude?: number;
+      categoryIds?: string[];
     };
   }) {
     if (params.role !== 'private') {

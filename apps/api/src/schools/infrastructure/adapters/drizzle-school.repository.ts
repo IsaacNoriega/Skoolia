@@ -4,6 +4,7 @@ import {
   schoolCategories,
   schoolSubscriptions,
   schools,
+  categories,
 } from 'drizzle/schemas';
 import { and, eq, ilike, desc, lt, SQL, or, gte, lte, sql } from 'drizzle-orm';
 
@@ -118,8 +119,8 @@ export class DrizzleSchoolRepository implements SchoolRepository {
         name: schools.name,
         description: schools.description,
 
-        logoUrl: schools.logoUrl,
-        coverImageUrl: schools.coverImageUrl,
+        logoUrl: sql<string>`COALESCE(${logoFile.url}, ${schools.logoUrl})`,
+        coverImageUrl: sql<string>`COALESCE(${coverFile.url}, ${schools.coverImageUrl})`,
         gallery: schools.gallery,
 
         address: schools.address,
@@ -150,6 +151,8 @@ export class DrizzleSchoolRepository implements SchoolRepository {
         updatedAt: schools.updatedAt,
       })
       .from(schools)
+      .leftJoin(logoFile, eq(sql`${logoFile.id}::text`, schools.logoUrl))
+      .leftJoin(coverFile, eq(sql`${coverFile.id}::text`, schools.coverImageUrl))
       .where(eq(schools.ownerId, ownerId))
       .limit(1);
 
@@ -162,46 +165,60 @@ export class DrizzleSchoolRepository implements SchoolRepository {
 
     const rows = await this.db
       .select({
-        id: schools.id,
-        name: schools.name,
-        description: schools.description,
-
-        logoUrl: schools.logoUrl,
-        coverImageUrl: schools.coverImageUrl,
-        gallery: schools.gallery,
-
-        address: schools.address,
-        city: schools.city,
-        state: schools.state,
-        latitude: schools.latitude,
-        longitude: schools.longitude,
-
-        educationalLevel: schools.educationalLevel,
-        institutionType: schools.institutionType,
-        schedule: schools.schedule,
-        languages: schools.languages,
-        maxStudentsPerClass: schools.maxStudentsPerClass,
-        enrollmentYear: schools.enrollmentYear,
-        enrollmentOpen: schools.enrollmentOpen,
-        monthlyPrice: schools.monthlyPrice,
-
-        averageRating: schools.averageRating,
-        ratingsCount: schools.ratingsCount,
-        favoritesCount: schools.favoritesCount,
-        rankingScore: schools.rankingScore,
-
-        isFeatured: schools.isFeatured,
-        isVerified: schools.isVerified,
-
-        ownerId: schools.ownerId,
-        createdAt: schools.createdAt,
-        updatedAt: schools.updatedAt,
+        school: {
+          id: schools.id,
+          name: schools.name,
+          description: schools.description,
+          logoUrl: sql<string>`COALESCE(${logoFile.url}, ${schools.logoUrl})`,
+          coverImageUrl: sql<string>`COALESCE(${coverFile.url}, ${schools.coverImageUrl})`,
+          gallery: schools.gallery,
+          address: schools.address,
+          city: schools.city,
+          state: schools.state,
+          latitude: schools.latitude,
+          longitude: schools.longitude,
+          educationalLevel: schools.educationalLevel,
+          institutionType: schools.institutionType,
+          schedule: schools.schedule,
+          languages: schools.languages,
+          maxStudentsPerClass: schools.maxStudentsPerClass,
+          enrollmentYear: schools.enrollmentYear,
+          enrollmentOpen: schools.enrollmentOpen,
+          monthlyPrice: schools.monthlyPrice,
+          averageRating: schools.averageRating,
+          ratingsCount: schools.ratingsCount,
+          favoritesCount: schools.favoritesCount,
+          rankingScore: schools.rankingScore,
+          isFeatured: schools.isFeatured,
+          isVerified: schools.isVerified,
+          ownerId: schools.ownerId,
+          createdAt: schools.createdAt,
+          updatedAt: schools.updatedAt,
+        },
+        category: {
+          id: categories.id,
+          name: categories.name,
+          slug: categories.slug,
+        },
       })
       .from(schools)
-      .where(eq(schools.id, id))
-      .limit(1);
+      .leftJoin(logoFile, eq(sql`${logoFile.id}::text`, schools.logoUrl))
+      .leftJoin(coverFile, eq(sql`${coverFile.id}::text`, schools.coverImageUrl))
+      .leftJoin(schoolCategories, eq(schoolCategories.schoolId, schools.id))
+      .leftJoin(categories, eq(categories.id, schoolCategories.categoryId))
+      .where(eq(schools.id, id));
 
-    return rows[0] ?? null;
+    if (rows.length === 0) return null;
+
+    const schoolResult = rows[0].school;
+    const schoolCategoriesList = rows
+      .filter((r) => r.category?.id !== null)
+      .map((r) => r.category as { id: string; name: string; slug: string });
+
+    return {
+      ...schoolResult,
+      categories: schoolCategoriesList,
+    } as School;
   }
 
   async list() {
@@ -345,8 +362,8 @@ export class DrizzleSchoolRepository implements SchoolRepository {
       id: schools.id,
       name: schools.name,
       description: schools.description,
-      logoUrl: schools.logoUrl,
-      coverImageUrl: schools.coverImageUrl,
+      logoUrl: sql<string>`COALESCE(${logoFile.url}, ${schools.logoUrl})`,
+      coverImageUrl: sql<string>`COALESCE(${coverFile.url}, ${schools.coverImageUrl})`,
       gallery: schools.gallery,
       address: schools.address,
       city: schools.city,
@@ -377,8 +394,8 @@ export class DrizzleSchoolRepository implements SchoolRepository {
     const fromBuilder = filters.categoryId
       ? queryBuilder
           .from(schools)
-          .leftJoin(logoFile, eq(logoFile.id, schools.logoUrl))
-          .leftJoin(coverFile, eq(coverFile.id, schools.coverImageUrl))
+          .leftJoin(logoFile, eq(sql`${logoFile.id}::text`, schools.logoUrl))
+          .leftJoin(coverFile, eq(sql`${coverFile.id}::text`, schools.coverImageUrl))
           .innerJoin(sub, and(
               eq(sub.schoolId, schools.id), 
               eq(sub.status, 'active'),
@@ -395,6 +412,8 @@ export class DrizzleSchoolRepository implements SchoolRepository {
           )
       : queryBuilder
           .from(schools)
+          .leftJoin(logoFile, eq(sql`${logoFile.id}::text`, schools.logoUrl))
+          .leftJoin(coverFile, eq(sql`${coverFile.id}::text`, schools.coverImageUrl))
           .innerJoin(sub, and(
               eq(sub.schoolId, schools.id), 
               eq(sub.status, 'active'),

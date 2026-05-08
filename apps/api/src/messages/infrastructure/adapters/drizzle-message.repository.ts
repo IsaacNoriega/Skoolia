@@ -239,85 +239,45 @@ export class DrizzleMessageRepository implements MessageRepository {
         })),
       );
     } else if (participantType === 'school') {
-          // 1. Obtener threads de la escuela
-          const schoolRows = await this.db
-            .select({
-              schoolId: schoolMessages.schoolId,
-              publicUserId: schoolMessages.publicUserId,
-              lastMessage: schoolMessages.content,
-              lastMessageAt: schoolMessages.createdAt,
-              lastSenderRole: schoolMessages.senderRole,
-              publicUserName: publicUsers.name,
-              leadStatus: leads.status,
-              ownerId: schools.ownerId, // Necesitamos el owner para buscar sus cursos
-            })
-            .from(schoolMessages)
-            .leftJoin(schools, eq(schoolMessages.schoolId, schools.id))
-            .leftJoin(publicUsers, eq(schoolMessages.publicUserId, publicUsers.id))
-            .leftJoin(
-              leads,
-              and(
-                eq(leads.userId, schoolMessages.publicUserId),
-                eq(leads.targetId, schoolMessages.schoolId),
-              ),
-            )
-            .where(eq(schools.ownerId, participantId));
+          // 1. Buscar la escuela del owner para tener el schoolId y ownerId
+          const [schoolRow] = await this.db
+            .select({ id: schools.id, ownerId: schools.ownerId })
+            .from(schools)
+            .where(eq(schools.ownerId, participantId))
+            .limit(1);
 
           const threadMap = new Map<string, any>();
-          let schoolOwnerId: string | null = null;
+          const schoolOwnerId = schoolRow?.ownerId ?? participantId;
 
-          for (const row of schoolRows) {
-            if (!schoolOwnerId) schoolOwnerId = row.ownerId;
-            const key = `school_${row.publicUserId}`;
-            if (!threadMap.has(key) || threadMap.get(key).lastMessageAt < row.lastMessageAt) {
-              threadMap.set(key, {
-                id: `${row.schoolId}_${row.publicUserId}`,
-                type: 'school',
-                publicUserId: row.publicUserId,
-                publicUserName: row.publicUserName || 'Usuario Público',
-                lastMessage: row.lastMessage,
-                lastMessageAt: row.lastMessageAt,
-                lastSenderRole: row.lastSenderRole,
-                threadHasUnread: false,
-                unreadCount: 0,
-                leadStatus: row.leadStatus || 'NUEVO',
-              });
-            }
-          }
-
-          // 2. Si tenemos el ownerId, obtener threads de sus cursos
-          if (schoolOwnerId) {
-            const courseOwnerRows = await this.db
+          // 2. Obtener threads directos de la escuela
+          if (schoolRow) {
+            const schoolRows = await this.db
               .select({
-                courseId: courseMessages.courseId,
-                courseName: courses.name,
-                publicUserId: courseMessages.publicUserId,
+                schoolId: schoolMessages.schoolId,
+                publicUserId: schoolMessages.publicUserId,
+                lastMessage: schoolMessages.content,
+                lastMessageAt: schoolMessages.createdAt,
+                lastSenderRole: schoolMessages.senderRole,
                 publicUserName: publicUsers.name,
-                lastMessage: courseMessages.content,
-                lastMessageAt: courseMessages.createdAt,
-                lastSenderRole: courseMessages.senderRole,
                 leadStatus: leads.status,
               })
-              .from(courseMessages)
-              .leftJoin(courses, eq(courseMessages.courseId, courses.id))
-              .leftJoin(publicUsers, eq(courseMessages.publicUserId, publicUsers.id))
+              .from(schoolMessages)
+              .leftJoin(publicUsers, eq(schoolMessages.publicUserId, publicUsers.id))
               .leftJoin(
                 leads,
                 and(
-                  eq(leads.userId, courseMessages.publicUserId),
-                  eq(leads.targetId, courseMessages.courseId),
+                  eq(leads.userId, schoolMessages.publicUserId),
+                  eq(leads.targetId, schoolMessages.schoolId),
                 ),
               )
-              .where(eq(courses.ownerId, schoolOwnerId));
+              .where(eq(schoolMessages.schoolId, schoolRow.id));
 
-            for (const row of courseOwnerRows) {
-              const key = `course_${row.courseId}_${row.publicUserId}`;
+            for (const row of schoolRows) {
+              const key = `school_${row.publicUserId}`;
               if (!threadMap.has(key) || threadMap.get(key).lastMessageAt < row.lastMessageAt) {
                 threadMap.set(key, {
-                  id: `${row.courseId}_${row.publicUserId}`,
-                  type: 'course',
-                  courseId: row.courseId,
-                  courseName: row.courseName,
+                  id: `${row.schoolId}_${row.publicUserId}`,
+                  type: 'school',
                   publicUserId: row.publicUserId,
                   publicUserName: row.publicUserName || 'Usuario Público',
                   lastMessage: row.lastMessage,
@@ -328,6 +288,50 @@ export class DrizzleMessageRepository implements MessageRepository {
                   leadStatus: row.leadStatus || 'NUEVO',
                 });
               }
+            }
+          }
+
+          // 3. Obtener threads de cursos del mismo owner (siempre, no depende de school threads)
+          const courseOwnerRows = await this.db
+            .select({
+              courseId: courseMessages.courseId,
+              courseName: courses.name,
+              publicUserId: courseMessages.publicUserId,
+              publicUserName: publicUsers.name,
+              lastMessage: courseMessages.content,
+              lastMessageAt: courseMessages.createdAt,
+              lastSenderRole: courseMessages.senderRole,
+              leadStatus: leads.status,
+            })
+            .from(courseMessages)
+            .leftJoin(courses, eq(courseMessages.courseId, courses.id))
+            .leftJoin(publicUsers, eq(courseMessages.publicUserId, publicUsers.id))
+            .leftJoin(
+              leads,
+              and(
+                eq(leads.userId, courseMessages.publicUserId),
+                eq(leads.targetId, courseMessages.courseId),
+              ),
+            )
+            .where(eq(courses.ownerId, schoolOwnerId));
+
+          for (const row of courseOwnerRows) {
+            const key = `course_${row.courseId}_${row.publicUserId}`;
+            if (!threadMap.has(key) || threadMap.get(key).lastMessageAt < row.lastMessageAt) {
+              threadMap.set(key, {
+                id: `${row.courseId}_${row.publicUserId}`,
+                type: 'course',
+                courseId: row.courseId,
+                courseName: row.courseName,
+                publicUserId: row.publicUserId,
+                publicUserName: row.publicUserName || 'Usuario Público',
+                lastMessage: row.lastMessage,
+                lastMessageAt: row.lastMessageAt,
+                lastSenderRole: row.lastSenderRole,
+                threadHasUnread: false,
+                unreadCount: 0,
+                leadStatus: row.leadStatus || 'NUEVO',
+              });
             }
           }
 

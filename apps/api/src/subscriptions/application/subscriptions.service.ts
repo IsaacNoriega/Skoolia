@@ -96,13 +96,7 @@ export class SubscriptionsService {
         .then(rows => rows[0]);
 
       if (!school) {
-        // Si no tiene escuela (ej. curso independiente), le creamos una básica
-        const [newSchool] = await tx.insert(schools).values({
-            ownerId,
-            name: `Escuela de ${ownerId.slice(0, 8)}`,
-            description: 'Escuela creada automáticamente para gestión de planes.',
-        }).returning({ id: schools.id });
-        school = newSchool;
+        throw new NotFoundException('No se encontró una escuela asociada a este usuario. Los planes de escuela requieren una institución creada.');
       }
 
       const [targetPlan] = await tx
