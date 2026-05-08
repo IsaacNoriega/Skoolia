@@ -12,6 +12,7 @@
  */
 
 import { drizzle } from "drizzle-orm/postgres-js";
+import { eq, and, sql, inArray } from "drizzle-orm";
 import { integer, pgTable, text, uuid, doublePrecision, boolean, timestamp } from "drizzle-orm/pg-core";
 import { NextResponse } from "next/server";
 import postgres from "postgres";
@@ -64,12 +65,39 @@ const courses = pgTable("courses", {
 	isActive: boolean("is_active"),
 });
 
+const categories = pgTable("categories", {
+	id: uuid("id").primaryKey(),
+	name: text("name").notNull(),
+	slug: text("slug").notNull(),
+});
+
+const schoolCategories = pgTable("school_categories", {
+	id: uuid("id").primaryKey(),
+	schoolId: uuid("school_id").notNull(),
+	categoryId: uuid("category_id").notNull(),
+});
+
+const students = pgTable("students", {
+	id: uuid("id").primaryKey(),
+	publicUserId: uuid("public_user_id").notNull(),
+	name: text("name").notNull(),
+	age: integer("age").notNull(),
+	monthlyBudget: doublePrecision("monthly_budget"),
+});
+
+const studentInterests = pgTable("student_interests", {
+	id: uuid("id").primaryKey(),
+	studentId: uuid("student_id").notNull(),
+	categoryId: uuid("category_id").notNull(),
+});
+
 // ─────────────────────────────────────────────────────────────────────────
 // SECTION 2: TYPE DEFINITIONS
 // ─────────────────────────────────────────────────────────────────────────
 
 type ChatBody = {
 	message?: string;
+	userId?: string;
 };
 
 type ChatSource = {
@@ -262,6 +290,7 @@ function buildSystemInstruction(
 		address: string | null;
 		city: string | null;
 		educationalLevel: string | null;
+		categories: string[];
 	}>,
 	coursesData?: Array<{
 		name: string | null;
@@ -269,7 +298,13 @@ function buildSystemInstruction(
 		modality: string | null;
 		city: string | null;
 		schoolName: string | null;
-	}>
+	}>,
+	studentData?: {
+		name: string;
+		age: number;
+		monthlyBudget: number | null;
+		interests: string[];
+	} | null
 ) {
 	return [
 		"Eres el Asistente de Skoolia.",
@@ -278,6 +313,7 @@ function buildSystemInstruction(
 		"Si la pregunta es sobre escuelas o cursos, usa la base de datos de Skoolia como fuente principal y la web como apoyo para validar o complementar.",
 		"Responde en español de forma clara y breve.",
 		"Cuando menciones escuelas o cursos de la base de datos, incluye siempre el nombre completo exacto.",
+		"Presta especial atención a las categorías e intereses de las escuelas (ej. Artes, Danza, Deportes) para responder a búsquedas específicas de talentos.",
 		"",
 		"IMPORTANTE: Si devuelves escuelas o cursos encontrados en internet, SOLO incluye URLs oficiales de la plataforma de la escuela o curso (el sitio web institucional de la escuela o la página oficial del curso). NO incluyas enlaces a periódicos, blogs, directorios, Wikipedia, ni páginas informativas externas. Si no encuentras la URL oficial, deja el campo url vacío o no incluyas ese resultado.",
 		"",
@@ -312,7 +348,15 @@ function buildSystemInstruction(
 		"",
 		"NO incluyas estos JSON si no hay resultados encontrados en internet.",
 		"",
-		"Datos de escuelas (Postgres):",
+		studentData ? [
+			"DATOS DEL HIJO DEL USUARIO (CONTEXTO):",
+			`El usuario tiene un hijo llamado ${studentData.name}, de ${studentData.age} años.`,
+			studentData.monthlyBudget ? `Su presupuesto mensual es de $${studentData.monthlyBudget}.` : "",
+			studentData.interests.length > 0 ? `Le interesan: ${studentData.interests.join(", ")}.` : "",
+			"Usa esta información para dar recomendaciones personalizadas que se ajusten a su edad, presupuesto e intereses.",
+			""
+		].join("\n") : "",
+		"Datos de escuelas (Postgres) - incluye categorías/intereses:",
 		JSON.stringify(schoolsData),
 		coursesData ? ["", "Datos de cursos (Postgres):", JSON.stringify(coursesData)].join("\n") : ""
 	].join("\n");
@@ -681,7 +725,7 @@ export async function POST(request: Request) {
 
 	try {
 		// Obtener escuelas y cursos
-		const allSchools = await db
+		const allSchoolsRaw = await db
 			.select({
 				id: schools.id,
 				name: schools.name,
@@ -698,7 +742,56 @@ export async function POST(request: Request) {
 			.from(schools)
 			.limit(200);
 
-		// Cargar cursos si existe tabla courses
+		// Obtener todas las categorías de estas escuelas
+		const allSchoolCats = await db
+			.select({
+				schoolId: schoolCategories.schoolId,
+				categoryName: categories.name,
+			})
+			.from(schoolCategories)
+			.innerJoin(categories, eq(categories.id, schoolCategories.categoryId));
+
+		// Agrupar categorías por escuela
+		const schoolCategoriesMap = allSchoolCats.reduce((acc, curr) => {
+			if (!acc[curr.schoolId]) acc[curr.schoolId] = [];
+			acc[curr.schoolId].push(curr.categoryName);
+			return acc;
+		}, {} as Record<string, string[]>);
+
+		const allSchools = allSchoolsRaw.map(s => ({
+			...s,
+			categories: schoolCategoriesMap[s.id] || [],
+		}));
+
+		// Obtener datos del estudiante si hay userId
+		let studentData = null;
+		if (body.userId) {
+			try {
+				const [student] = await db
+					.select()
+					.from(students)
+					.where(eq(students.publicUserId, body.userId))
+					.limit(1);
+				
+				if (student) {
+					const interests = await db
+						.select({ name: categories.name })
+						.from(studentInterests)
+						.innerJoin(categories, eq(categories.id, studentInterests.categoryId))
+						.where(eq(studentInterests.studentId, student.id));
+					
+					studentData = {
+						name: student.name,
+						age: student.age,
+						monthlyBudget: student.monthlyBudget,
+						interests: interests.map(i => i.name),
+					};
+				}
+			} catch (e) {
+				console.error("[Chat API] Error loading student data:", e);
+			}
+		}
+
 		// Cargar cursos
 		let allCourses: Array<any> = [];
 		try {
@@ -729,6 +822,7 @@ export async function POST(request: Request) {
 			address: s.address,
 			city: s.city,
 			educationalLevel: s.educationalLevel,
+			categories: s.categories,
 		}));
 		const coursesForPrompt = allCourses.map((c) => ({
 			name: c.name,
@@ -738,7 +832,7 @@ export async function POST(request: Request) {
 			schoolName: c.schoolName,
 		}));
 
-		const systemInstruction = buildSystemInstruction(schoolsForPrompt, coursesForPrompt);
+		const systemInstruction = buildSystemInstruction(schoolsForPrompt, coursesForPrompt, studentData);
 		const { reply, modelUsed, sources } = await generateWithModelFallback({
 			apiKey,
 			systemInstruction,

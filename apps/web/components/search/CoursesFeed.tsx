@@ -93,10 +93,10 @@ export default function CoursesFeed({
     const qLower = q.toLowerCase();
     filtered = filtered.filter(c => c.name.toLowerCase().includes(qLower) || (c.description?.toLowerCase().includes(qLower)));
   }
-  if (loc) {
+  if (loc && loc !== "Cerca de mí" && loc !== "México (Todas las zonas)") {
     const locLower = loc.toLowerCase();
     // @ts-ignore
-    filtered = filtered.filter(c => (c.schoolName?.toLowerCase().includes(locLower)));
+    filtered = filtered.filter(c => (c.schoolName?.toLowerCase().includes(locLower)) || (c.city?.toLowerCase().includes(locLower)) || (c.state?.toLowerCase().includes(locLower)));
   }
   if (minPrice > 0) {
     filtered = filtered.filter(c => c.price >= minPrice);
