@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen, LifeBuoy, Search, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, LifeBuoy, Search, ShieldCheck } from "lucide-react";
 
 const blocks = [
   {
@@ -33,6 +33,13 @@ export default function HelpPage() {
     <main className="min-h-screen bg-[#f6f8fc] px-6 py-16">
       <div className="mx-auto max-w-5xl">
         <div className="rounded-[2rem] border border-slate-200 bg-white px-8 py-10 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.35)] sm:px-12 sm:py-14">
+          <Link 
+            href="/" 
+            className="group mb-6 flex w-fit items-center gap-2 text-slate-500 transition-colors hover:text-[#1973FC]"
+          >
+            <ArrowLeft size={18} className="transition-transform group-hover:-translate-x-1" />
+            <span className="text-sm font-semibold">Volver</span>
+          </Link>
           <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#1973FC]">
             Centro de ayuda
           </p>

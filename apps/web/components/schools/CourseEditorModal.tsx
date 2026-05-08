@@ -8,6 +8,7 @@ import { COURSE_MODALITIES } from "@/lib/constants";
 import { MEXICO_STATES } from "@/lib/mexico-states";
 import { geocodingService } from "@/lib/services/geocoding.service";
 import { schoolCategoriesService, type Category } from "@/lib/services/services/schools-categories.service";
+import StyledSelect from "@/components/ui/StyledSelect";
 
 import type { Course } from "@/lib/services/services/courses.service";
 
@@ -368,26 +369,23 @@ export default function CourseEditorModal({
 							</div>
 							<div className="space-y-4">
 								<Label icon={<Globe size={14}/>}>Modalidad</Label>
-								<select
+								<StyledSelect
 									value={form.modality}
-									onChange={(e) => setForm(c => ({ ...c, modality: e.target.value }))}
-									className="w-full h-14 px-6 rounded-2xl bg-slate-50 border-none ring-1 ring-slate-100 focus:ring-2 focus:ring-indigo-500/20 focus:bg-white transition-all text-sm font-black"
-								>
-									<option value="">Seleccionar</option>
-									{COURSE_MODALITIES.map(m => <option key={m} value={m}>{m}</option>)}
-								</select>
+									onChange={(val) => setForm(c => ({ ...c, modality: val }))}
+									options={COURSE_MODALITIES}
+									placeholder="Seleccionar"
+									triggerClassName="h-14 rounded-2xl bg-slate-50 border-none ring-1 ring-slate-100"
+								/>
 							</div>
 							<div className="space-y-4">
 								<Label icon={<Check size={14}/>}>Estado</Label>
-								<select
+								<StyledSelect
 									value={form.status}
-									onChange={(e) => setForm(c => ({ ...c, status: e.target.value as any }))}
-									className="w-full h-14 px-6 rounded-2xl bg-slate-50 border-none ring-1 ring-slate-100 focus:ring-2 focus:ring-indigo-500/20 focus:bg-white transition-all text-sm font-black"
-								>
-									<option value="draft">Borrador</option>
-									<option value="published">Publicado</option>
-									<option value="archived">Archivado</option>
-								</select>
+									onChange={(val) => setForm(c => ({ ...c, status: val as any }))}
+									options={["draft", "published", "archived"]}
+									placeholder="Borrador"
+									triggerClassName="h-14 rounded-2xl bg-slate-50 border-none ring-1 ring-slate-100"
+								/>
 							</div>
 						</div>
 					</div>
@@ -447,14 +445,14 @@ export default function CourseEditorModal({
 												Map
 											</button>
 										</div>
-										<select
+										<StyledSelect
 											value={form.city}
-											onChange={(e) => setForm(c => ({ ...c, city: e.target.value }))}
-											className="w-full h-11 bg-white rounded-xl px-4 text-xs font-bold border border-slate-100 focus:ring-2 focus:ring-indigo-500/20 outline-none"
-										>
-											<option value="">Seleccionar Estado</option>
-											{MEXICO_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-										</select>
+											onChange={(val) => setForm(c => ({ ...c, city: val }))}
+											options={MEXICO_STATES}
+											placeholder="Seleccionar Estado"
+											showSearch
+											triggerClassName="h-11 bg-white rounded-xl px-4 text-xs font-bold border border-slate-100"
+										/>
 									</>
 								) : (
 									<div className="space-y-2">

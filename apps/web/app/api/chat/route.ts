@@ -51,6 +51,19 @@ const schools = pgTable("schools", {
 	updatedAt: timestamp("updated_at"),
 });
 
+const courses = pgTable("courses", {
+	id: uuid("id").primaryKey(),
+	schoolId: uuid("school_id"),
+	ownerId: uuid("owner_id"),
+	name: text("name").notNull(),
+	description: text("description"),
+	price: integer("price"),
+	modality: text("modality"),
+	city: text("city"),
+	status: text("status"),
+	isActive: boolean("is_active"),
+});
+
 // ─────────────────────────────────────────────────────────────────────────
 // SECTION 2: TYPE DEFINITIONS
 // ─────────────────────────────────────────────────────────────────────────
@@ -686,22 +699,9 @@ export async function POST(request: Request) {
 			.limit(200);
 
 		// Cargar cursos si existe tabla courses
+		// Cargar cursos
 		let allCourses: Array<any> = [];
 		try {
-			let coursesSchema;
-			try {
-				// @ts-ignore
-				coursesSchema = await import("../../../drizzle-schemas/courses");
-			} catch {
-				try {
-					// @ts-ignore
-					coursesSchema = await import("../../../../drizzle-schemas/courses");
-				} catch {
-					// @ts-ignore
-					coursesSchema = await import("../../../../../api/drizzle/schemas/courses/courses");
-				}
-			}
-			const { courses } = coursesSchema;
 			allCourses = await db
 				.select({
 					id: courses.id,
@@ -718,7 +718,9 @@ export async function POST(request: Request) {
 				...c,
 				schoolName: allSchools.find((s) => s.id === c.schoolId)?.name ?? null,
 			}));
-		} catch { }
+		} catch (e) { 
+			console.error("[Chat API] Error loading courses:", e);
+		}
 
 		// Para el sistema prompt, mandar escuelas y cursos
 		const schoolsForPrompt = allSchools.map((s) => ({

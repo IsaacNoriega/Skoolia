@@ -26,6 +26,7 @@ import { ApiError } from "@/lib/services/api";
 import { filesService } from "@/lib/services/services/files.service";
 import { schoolsService } from "@/lib/services/services/schools.service";
 import { cn } from "@/lib/utils";
+import StyledSelect from "@/components/ui/StyledSelect";
 
 type Props = {
     isOpen: boolean;
@@ -443,18 +444,15 @@ export default function SchoolRegistrationWizard({ isOpen, onClose }: Props) {
                 </FieldShell>
 
                 <FieldShell label="Estado" error={errors.city}>
-                  <select
-                    {...register("city")}
-                    className={inputClassName(Boolean(errors.city))}
-                  >
-                                        <option value="">Selecciona un estado...</option>
-                                        {MEXICO_STATES.map((state) => (
-                                            <option key={state} value={state}>
-                                                {state}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </FieldShell>
+                  <StyledSelect
+                    value={schoolCity || ""}
+                    onChange={(val) => setValue("city", val, { shouldValidate: true })}
+                    options={MEXICO_STATES}
+                    placeholder="Selecciona un estado..."
+                    showSearch
+                    triggerClassName={inputClassName(Boolean(errors.city))}
+                  />
+                </FieldShell>
                             </div>
 
                             <FieldShell
@@ -478,64 +476,48 @@ export default function SchoolRegistrationWizard({ isOpen, onClose }: Props) {
                                     label="Nivel educativo"
                                     error={errors.educationalLevel}
                                 >
-                                    <select
-                    {...register("educationalLevel")}
-                    className={inputClassName(Boolean(errors.educationalLevel))}
-                  >
-                                        <option value="">Selecciona...</option>
-                                        {EDUCATIONAL_LEVEL_OPTIONS.map((option) => (
-                                            <option key={option} value={option}>
-                                                {option}
-                                            </option>
-                                        ))}
-                                    </select>
+                                    <StyledSelect
+                                      value={educationalLevel || ""}
+                                      onChange={(val) => setValue("educationalLevel", val, { shouldValidate: true })}
+                                      options={EDUCATIONAL_LEVEL_OPTIONS}
+                                      placeholder="Selecciona..."
+                                      triggerClassName={inputClassName(Boolean(errors.educationalLevel))}
+                                    />
                                 </FieldShell>
 
                                 <FieldShell
                                     label="Tipo de institucion"
                                     error={errors.institutionType}
                                 >
-                                    <select
-                    {...register("institutionType")}
-                    className={inputClassName(Boolean(errors.institutionType))}
-                  >
-                                        <option value="">Selecciona...</option>
-                                        {INSTITUTION_TYPE_OPTIONS.map((option) => (
-                                            <option key={option} value={option}>
-                                                {option}
-                                            </option>
-                                        ))}
-                                    </select>
+                                    <StyledSelect
+                                      value={institutionType || ""}
+                                      onChange={(val) => setValue("institutionType", val, { shouldValidate: true })}
+                                      options={INSTITUTION_TYPE_OPTIONS}
+                                      placeholder="Selecciona..."
+                                      triggerClassName={inputClassName(Boolean(errors.institutionType))}
+                                    />
                                 </FieldShell>
                             </div>
 
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <FieldShell label="Idiomas" error={errors.languages}>
-                                    <select
-                    {...register("languages")}
-                    className={inputClassName(Boolean(errors.languages))}
-                  >
-                                        <option value="">Selecciona...</option>
-                                        {LANGUAGE_OPTIONS.map((option) => (
-                                            <option key={option} value={option}>
-                                                {option}
-                                            </option>
-                                        ))}
-                                    </select>
+                                    <StyledSelect
+                                      value={watch("languages") || ""}
+                                      onChange={(val) => setValue("languages", val, { shouldValidate: true })}
+                                      options={LANGUAGE_OPTIONS}
+                                      placeholder="Selecciona..."
+                                      triggerClassName={inputClassName(Boolean(errors.languages))}
+                                    />
                                 </FieldShell>
 
                                 <FieldShell label="Horario" error={errors.schedule}>
-                                    <select
-                    {...register("schedule")}
-                    className={inputClassName(Boolean(errors.schedule))}
-                  >
-                                        <option value="">Selecciona...</option>
-                                        {SCHEDULE_OPTIONS.map((option) => (
-                                            <option key={option} value={option}>
-                                                {option}
-                                            </option>
-                                        ))}
-                                    </select>
+                                    <StyledSelect
+                                      value={schedule || ""}
+                                      onChange={(val) => setValue("schedule", val, { shouldValidate: true })}
+                                      options={SCHEDULE_OPTIONS}
+                                      placeholder="Selecciona..."
+                                      triggerClassName={inputClassName(Boolean(errors.schedule))}
+                                    />
                                 </FieldShell>
                             </div>
 

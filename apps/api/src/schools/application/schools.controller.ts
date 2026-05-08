@@ -100,7 +100,7 @@ export class SchoolsController {
     return this.findNearbySchoolsUseCase.execute({
       lat: Number.parseFloat(lat),
       lng: Number.parseFloat(lng),
-      radius: 10,
+      radius: 50,
     });
   }
 

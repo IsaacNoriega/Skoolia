@@ -32,6 +32,9 @@ type Item = {
   city?: string;
   onlineInstructions?: string;
   institutionType?: string;
+  coverImageUrl?: string;
+  logoUrl?: string;
+  logo?: string;
 };
 
 export default function FavoriteDetailModal({
@@ -74,7 +77,10 @@ export default function FavoriteDetailModal({
   const modalImages = Array.from(
     new Set(
       [
+        item.coverImageUrl,
         item.imageUrl, 
+        item.logoUrl,
+        item.logo,
         ...(item.gallery && item.gallery.length > 0 ? item.gallery : generatedCovers)
       ]
         .map((url) => sanitizeImageSrc(url))

@@ -7,6 +7,7 @@ import { MEXICO_STATES, resolveMexicanState } from "@/lib/mexico-states";
 import { filesService } from "@/lib/services/services/files.service";
 import { schoolCategoriesService, type Category } from "@/lib/services/services/schools-categories.service";
 import { motion, AnimatePresence } from "framer-motion";
+import StyledSelect from "@/components/ui/StyledSelect";
 import { 
   ArrowUpRight, 
   Images, 
@@ -491,10 +492,14 @@ export default function SchoolSettingsForm() {
                         <input className={`h-14 w-full rounded-2xl bg-slate-50 px-6 text-sm text-slate-900 ring-1 ring-slate-200 focus:bg-white focus:ring-4 focus:ring-${accentColor}-500/10 focus:border-${accentColor}-300 transition-all font-medium outline-none`} value={form.address} onChange={(e) => set("address", e.target.value)} />
                       </FormGroup>
                       <FormGroup label="Estado / Ciudad">
-                        <select className={`h-14 w-full rounded-2xl bg-slate-50 px-6 text-sm text-slate-900 ring-1 ring-slate-200 focus:bg-white focus:ring-4 focus:ring-${accentColor}-500/10 focus:border-${accentColor}-300 transition-all font-medium outline-none appearance-none`} value={form.city} onChange={(e) => set("city", e.target.value)}>
-                          <option value="">Selecciona...</option>
-                          {MEXICO_STATES.map((state) => <option key={state} value={state}>{state}</option>)}
-                        </select>
+                        <StyledSelect
+                          value={form.city}
+                          onChange={(val) => set("city", val)}
+                          options={MEXICO_STATES}
+                          placeholder="Selecciona..."
+                          showSearch
+                          triggerClassName={`h-14 w-full rounded-2xl bg-slate-50 border-none ring-1 ring-slate-200 focus:bg-white focus:ring-4 focus:ring-${accentColor}-500/10 focus:border-${accentColor}-300`}
+                        />
                       </FormGroup>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -514,30 +519,42 @@ export default function SchoolSettingsForm() {
                       {!isCourseMode && (
                         <>
                           <FormGroup label="Nivel Educativo">
-                            <select className="h-14 w-full rounded-2xl bg-slate-50 px-6 text-sm outline-none ring-1 ring-slate-200 focus:bg-white transition-all appearance-none" value={form.educationalLevel} onChange={e => set("educationalLevel", e.target.value)}>
-                              <option value="">Selecciona...</option>
-                              {EDUCATIONAL_LEVEL_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                            </select>
+                            <StyledSelect
+                              value={form.educationalLevel}
+                              onChange={(val) => set("educationalLevel", val)}
+                              options={EDUCATIONAL_LEVEL_OPTIONS}
+                              placeholder="Selecciona..."
+                              triggerClassName={`h-14 w-full rounded-2xl bg-slate-50 border-none ring-1 ring-slate-200 focus:bg-white`}
+                            />
                           </FormGroup>
                           <FormGroup label="Tipo de Institución">
-                            <select className="h-14 w-full rounded-2xl bg-slate-50 px-6 text-sm outline-none ring-1 ring-slate-200 focus:bg-white transition-all appearance-none" value={form.institutionType} onChange={e => set("institutionType", e.target.value)}>
-                              <option value="">Selecciona...</option>
-                              {INSTITUTION_TYPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                            </select>
+                            <StyledSelect
+                              value={form.institutionType}
+                              onChange={(val) => set("institutionType", val)}
+                              options={INSTITUTION_TYPE_OPTIONS}
+                              placeholder="Selecciona..."
+                              triggerClassName={`h-14 w-full rounded-2xl bg-slate-50 border-none ring-1 ring-slate-200 focus:bg-white`}
+                            />
                           </FormGroup>
                         </>
                       )}
                       <FormGroup label="Horario">
-                        <select className="h-14 w-full rounded-2xl bg-slate-50 px-6 text-sm outline-none ring-1 ring-slate-200 focus:bg-white transition-all appearance-none" value={form.schedule} onChange={e => set("schedule", e.target.value)}>
-                          <option value="">Selecciona...</option>
-                          {SCHEDULE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                        </select>
+                        <StyledSelect
+                          value={form.schedule}
+                          onChange={(val) => set("schedule", val)}
+                          options={SCHEDULE_OPTIONS}
+                          placeholder="Selecciona..."
+                          triggerClassName={`h-14 w-full rounded-2xl bg-slate-50 border-none ring-1 ring-slate-200 focus:bg-white`}
+                        />
                       </FormGroup>
                       <FormGroup label="Idiomas">
-                        <select className="h-14 w-full rounded-2xl bg-slate-50 px-6 text-sm outline-none ring-1 ring-slate-200 focus:bg-white transition-all appearance-none" value={form.languages} onChange={e => set("languages", e.target.value)}>
-                          <option value="">Selecciona...</option>
-                          {LANGUAGE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                        </select>
+                        <StyledSelect
+                          value={form.languages}
+                          onChange={(val) => set("languages", val)}
+                          options={LANGUAGE_OPTIONS}
+                          placeholder="Selecciona..."
+                          triggerClassName={`h-14 w-full rounded-2xl bg-slate-50 border-none ring-1 ring-slate-200 focus:bg-white`}
+                        />
                       </FormGroup>
                       {!isCourseMode && (
                         <>

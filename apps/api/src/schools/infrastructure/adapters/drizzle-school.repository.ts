@@ -282,17 +282,17 @@ export class DrizzleSchoolRepository implements SchoolRepository {
 
     const whereConditions: SQL[] = [];
 
-    // Si llegan lat/lng, filtrar por cercanía (10km)
+    // Si llegan lat/lng, filtrar por cercanía (50km)
     if (typeof filters.latitude === 'number' && typeof filters.longitude === 'number') {
       // Haversine formula en SQL (Postgres)
       const earthRadiusKm = 6371;
-      const radiusKm = 10;
+      const radiusKm = 50;
       whereConditions.push(
         sql`(
           ${earthRadiusKm} * acos(
-            cos(radians(${filters.latitude})) * cos(radians(${schools.latitude})) *
-            cos(radians(${schools.longitude}) - radians(${filters.longitude})) +
-            sin(radians(${filters.latitude})) * sin(radians(${schools.latitude}))
+            cos(radians(${filters.latitude})) * cos(radians(COALESCE(${schools.latitude}, ${schools.lat}))) *
+            cos(radians(COALESCE(${schools.longitude}, ${schools.lng})) - radians(${filters.longitude})) +
+            sin(radians(${filters.latitude})) * sin(radians(COALESCE(${schools.latitude}, ${schools.lat})))
           )
         ) <= ${radiusKm}`
       );
@@ -350,14 +350,27 @@ export class DrizzleSchoolRepository implements SchoolRepository {
       const cursorDate = decodeCursor(pagination.after);
       whereConditions.push(lt(schools.createdAt, cursorDate));
     }
-
     // Priorización por plan: PREMIUM_SUBSCRIPTION primero
     const logoFile = alias(files, 'logo_file');
     const coverFile = alias(files, 'cover_file');
-    const sub = alias(schoolSubscriptions, 'sub');
-    const plan = alias(plans, 'plan');
+    
+    // Subquery para obtener solo el plan más importante de cada escuela y evitar duplicados por múltiples suscripciones
+    const subQuery = this.db
+      .select({
+        schoolId: schoolSubscriptions.schoolId,
+        planName: plans.name,
+        planPriority: sql<number>`CASE WHEN ${plans.name} = 'PREMIUM_SUBSCRIPTION' THEN 2 ELSE 1 END`.as('plan_priority'),
+      })
+      .from(schoolSubscriptions)
+      .innerJoin(plans, eq(plans.id, schoolSubscriptions.planId))
+      .where(and(
+        eq(schoolSubscriptions.status, 'active'),
+        sql`${schoolSubscriptions.startDate} <= now()`,
+        sql`${schoolSubscriptions.endDate} >= now()`,
+        eq(plans.type, 'subscription')
+      ))
+      .as('sub_p');
 
-    // plan_priority: 2 = PREMIUM_SUBSCRIPTION, 1 = otros
     const queryBuilder = this.db.select({
       id: schools.id,
       name: schools.name,
@@ -387,8 +400,8 @@ export class DrizzleSchoolRepository implements SchoolRepository {
       ownerId: schools.ownerId,
       createdAt: schools.createdAt,
       updatedAt: schools.updatedAt,
-      planName: plan.name,
-      planPriority: sql`CASE WHEN plan.name = 'PREMIUM_SUBSCRIPTION' THEN 2 ELSE 1 END`,
+      planName: subQuery.planName,
+      planPriority: subQuery.planPriority,
     });
 
     const fromBuilder = filters.categoryId
@@ -396,16 +409,7 @@ export class DrizzleSchoolRepository implements SchoolRepository {
           .from(schools)
           .leftJoin(logoFile, eq(sql`${logoFile.id}::text`, schools.logoUrl))
           .leftJoin(coverFile, eq(sql`${coverFile.id}::text`, schools.coverImageUrl))
-          .innerJoin(sub, and(
-              eq(sub.schoolId, schools.id), 
-              eq(sub.status, 'active'),
-              sql`${sub.startDate} <= now()`,
-              sql`${sub.endDate} >= now()`
-          ))
-          .innerJoin(plan, and(
-              eq(plan.id, sub.planId),
-              eq(plan.type, 'subscription') // Solo unirse al plan base para evitar duplicados
-          ))
+          .leftJoin(subQuery, eq(subQuery.schoolId, schools.id))
           .innerJoin(
             schoolCategories,
             eq(schoolCategories.schoolId, schools.id),
@@ -414,16 +418,7 @@ export class DrizzleSchoolRepository implements SchoolRepository {
           .from(schools)
           .leftJoin(logoFile, eq(sql`${logoFile.id}::text`, schools.logoUrl))
           .leftJoin(coverFile, eq(sql`${coverFile.id}::text`, schools.coverImageUrl))
-          .innerJoin(sub, and(
-              eq(sub.schoolId, schools.id), 
-              eq(sub.status, 'active'),
-              sql`${sub.startDate} <= now()`,
-              sql`${sub.endDate} >= now()`
-          ))
-          .innerJoin(plan, and(
-              eq(plan.id, sub.planId),
-              eq(plan.type, 'subscription') // Solo unirse al plan base para evitar duplicados
-          ));
+          .leftJoin(subQuery, eq(subQuery.schoolId, schools.id));
 
     const whereBuilder =
       whereConditions.length > 0
@@ -432,7 +427,7 @@ export class DrizzleSchoolRepository implements SchoolRepository {
 
     // Priorización: PREMIUM primero, luego por fecha
     const orderedBuilder = whereBuilder.orderBy(
-      desc(sql`CASE WHEN plan.name = 'PREMIUM_SUBSCRIPTION' THEN 2 ELSE 1 END`),
+      desc(subQuery.planPriority),
       desc(schools.createdAt)
     );
 
@@ -520,43 +515,45 @@ export class DrizzleSchoolRepository implements SchoolRepository {
     // Radio por defecto (km)
     const effectiveRadius = radius ?? 50;
     // Haversine formula en SQL (distancia en km)
+    // Usamos schools.lat y schools.lng para el cálculo, pero nos aseguramos de que existan
     const distanceSql = sql`
       6371 * acos(
-        cos(radians(${lat})) * cos(radians(${schools.lat})) * cos(radians(${schools.lng}) - radians(${lng}))
-        + sin(radians(${lat})) * sin(radians(${schools.lat}))
+        cos(radians(${lat})) * cos(radians(COALESCE(${schools.latitude}, ${schools.lat}))) * 
+        cos(radians(COALESCE(${schools.longitude}, ${schools.lng})) - radians(${lng}))
+        + sin(radians(${lat})) * sin(radians(COALESCE(${schools.latitude}, ${schools.lat})))
       )
     `;
 
     const rows = await this.db
       .select({
-        school: {
-          id: schools.id,
-          name: schools.name,
-          description: schools.description,
-          address: schools.address,
-          city: schools.city,
-          state: schools.state,
-          gallery: schools.gallery,
-          lat: schools.latitude ?? schools.lat,
-          lng: schools.longitude ?? schools.lng,
-          educationalLevel: schools.educationalLevel,
-          institutionType: schools.institutionType,
-          schedule: schools.schedule,
-          languages: schools.languages,
-          maxStudentsPerClass: schools.maxStudentsPerClass,
-          enrollmentYear: schools.enrollmentYear,
-          enrollmentOpen: schools.enrollmentOpen,
-          monthlyPrice: schools.monthlyPrice,
-          averageRating: schools.averageRating,
-          ratingsCount: schools.ratingsCount,
-          favoritesCount: schools.favoritesCount,
-          rankingScore: schools.rankingScore,
-          isFeatured: schools.isFeatured,
-          isVerified: schools.isVerified,
-          ownerId: schools.ownerId,
-          createdAt: schools.createdAt,
-          updatedAt: schools.updatedAt,
-        },
+        id: schools.id,
+        name: schools.name,
+        description: schools.description,
+        address: schools.address,
+        city: schools.city,
+        state: schools.state,
+        gallery: schools.gallery,
+        latitude: schools.latitude,
+        longitude: schools.longitude,
+        lat: schools.lat,
+        lng: schools.lng,
+        educationalLevel: schools.educationalLevel,
+        institutionType: schools.institutionType,
+        schedule: schools.schedule,
+        languages: schools.languages,
+        maxStudentsPerClass: schools.maxStudentsPerClass,
+        enrollmentYear: schools.enrollmentYear,
+        enrollmentOpen: schools.enrollmentOpen,
+        monthlyPrice: schools.monthlyPrice,
+        averageRating: schools.averageRating,
+        ratingsCount: schools.ratingsCount,
+        favoritesCount: schools.favoritesCount,
+        rankingScore: schools.rankingScore,
+        isFeatured: schools.isFeatured,
+        isVerified: schools.isVerified,
+        ownerId: schools.ownerId,
+        createdAt: schools.createdAt,
+        updatedAt: schools.updatedAt,
         distance: distanceSql,
       })
       .from(schools)
