@@ -12,18 +12,3 @@ services:
         sync: false # Deberás pegar la URL de Neon en el dashboard de Render
       - key: PORT
         value: 8000
-
-  # 2. Web (Frontend en Next.js)
-  - type: web
-    name: skoolia-web
-    env: node
-    plan: free
-    rootDir: apps/web
-    buildCommand: pnpm install && pnpm build
-    startCommand: pnpm start
-    envVars:
-      - key: NEXT_PUBLIC_API_URL
-        fromService:
-          type: web
-          name: skoolia-api
-          property: host
