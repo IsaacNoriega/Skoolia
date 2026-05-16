@@ -1,31 +1,36 @@
-import { redirect } from "next/navigation";
-import { getServerUser } from "@/lib/auth/getServerUser";
+"use client";
 
-export const dynamic = "force-dynamic";
-
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "../../contexts/AuthContext";
 import { OnboardingProvider } from "../../contexts/OnBoardingContext";
 import OnboardingLayout from "./OnboardingLayout";
 
-export default async function OnboardingPage() {
-  const user = await getServerUser();
+export default function OnboardingPage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
 
-  // 🔐 No autenticado
-  if (!user) {
-    redirect("/auth/login");
-  }
-
-  // 🚫 No es private
-  if (user.role !== "private") {
-    redirect("/");
-  }
-
-  // 🚫 Si ya completó onboarding
-  if (!user.onboardingRequired) {
-    if (user.hasSchool) {
-      redirect("/schools");
-    } else {
-      redirect("/courses");
+  useEffect(() => {
+    if (!loading) {
+      if (!user) {
+        router.push("/auth/login");
+      } else if (user.role !== "private") {
+        router.push("/");
+      } else if (!user.onboardingRequired) {
+        router.push(user.hasSchool ? "/schools" : "/courses");
+      }
     }
+  }, [user, loading, router]);
+
+  if (loading || !user) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-neutral-950 text-white">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-lg font-medium">Validando sesión...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
