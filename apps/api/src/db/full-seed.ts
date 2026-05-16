@@ -32,7 +32,6 @@ async function fullSeed() {
   console.log('🗑️  1. Limpiando todas las tablas...');
 
   try {
-    await db.execute(sql`SET session_replication_role = 'replica'`);
 
     const tables = [
       'course_ratings',
@@ -67,7 +66,6 @@ async function fullSeed() {
       }
     }
 
-    await db.execute(sql`SET session_replication_role = 'origin'`);
 
     console.log('\n🌱 2. Poblando Planes...');
     const insertedPlans = await db.insert(plans).values([
