@@ -39,12 +39,15 @@ export class AuthController {
     res: express.Response,
     accessToken: string,
     refreshToken: string,
+    req: express.Request,
   ): void {
-    // Forzamos configuracion para produccion (Vercel <-> Render)
+    const origin = req.get('origin') || '';
+    const isLocalhost = origin.includes('localhost');
+
     const cookieOptions = {
       httpOnly: true,
-      secure: true, // Debe ser true para SameSite=None
-      sameSite: 'none' as const, // Requerido para cross-site en navegadores modernos
+      secure: !isLocalhost,
+      sameSite: isLocalhost ? ('lax' as const) : ('none' as const),
     };
 
     res.cookie('access_token', accessToken, {
@@ -71,6 +74,7 @@ export class AuthController {
   @Post('login')
   async login(
     @Body() dto: LoginDto,
+    @Req() req: express.Request,
     @Res({ passthrough: true }) res: express.Response,
   ) {
     const { accessToken, refreshToken } = await this.loginUseCase.execute(
@@ -78,7 +82,7 @@ export class AuthController {
       dto.password,
     );
 
-    this.setAuthCookies(res, accessToken, refreshToken);
+    this.setAuthCookies(res, accessToken, refreshToken, req);
 
     return { message: 'Login successful' };
   }
@@ -97,7 +101,7 @@ export class AuthController {
 
     const tokens = await this.refreshUseCase.execute(refreshToken);
 
-    this.setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
+    this.setAuthCookies(res, tokens.accessToken, tokens.refreshToken, req);
 
     return { success: true };
   }
