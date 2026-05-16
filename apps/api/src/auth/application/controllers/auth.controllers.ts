@@ -106,6 +106,7 @@ export class AuthController {
     @Req() req: express.Request,
     @Res({ passthrough: true }) res: express.Response,
   ) {
+    const isProduction = process.env.NODE_ENV === 'production';
     const cookies = req.cookies as Record<string, string> | undefined;
     const refreshToken = cookies?.refresh_token;
 
@@ -113,9 +114,15 @@ export class AuthController {
       await this.logoutUseCase.execute(refreshToken);
     }
 
-    // 🍪 limpiar cookies
-    res.clearCookie('access_token');
-    res.clearCookie('refresh_token');
+    // 🍪 limpiar cookies con los mismos atributos que se crearon
+    const cookieOptions = {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? ('none' as const) : ('lax' as const),
+    };
+
+    res.clearCookie('access_token', cookieOptions);
+    res.clearCookie('refresh_token', cookieOptions);
 
     return { message: 'Logged out successfully' };
   }
