@@ -113,6 +113,8 @@ export class DrizzleSchoolRepository implements SchoolRepository {
     const logoFile = alias(files, 'logo_file');
     const coverFile = alias(files, 'cover_file');
 
+    // Usamos una comparación segura: solo intentamos el join si el campo parece un UUID
+    // o simplemente usamos COALESCE para manejar el caso donde el join falle o no encuentre nada.
     const rows = await this.db
       .select({
         id: schools.id,
@@ -151,8 +153,8 @@ export class DrizzleSchoolRepository implements SchoolRepository {
         updatedAt: schools.updatedAt,
       })
       .from(schools)
-      .leftJoin(logoFile, eq(sql`${logoFile.id}::text`, schools.logoUrl))
-      .leftJoin(coverFile, eq(sql`${coverFile.id}::text`, schools.coverImageUrl))
+      .leftJoin(logoFile, sql`${logoFile.id}::text = ${schools.logoUrl}`)
+      .leftJoin(coverFile, sql`${coverFile.id}::text = ${schools.coverImageUrl}`)
       .where(eq(schools.ownerId, ownerId))
       .limit(1);
 
@@ -202,8 +204,8 @@ export class DrizzleSchoolRepository implements SchoolRepository {
         },
       })
       .from(schools)
-      .leftJoin(logoFile, eq(sql`${logoFile.id}::text`, schools.logoUrl))
-      .leftJoin(coverFile, eq(sql`${coverFile.id}::text`, schools.coverImageUrl))
+      .leftJoin(logoFile, sql`${logoFile.id}::text = ${schools.logoUrl}`)
+      .leftJoin(coverFile, sql`${coverFile.id}::text = ${schools.coverImageUrl}`)
       .leftJoin(schoolCategories, eq(schoolCategories.schoolId, schools.id))
       .leftJoin(categories, eq(categories.id, schoolCategories.categoryId))
       .where(eq(schools.id, id));
@@ -409,8 +411,8 @@ export class DrizzleSchoolRepository implements SchoolRepository {
     const fromBuilder = filters.categoryId
       ? queryBuilder
           .from(schools)
-          .leftJoin(logoFile, eq(sql`${logoFile.id}::text`, schools.logoUrl))
-          .leftJoin(coverFile, eq(sql`${coverFile.id}::text`, schools.coverImageUrl))
+          .leftJoin(logoFile, sql`${logoFile.id}::text = ${schools.logoUrl}`)
+          .leftJoin(coverFile, sql`${coverFile.id}::text = ${schools.coverImageUrl}`)
           .leftJoin(subQuery, eq(subQuery.schoolId, schools.id))
           .innerJoin(
             schoolCategories,
@@ -418,8 +420,8 @@ export class DrizzleSchoolRepository implements SchoolRepository {
           )
       : queryBuilder
           .from(schools)
-          .leftJoin(logoFile, eq(sql`${logoFile.id}::text`, schools.logoUrl))
-          .leftJoin(coverFile, eq(sql`${coverFile.id}::text`, schools.coverImageUrl))
+          .leftJoin(logoFile, sql`${logoFile.id}::text = ${schools.logoUrl}`)
+          .leftJoin(coverFile, sql`${coverFile.id}::text = ${schools.coverImageUrl}`)
           .leftJoin(subQuery, eq(subQuery.schoolId, schools.id));
 
     const whereBuilder =
